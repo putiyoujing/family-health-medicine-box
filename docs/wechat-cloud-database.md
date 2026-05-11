@@ -5,6 +5,7 @@
 ## 集合
 
 - `users`：用户信息，按 openid 创建。
+- `admins`：管理后台白名单。
 - `families`：家庭空间。
 - `family_roles`：家庭成员权限，`owner/admin/member/viewer`。
 - `family_members`：家庭成员档案。
@@ -49,14 +50,44 @@
 - `assistantQuery`
 - `exportData`
 
+### adminApi
+
+管理后台接口，必须先通过 `admins` 集合校验。
+
+支持：
+
+- `getDashboard`：全局统计。
+- `listUsers`：用户列表。
+- `listFamilies`：家庭列表。
+- `listMedicines`：药品列表。
+- `listIllness`：生病记录列表。
+- `listMedication`：用药记录列表。
+- `listAttachments`：附件列表。
+
+## 管理员配置
+
+上线前需要手动在 `admins` 集合添加管理员：
+
+```json
+{
+  "openid": "管理员 openid",
+  "status": "active",
+  "name": "管理员名称",
+  "createdAt": "2026-05-12"
+}
+```
+
+普通用户没有 `admins.status=active` 时，访问管理后台会返回无权限。
+
 ## 发布前必须配置
 
 1. 在微信开发者工具中开通云开发环境。
 2. 把云环境 ID 写入 `miniprogram/app.js` 的 `ENV_ID`。
 3. 上传并部署 `cloudfunctions/login`。
 4. 上传并部署 `cloudfunctions/healthApi`。
-5. 创建上述数据库集合。
-6. 云存储开启，用于检查单、处方、药盒、说明书图片。
+5. 上传并部署 `cloudfunctions/adminApi`。
+6. 创建上述数据库集合。
+7. 云存储开启，用于检查单、处方、药盒、说明书图片。
 
 ## 后续增强
 

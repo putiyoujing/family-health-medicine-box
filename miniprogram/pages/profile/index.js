@@ -67,4 +67,10 @@ Page({
       wx.showToast({ title: error.message || '导出失败', icon: 'none' })
     }
   },
+
+  openAdmin() {
+    wx.navigateTo({
+      url: '/pages/admin/index',
+    })
+  },
 })

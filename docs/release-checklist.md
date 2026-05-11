@@ -4,7 +4,7 @@
 
 - `project.config.json` 中替换正式 `appid`。
 - `miniprogram/app.js` 中填写正式云开发 `ENV_ID`。
-- 上传并部署云函数：`login`、`healthApi`。
+- 上传并部署云函数：`login`、`healthApi`、`adminApi`。
 - 小程序后台配置服务类目和隐私协议。
 
 ## 数据与隐私
@@ -39,6 +39,35 @@ AI 功能不得输出：
 7. AI 查询“哪些药快过期”。
 8. AI 查询“这个症状是不是肺炎”，确认触发安全拒答。
 9. 导出家庭数据。
+10. 在 `admins` 集合添加当前 openid 后进入管理后台。
+11. 确认管理后台能看到用户、家庭、药品、记录、附件统计。
+
+## 管理后台
+
+管理后台入口在“家庭设置”页。
+
+上线前必须创建 `admins` 集合，并添加管理员 openid：
+
+```json
+{
+  "openid": "管理员 openid",
+  "status": "active",
+  "name": "管理员名称"
+}
+```
+
+管理后台当前统计：
+
+- 用户数
+- 家庭数
+- 家庭成员数
+- 药品数
+- 生病记录数
+- 用药记录数
+- 附件数
+- 提醒数
+- 快过期药品
+- 低库存药品
 
 ## GitHub 发布
 
@@ -55,3 +84,9 @@ npm run lint
 git remote add origin <你的 GitHub 仓库地址>
 git push -u origin master
 ```
+
+## 当前评估结论
+
+完整评估见 `docs/role-review-and-gap-plan.md`。
+
+当前状态适合封闭测试 MVP；大规模公开发布前，需要完成微信云环境联调、真机测试、OCR/订阅提醒/家庭邀请等增强。

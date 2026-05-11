@@ -7,6 +7,7 @@
 - `miniprogram/`：微信原生小程序前端
 - `cloudfunctions/login`：用户登录、openid 获取、首次家庭初始化
 - `cloudfunctions/healthApi`：统一业务后台接口
+- `cloudfunctions/adminApi`：管理后台统计接口
 - `docs/`：数据库与发布说明
 - `src/`：上一轮 Web 原型，仅作为交互参考，不是发布主线
 
@@ -21,6 +22,7 @@
 - AI 查询助手安全版，先基于数据库检索，不做诊断或处方
 - 家庭数据导出
 - 按家庭 `familyId` 做数据隔离
+- 管理后台：用户、家庭、药品、记录、附件统计与列表
 
 ## 微信开发者工具运行
 
@@ -28,8 +30,22 @@
 2. 在 `project.config.json` 中替换正式 `appid`。
 3. 在 `miniprogram/app.js` 中填写云开发环境 `ENV_ID`。
 4. 在云开发控制台创建数据库集合，见 [docs/wechat-cloud-database.md](docs/wechat-cloud-database.md)。
-5. 上传并部署 `cloudfunctions/login` 和 `cloudfunctions/healthApi`。
+5. 上传并部署 `cloudfunctions/login`、`cloudfunctions/healthApi` 和 `cloudfunctions/adminApi`。
 6. 编译运行小程序。
+
+## 管理后台
+
+入口在小程序“家庭设置”页。
+
+管理后台需要在云数据库 `admins` 集合中添加管理员 openid：
+
+```json
+{
+  "openid": "管理员 openid",
+  "status": "active",
+  "name": "管理员名称"
+}
+```
 
 ## Web 原型验证
 
@@ -43,6 +59,10 @@ npm run dev
 ## 发布前检查
 
 见 [docs/release-checklist.md](docs/release-checklist.md)。
+
+## 完整性评估
+
+三角色评估见 [docs/role-review-and-gap-plan.md](docs/role-review-and-gap-plan.md)。
 
 ## 医疗安全边界
 

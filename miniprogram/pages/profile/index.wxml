@@ -44,4 +44,10 @@
     <view class="section-title">发布配置提示</view>
     <view class="muted">上线前请在 miniprogram/app.js 填入正式云开发 envId，并在微信开发者工具中上传 login 与 healthApi 云函数。</view>
   </view>
+
+  <view class="section">
+    <view class="section-title">管理后台</view>
+    <view class="muted">用于查看全局用户、家庭、药品、生病记录、用药记录、附件和风险统计。需要在云数据库 admins 集合添加管理员 openid。</view>
+    <button class="ghost-btn export-btn" bindtap="openAdmin">进入管理后台</button>
+  </view>
 </view>

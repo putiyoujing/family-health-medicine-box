@@ -5,7 +5,8 @@
     "pages/illness/index",
     "pages/medication/index",
     "pages/assistant/index",
-    "pages/profile/index"
+    "pages/profile/index",
+    "pages/admin/index"
   ],
   "window": {
     "navigationBarTitleText": "我的小药箱",

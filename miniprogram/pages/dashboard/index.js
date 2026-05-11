@@ -75,4 +75,8 @@ Page({
   goAssistant() {
     wx.switchTab({ url: '/pages/assistant/index' })
   },
+
+  goProfile() {
+    wx.navigateTo({ url: '/pages/profile/index' })
+  },
 })
