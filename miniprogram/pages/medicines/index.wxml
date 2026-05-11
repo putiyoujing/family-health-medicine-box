@@ -1,0 +1,81 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">药箱库存管理</text>
+    <view class="h1">家里有哪些药</view>
+  </view>
+
+  <view class="section">
+    <input class="input" placeholder="搜索药品名、分类、位置" value="{{query}}" bindinput="onSearch" />
+  </view>
+
+  <button class="primary-btn add-btn" bindtap="toggleForm">{{showForm ? '收起表单' : '添加药品'}}</button>
+
+  <view class="section" wx:if="{{showForm}}">
+    <view class="field">
+      <text class="field-label">药品名称</text>
+      <input class="input" data-field="name" value="{{form.name}}" bindinput="onInput" placeholder="例如：对乙酰氨基酚混悬液" />
+    </view>
+    <view class="grid-2">
+      <view class="field">
+        <text class="field-label">分类</text>
+        <input class="input" data-field="category" value="{{form.category}}" bindinput="onInput" />
+      </view>
+      <view class="field">
+        <text class="field-label">规格</text>
+        <input class="input" data-field="specification" value="{{form.specification}}" bindinput="onInput" placeholder="100ml/瓶" />
+      </view>
+    </view>
+    <view class="grid-2">
+      <view class="field">
+        <text class="field-label">总量</text>
+        <input class="input" data-field="totalQuantity" value="{{form.totalQuantity}}" bindinput="onInput" type="digit" />
+      </view>
+      <view class="field">
+        <text class="field-label">剩余量</text>
+        <input class="input" data-field="remainingQuantity" value="{{form.remainingQuantity}}" bindinput="onInput" type="digit" />
+      </view>
+    </view>
+    <view class="grid-2">
+      <view class="field">
+        <text class="field-label">单位</text>
+        <input class="input" data-field="unit" value="{{form.unit}}" bindinput="onInput" />
+      </view>
+      <view class="field">
+        <text class="field-label">有效期</text>
+        <input class="input" data-field="expireDate" value="{{form.expireDate}}" bindinput="onInput" placeholder="2027-12-31" />
+      </view>
+    </view>
+    <view class="field">
+      <text class="field-label">存放位置</text>
+      <input class="input" data-field="location" value="{{form.location}}" bindinput="onInput" />
+    </view>
+    <view class="field">
+      <text class="field-label">适用说明</text>
+      <textarea class="textarea" data-field="indicationsText" value="{{form.indicationsText}}" bindinput="onInput" placeholder="只记录说明书、医嘱或历史信息"></textarea>
+    </view>
+    <view class="field">
+      <text class="field-label">用法说明</text>
+      <textarea class="textarea" data-field="instructionText" value="{{form.instructionText}}" bindinput="onInput" placeholder="按说明书或医生医嘱记录"></textarea>
+    </view>
+    <button class="primary-btn" bindtap="save">保存药品</button>
+  </view>
+
+  <view class="card-list">
+    <view wx:if="{{!filteredMedicines.length}}" class="empty">还没有药品记录</view>
+    <view class="record-card" wx:for="{{filteredMedicines}}" wx:key="_id">
+      <view class="record-head">
+        <view>
+          <view class="record-title">{{item.name}}</view>
+          <view class="muted">{{item.category || '未分类'}} · {{item.specification || '未填规格'}}</view>
+        </view>
+        <text class="pill {{item.expireWarn ? 'warn-pill' : ''}}">{{item.expireDate || '未填有效期'}}</text>
+      </view>
+      <view class="stock-row">
+        <text>剩余 {{item.remainingQuantity || 0}} / {{item.totalQuantity || 0}}{{item.unit}}</text>
+        <text>{{item.location || '未记录位置'}}</text>
+      </view>
+      <view class="muted">{{item.indicationsText || item.instructionText || '暂无说明记录'}}</view>
+      <button class="delete-btn" data-id="{{item._id}}" bindtap="remove">删除</button>
+    </view>
+  </view>
+</view>

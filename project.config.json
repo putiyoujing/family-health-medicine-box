@@ -1,0 +1,19 @@
+{
+  "appid": "touristappid",
+  "projectname": "family-health-medicine-box",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "coverView": true,
+    "showShadowRootInWxmlPanel": true,
+    "packNpmManually": false
+  },
+  "libVersion": "3.8.12",
+  "condition": {}
+}

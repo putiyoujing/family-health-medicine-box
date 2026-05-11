@@ -1,0 +1,22 @@
+.question {
+  margin-bottom: 18rpx;
+}
+
+.quick-list {
+  display: grid;
+  gap: 14rpx;
+  margin-bottom: 24rpx;
+}
+
+.answer {
+  margin: 22rpx 0;
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.fact {
+  margin-top: 12rpx;
+  padding: 18rpx;
+  background: #eef4ef;
+  border-radius: 12rpx;
+}

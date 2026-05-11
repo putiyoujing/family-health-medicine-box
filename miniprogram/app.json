@@ -1,0 +1,48 @@
+{
+  "pages": [
+    "pages/dashboard/index",
+    "pages/medicines/index",
+    "pages/illness/index",
+    "pages/medication/index",
+    "pages/assistant/index",
+    "pages/profile/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "我的小药箱",
+    "navigationBarBackgroundColor": "#24352e",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f7f2",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#66726c",
+    "selectedColor": "#2f7d57",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/dashboard/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/medicines/index",
+        "text": "药箱"
+      },
+      {
+        "pagePath": "pages/illness/index",
+        "text": "生病"
+      },
+      {
+        "pagePath": "pages/medication/index",
+        "text": "用药"
+      },
+      {
+        "pagePath": "pages/assistant/index",
+        "text": "AI"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents"
+}

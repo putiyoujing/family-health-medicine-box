@@ -1,0 +1,39 @@
+const ENV_ID = ''
+
+App({
+  globalData: {
+    envId: ENV_ID,
+    openid: '',
+    userProfile: null,
+  },
+
+  onLaunch() {
+    if (!wx.cloud) {
+      wx.showModal({
+        title: '初始化失败',
+        content: '请使用支持云开发的微信基础库打开项目。',
+        showCancel: false,
+      })
+      return
+    }
+
+    wx.cloud.init({
+      env: ENV_ID || undefined,
+      traceUser: true,
+    })
+
+    this.bootstrap()
+  },
+
+  async bootstrap() {
+    try {
+      const result = await wx.cloud.callFunction({
+        name: 'login',
+      })
+      this.globalData.openid = result.result.openid
+      this.globalData.userProfile = result.result.user
+    } catch (error) {
+      console.error('login failed', error)
+    }
+  },
+})

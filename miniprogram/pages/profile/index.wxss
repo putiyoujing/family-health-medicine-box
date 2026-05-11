@@ -1,0 +1,9 @@
+.export-btn {
+  margin-top: 20rpx;
+}
+
+.export-text {
+  margin-top: 18rpx;
+  min-height: 240rpx;
+  font-size: 22rpx;
+}

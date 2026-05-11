@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">AI 查询助手</text>
+    <view class="h1">只整理已有记录</view>
+  </view>
+
+  <view class="section">
+    <textarea class="textarea question" value="{{question}}" bindinput="onInput" placeholder="例如：上次孩子咳嗽吃了什么？"></textarea>
+    <button class="primary-btn" bindtap="ask">查询记录</button>
+  </view>
+
+  <view class="quick-list">
+    <button class="ghost-btn" wx:for="{{quickQuestions}}" wx:key="*this" data-question="{{item}}" bindtap="ask">{{item}}</button>
+  </view>
+
+  <view class="section">
+    <view class="row">
+      <text class="pill">{{result.intent}}</text>
+    </view>
+    <view class="answer">{{result.answer}}</view>
+    <view class="fact" wx:for="{{result.facts}}" wx:key="*this">{{item}}</view>
+  </view>
+
+  <view class="safety">{{result.safetyNotice}}</view>
+</view>

@@ -1,0 +1,53 @@
+:root {
+  --bg: #f5f7f2;
+  --surface: #ffffff;
+  --surface-soft: #eef4ef;
+  --surface-strong: #24352e;
+  --text: #1d2722;
+  --text-muted: #66726c;
+  --line: #dce4dd;
+  --accent: #2f7d57;
+  --accent-strong: #195b3a;
+  --accent-soft: #dff0e7;
+  --amber: #b86b00;
+  --amber-soft: #fff2d8;
+  --red: #b23434;
+  --red-soft: #ffe7e2;
+  --blue: #2d638f;
+  --blue-soft: #e4f0f8;
+  --shadow: 0 14px 35px rgba(37, 53, 46, 0.1);
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Microsoft YaHei", sans-serif;
+
+  color: var(--text);
+  background: var(--bg);
+  font: 15px/1.55 var(--font);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+#root {
+  min-height: 100svh;
+}
