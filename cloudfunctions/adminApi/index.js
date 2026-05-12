@@ -7,6 +7,19 @@ cloud.init({
 const db = cloud.database()
 const _ = db.command
 
+const DATA_TABLES = [
+  { id: 'users', name: '用户表', collection: 'users', statKey: 'users' },
+  { id: 'families', name: '家庭表', collection: 'families', statKey: 'families' },
+  { id: 'orders', name: '订单表', collection: 'orders', statKey: 'orders' },
+  { id: 'subscriptions', name: '会员家庭表', collection: 'subscriptions', statKey: 'subscriptions' },
+  { id: 'coupons', name: '优惠券表', collection: 'coupons', statKey: 'coupons' },
+  { id: 'aiUsage', name: 'AI 用量表', collection: 'ai_usage_logs', statKey: 'aiUsageLogs' },
+  { id: 'medicines', name: '药品表', collection: 'medicines', statKey: 'medicines' },
+  { id: 'illness', name: '健康记录表', collection: 'illness_records', statKey: 'illnessRecords' },
+  { id: 'medication', name: '用药记录表', collection: 'medication_logs', statKey: 'medicationLogs' },
+  { id: 'attachments', name: '附件表', collection: 'attachments', statKey: 'attachments' },
+]
+
 exports.main = async (event = {}) => {
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
@@ -19,6 +32,8 @@ exports.main = async (event = {}) => {
     switch (action) {
       case 'getDashboard':
         return ok(await getDashboard())
+      case 'getDataOverview':
+        return ok(await getDataOverview())
       case 'listUsers':
         return ok(await pageList('users', payload))
       case 'listFamilies':
@@ -359,19 +374,21 @@ async function trendCountWhere(collection, field, days, extraQuery) {
 async function pageList(collection, payload) {
   const limit = Math.min(Number(payload.limit || 50), 100)
   const skip = Math.max(Number(payload.skip || 0), 0)
+  const query = {
+    deletedAt: _.exists(false),
+  }
   let result = {
     data: [],
   }
+  let total = 0
   try {
-    result = await db
-      .collection(collection)
-      .where({
-        deletedAt: _.exists(false),
-      })
-      .orderBy('createdAt', 'desc')
-      .skip(skip)
-      .limit(limit)
-      .get()
+    const collectionRef = db.collection(collection).where(query)
+    const [countResult, listResult] = await Promise.all([
+      collectionRef.count(),
+      collectionRef.orderBy('createdAt', 'desc').skip(skip).limit(limit).get(),
+    ])
+    total = countResult.total || 0
+    result = listResult
   } catch (error) {
     console.warn(`pageList ${collection}`, error.message)
   }
@@ -379,6 +396,21 @@ async function pageList(collection, payload) {
     list: result.data,
     skip,
     limit,
+    total,
+    hasMore: skip + result.data.length < total,
+  }
+}
+
+async function getDataOverview() {
+  const rows = await Promise.all(
+    DATA_TABLES.map(async (table) => ({
+      ...table,
+      total: await count(table.collection),
+    })),
+  )
+  return {
+    tables: rows,
+    generatedAt: new Date().toISOString(),
   }
 }
 
