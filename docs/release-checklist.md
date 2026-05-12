@@ -46,6 +46,8 @@ AI 功能不得输出：
 
 管理后台入口在“家庭设置”页。
 
+独立 Web 管理后台见 `docs/web-admin.md`。
+
 上线前必须创建 `admins` 集合，并添加管理员 openid：
 
 ```json
@@ -68,6 +70,12 @@ AI 功能不得输出：
 - 提醒数
 - 快过期药品
 - 低库存药品
+
+Web 管理后台上线前必须配置：
+
+- `ADMIN_WEB_TOKEN`
+- `VITE_ADMIN_API_BASE`
+- `VITE_ADMIN_API_TOKEN`
 
 ## GitHub 发布
 

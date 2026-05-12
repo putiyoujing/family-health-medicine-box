@@ -23,23 +23,33 @@
     "list": [
       {
         "pagePath": "pages/dashboard/index",
-        "text": "首页"
+        "text": "首页",
+        "iconPath": "assets/tabbar/home-default.png",
+        "selectedIconPath": "assets/tabbar/home-active.png"
       },
       {
         "pagePath": "pages/medicines/index",
-        "text": "药箱"
+        "text": "药箱",
+        "iconPath": "assets/tabbar/box-default.png",
+        "selectedIconPath": "assets/tabbar/box-active.png"
       },
       {
         "pagePath": "pages/illness/index",
-        "text": "健康"
+        "text": "健康",
+        "iconPath": "assets/tabbar/health-default.png",
+        "selectedIconPath": "assets/tabbar/health-active.png"
       },
       {
         "pagePath": "pages/medication/index",
-        "text": "用药"
+        "text": "用药",
+        "iconPath": "assets/tabbar/medication-default.png",
+        "selectedIconPath": "assets/tabbar/medication-active.png"
       },
       {
         "pagePath": "pages/assistant/index",
-        "text": "AI"
+        "text": "AI",
+        "iconPath": "assets/tabbar/ai-default.png",
+        "selectedIconPath": "assets/tabbar/ai-active.png"
       }
     ]
   },

@@ -14,7 +14,7 @@ exports.main = async (event = {}) => {
   const payload = event.payload || {}
 
   try {
-    await assertAdmin(openid)
+    await assertAdmin(openid, event)
 
     switch (action) {
       case 'getDashboard':
@@ -40,7 +40,17 @@ exports.main = async (event = {}) => {
   }
 }
 
-async function assertAdmin(openid) {
+async function assertAdmin(openid, event) {
+  const webToken = process.env.ADMIN_WEB_TOKEN
+  const requestToken =
+    event.adminToken ||
+    event.token ||
+    (event.headers && (event.headers['x-admin-token'] || event.headers['X-Admin-Token']))
+
+  if (webToken && requestToken && requestToken === webToken) {
+    return
+  }
+
   const result = await db
     .collection('admins')
     .where({

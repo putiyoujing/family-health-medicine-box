@@ -58,9 +58,9 @@ export function getIllnessTitle(
 ) {
   const record = illnessRecords.find((item) => item.id === illnessRecordId)
   if (!record) {
-    return '未关联生病记录'
+    return '未关联健康记录'
   }
-  return `${formatDateTime(record.startedAt)} ${record.symptoms.join('、') || '生病记录'}`
+  return `${formatDateTime(record.startedAt)} ${record.symptoms.join('、') || '健康记录'}`
 }
 
 export function formatDate(value: string) {
@@ -211,7 +211,7 @@ export function buildAssistantAnswer(data: AppData, question: string): Assistant
     }
   }
 
-  if (containsAny(normalized, ['上次', '什么时候', '发烧', '咳嗽', '生病', '吃了什么'])) {
+  if (containsAny(normalized, ['上次', '什么时候', '发烧', '咳嗽', '不舒服', '健康记录', '吃了什么'])) {
     const latestIllness = [...data.illnessRecords].sort(
       (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
     )[0]
@@ -221,7 +221,7 @@ export function buildAssistantAnswer(data: AppData, question: string): Assistant
 
     if (latestIllness) {
       facts.push(
-        `最近生病记录：${formatDateTime(latestIllness.startedAt)}，症状 ${latestIllness.symptoms.join('、') || '未填'}，状态 ${latestIllness.status}`,
+        `最近健康记录：${formatDateTime(latestIllness.startedAt)}，症状 ${latestIllness.symptoms.join('、') || '未填'}，状态 ${latestIllness.status}`,
         `最高体温：${latestIllness.temperatureMax ?? '未记录'}`,
         `本次总结：${latestIllness.summary || '未填写'}`,
       )
@@ -234,10 +234,10 @@ export function buildAssistantAnswer(data: AppData, question: string): Assistant
     }
 
     return {
-      intent: '生病与用药历史查询',
+      intent: '健康与用药历史查询',
       answer: latestIllness
-        ? '我按最近一条生病记录整理了历史情况和关联用药记录。'
-        : '当前还没有生病记录。',
+        ? '我按最近一条健康记录整理了历史情况和关联用药记录。'
+        : '当前还没有健康记录。',
       facts,
       reminders,
     }
@@ -246,9 +246,9 @@ export function buildAssistantAnswer(data: AppData, question: string): Assistant
   return {
     intent: '通用记录整理',
     answer:
-      '我可以基于已录入的家庭成员、生病记录、用药记录和药箱库存做检索。当前问题没有命中明确分类，你可以尝试问“哪些药快过期”“上次孩子咳嗽吃了什么”“这个药还剩多少”。',
+      '我可以基于已录入的家庭成员、健康记录、用药记录和药箱库存做检索。当前问题没有命中明确分类，你可以尝试问“哪些药快过期”“上次孩子咳嗽吃了什么”“这个药还剩多少”。',
     facts: [
-      `当前成员 ${data.members.length} 位，药品 ${data.medicines.length} 个，生病记录 ${data.illnessRecords.length} 条，用药记录 ${data.medicationLogs.length} 条。`,
+      `当前成员 ${data.members.length} 位，药品 ${data.medicines.length} 个，健康记录 ${data.illnessRecords.length} 条，用药记录 ${data.medicationLogs.length} 条。`,
     ],
     reminders,
   }
