@@ -12,7 +12,13 @@ const emptyMember = {
 
 Page({
   data: {
-    family: null,
+    family: {},
+    entitlement: {
+      planName: '免费版',
+      limits: {
+        maxMembers: 3,
+      },
+    },
     members: [],
     form: { ...emptyMember },
     exportText: '',
@@ -27,6 +33,7 @@ Page({
       const home = await api.getHome()
       this.setData({
         family: home.family,
+        entitlement: home.entitlement,
         members: home.members,
       })
     } catch (error) {
@@ -71,6 +78,18 @@ Page({
   openAdmin() {
     wx.navigateTo({
       url: '/pages/admin/index',
+    })
+  },
+
+  openFamily() {
+    wx.navigateTo({
+      url: '/pages/family/index',
+    })
+  },
+
+  openMembership() {
+    wx.navigateTo({
+      url: '/pages/membership/index',
     })
   },
 })

@@ -6,9 +6,19 @@
 
   <view class="section">
     <view class="section-title">家庭成员</view>
+    <view class="muted" wx:if="{{entitlement}}">当前权益：{{entitlement.planName || '免费版'}} · 成员上限 {{entitlement.limits.maxMembers || 3}} 人</view>
     <view class="record-card" wx:for="{{members}}" wx:key="_id">
       <view class="record-title">{{item.name}}</view>
       <view class="muted">{{item.relation}} · 过敏史：{{item.allergyHistory || '未记录'}}</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">家庭共享</view>
+    <view class="muted">邀请家人一起查看或维护家庭药箱、健康记录和用药记录。</view>
+    <view class="grid-2 profile-actions">
+      <button class="ghost-btn" bindtap="openFamily">家庭管理</button>
+      <button class="ghost-btn" bindtap="openMembership">会员中心</button>
     </view>
   </view>
 

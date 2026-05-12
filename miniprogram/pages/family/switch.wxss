@@ -1,0 +1,8 @@
+.family-card {
+  margin-bottom: 16rpx;
+}
+
+.active-card {
+  border-color: #3f7d5b;
+  background: #eef7f1;
+}

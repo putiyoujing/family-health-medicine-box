@@ -1,0 +1,32 @@
+<view class="page">
+  <view class="member-hero">
+    <text class="eyebrow">会员中心</text>
+    <view class="h1">给家人留一份清晰的健康记录</view>
+    <view class="muted">当前家庭：{{family.name || '我的家庭健康记录'}}</view>
+    <view class="pill plan-pill">{{entitlement.planName || '免费版'}}</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">套餐</view>
+    <view class="plan-card {{item.badge ? 'recommend-plan' : ''}}" wx:for="{{plans}}" wx:key="planId" data-id="{{item.planId}}" bindtap="choosePlan">
+      <view>
+        <view class="record-title">{{item.name}}</view>
+        <view class="muted">{{item.durationDays}} 天 · {{item.badge || '适合先体验'}}</view>
+      </view>
+      <view class="price">¥{{item.displayPrice}}</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">当前权益用量</view>
+    <view class="benefit-row" wx:for="{{benefitRows}}" wx:key="label">
+      <text>{{item.label}}</text>
+      <text>{{item.used}} / {{item.limit}}</text>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">会员价值</view>
+    <view class="muted">会员可获得更多家庭成员、共享成员、AI 图片识别、长期健康记录保存、导出和健康月报能力。当前先完成权益底座，真实支付将在下一阶段接入。</view>
+  </view>
+</view>

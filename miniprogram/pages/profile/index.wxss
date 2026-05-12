@@ -7,3 +7,7 @@
   min-height: 240rpx;
   font-size: 22rpx;
 }
+
+.profile-actions {
+  margin-top: 18rpx;
+}

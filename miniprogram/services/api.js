@@ -1,8 +1,11 @@
 async function callHealthApi(action, payload = {}) {
+  const app = getApp()
+  const currentFamilyId = app.globalData && app.globalData.currentFamilyId
   const result = await wx.cloud.callFunction({
     name: 'healthApi',
     data: {
       action,
+      familyId: payload.familyId || currentFamilyId || '',
       payload,
     },
   })
@@ -11,11 +14,54 @@ async function callHealthApi(action, payload = {}) {
     throw new Error((result.result && result.result.message) || '云函数调用失败')
   }
 
-  return result.result.data
+  const data = result.result.data
+  if (data && data.currentFamilyId && app.globalData) {
+    app.globalData.currentFamilyId = data.currentFamilyId
+  }
+  if (data && data.family && data.family._id && app.globalData && !app.globalData.currentFamilyId) {
+    app.globalData.currentFamilyId = data.family._id
+  }
+  return data
 }
 
 async function getHome() {
   return callHealthApi('getHome')
+}
+
+async function listMyFamilies() {
+  return callHealthApi('listMyFamilies')
+}
+
+async function switchFamily(familyId) {
+  return callHealthApi('switchFamily', { familyId })
+}
+
+async function getMembershipStatus() {
+  return callHealthApi('getMembershipStatus')
+}
+
+async function getFamilyInvite(inviteCode) {
+  return callHealthApi('getFamilyInvite', { inviteCode })
+}
+
+async function createFamilyInvite(payload) {
+  return callHealthApi('createFamilyInvite', payload)
+}
+
+async function acceptFamilyInvite(inviteCode) {
+  return callHealthApi('acceptFamilyInvite', { inviteCode })
+}
+
+async function listFamilyRoles() {
+  return callHealthApi('listFamilyRoles')
+}
+
+async function updateFamilyRole(payload) {
+  return callHealthApi('updateFamilyRole', payload)
+}
+
+async function removeFamilyUser(openid) {
+  return callHealthApi('removeFamilyUser', { openid })
 }
 
 async function saveMember(payload) {
@@ -68,16 +114,25 @@ async function exportData() {
 
 module.exports = {
   assistantQuery,
+  acceptFamilyInvite,
+  createFamilyInvite,
   deleteIllness,
   deleteMedication,
   deleteMedicine,
   deleteMember,
   exportData,
+  getFamilyInvite,
   getHome,
+  getMembershipStatus,
+  listFamilyRoles,
+  listMyFamilies,
+  removeFamilyUser,
   saveAttachment,
   saveIllness,
   saveMedication,
   saveMedicine,
   saveMember,
   saveReminder,
+  switchFamily,
+  updateFamilyRole,
 }

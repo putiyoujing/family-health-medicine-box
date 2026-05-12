@@ -4,6 +4,7 @@ App({
   globalData: {
     envId: ENV_ID,
     openid: '',
+    currentFamilyId: '',
     userProfile: null,
   },
 
@@ -32,6 +33,7 @@ App({
       })
       this.globalData.openid = result.result.openid
       this.globalData.userProfile = result.result.user
+      this.globalData.currentFamilyId = result.result.currentFamilyId || result.result.familyId || ''
     } catch (error) {
       console.error('login failed', error)
     }

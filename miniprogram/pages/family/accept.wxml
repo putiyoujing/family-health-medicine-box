@@ -1,0 +1,28 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">家庭邀请</text>
+    <view class="h1">确认加入家庭</view>
+  </view>
+
+  <view class="section" wx:if="{{!invite}}">
+    <view class="section-title">输入邀请码</view>
+    <input class="input" value="{{code}}" bindinput="onCodeInput" placeholder="请输入家人发来的邀请码" />
+    <button class="primary-btn lookup-btn" bindtap="lookup">查询邀请</button>
+  </view>
+
+  <view class="section" wx:if="{{invite}}">
+    <view class="section-title">邀请信息</view>
+    <view class="record-card">
+      <view class="record-title">{{invite.familyNameSnapshot}}</view>
+      <view class="muted">{{invite.inviterNameSnapshot}} 邀请你以「{{invite.roleLabel}}」身份加入</view>
+      <view class="muted">有效期至：{{invite.expiresAt}}</view>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{invite}}">
+    <view class="section-title">隐私提醒</view>
+    <view>{{invite.privacyNotice}}</view>
+  </view>
+
+  <button class="primary-btn" wx:if="{{invite}}" bindtap="accept">接受邀请</button>
+</view>

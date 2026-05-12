@@ -1,0 +1,23 @@
+.permission-desc {
+  margin: 14rpx 0;
+}
+
+.invite-result {
+  margin-top: 24rpx;
+}
+
+.code {
+  margin: 18rpx 0;
+  padding: 24rpx;
+  color: #3f7d5b;
+  text-align: center;
+  background: #eef7f1;
+  border-radius: 20rpx;
+  font-size: 44rpx;
+  font-weight: 800;
+  letter-spacing: 4rpx;
+}
+
+.action-grid {
+  margin-top: 18rpx;
+}

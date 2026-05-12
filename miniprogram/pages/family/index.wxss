@@ -1,0 +1,32 @@
+.action-grid {
+  margin-top: 18rpx;
+}
+
+.mini-btn {
+  min-width: 150rpx;
+  height: 56rpx;
+  padding: 0 20rpx;
+  color: #ffffff;
+  background: #3f7d5b;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+}
+
+.role-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.tiny-btn,
+.delete-btn {
+  height: 58rpx;
+  font-size: 22rpx;
+}
+
+.delete-btn {
+  color: #b23434;
+  background: #ffe7e2;
+  border-radius: 999rpx;
+}

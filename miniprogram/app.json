@@ -6,6 +6,11 @@
     "pages/medication/index",
     "pages/assistant/index",
     "pages/profile/index",
+    "pages/family/index",
+    "pages/family/invite",
+    "pages/family/accept",
+    "pages/family/switch",
+    "pages/membership/index",
     "pages/admin/index"
   ],
   "window": {

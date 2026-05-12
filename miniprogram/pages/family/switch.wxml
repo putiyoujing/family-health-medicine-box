@@ -1,0 +1,19 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">多家庭</text>
+    <view class="h1">切换家庭空间</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">我的家庭</view>
+    <view class="record-card family-card {{item.active ? 'active-card' : ''}}" wx:for="{{families}}" wx:key="_id" data-id="{{item._id}}" bindtap="choose">
+      <view class="record-head">
+        <view>
+          <view class="record-title">{{item.name}}</view>
+          <view class="muted">{{item.roleLabel}} · {{item.entitlement.planName}}</view>
+        </view>
+        <text class="pill" wx:if="{{item.active}}">当前</text>
+      </view>
+    </view>
+  </view>
+</view>
