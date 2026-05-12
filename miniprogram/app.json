@@ -10,7 +10,12 @@
     "pages/family/invite",
     "pages/family/accept",
     "pages/family/switch",
-    "pages/membership/index"
+    "pages/membership/index",
+    "pages/payment/checkout",
+    "pages/coupon/index",
+    "pages/attachment/parse",
+    "pages/report/export",
+    "pages/reminders/index"
   ],
   "window": {
     "navigationBarTitleText": "我的小药箱",

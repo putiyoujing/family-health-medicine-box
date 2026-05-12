@@ -133,10 +133,18 @@ exports.main = async (event = {}) => {
         return ok(await saveRecord(openid, familyId, 'reminders', payload))
       case 'deleteReminder':
         return ok(await deleteRecord(openid, familyId, 'reminders', payload.id))
+      case 'parseAttachment':
+        return ok(await parseAttachment(openid, familyId, payload))
+      case 'getAiTask':
+        return ok(await getAiTask(openid, familyId, payload.taskId))
+      case 'confirmAiParseResult':
+        return ok(await confirmAiParseResult(openid, familyId, payload))
       case 'assistantQuery':
         return ok(await assistantQuery(openid, familyId, payload.question || ''))
       case 'exportData':
         return ok(await exportData(openid, familyId))
+      case 'exportReport':
+        return ok(await exportReport(openid, familyId, payload))
       default:
         return fail(`unknown action: ${action || 'empty'}`)
     }
@@ -570,6 +578,103 @@ async function saveMedication(openid, familyId, payload) {
   }
 }
 
+async function parseAttachment(openid, familyId, payload) {
+  const family = await getCurrentFamily(openid, familyId)
+  assertRole(family.role, EDIT_ROLES)
+  await assertAiQuota(family._id, 'image_parse')
+  const fileId = payload.fileId
+  if (!fileId) {
+    throw new Error('fileId is required')
+  }
+  const imageKind = payload.imageKind || 'medicine_box'
+  const output = buildParseDraft(imageKind)
+  const now = db.serverDate()
+  const result = await db.collection('ai_tasks').add({
+    data: {
+      familyId: family._id,
+      userOpenid: openid,
+      taskType: 'image_parse',
+      provider: 'local_stub',
+      model: 'manual-confirm-v1',
+      imageKind,
+      attachmentIds: payload.attachmentIds || [],
+      input: {
+        fileId,
+        relatedType: payload.relatedType || '',
+      },
+      output,
+      status: 'success',
+      errorMessage: '',
+      tokenUsage: {},
+      createdAt: now,
+      updatedAt: now,
+    },
+  })
+  await recordAiUsage(family._id, openid, 'image_parse', result._id)
+  return {
+    task: {
+      _id: result._id,
+      status: 'success',
+      imageKind,
+    },
+    output,
+  }
+}
+
+async function getAiTask(openid, familyId, taskId) {
+  const family = await getCurrentFamily(openid, familyId)
+  if (!taskId) {
+    throw new Error('taskId is required')
+  }
+  const task = await assertFamilyRecord('ai_tasks', taskId, family._id)
+  return {
+    task,
+  }
+}
+
+async function confirmAiParseResult(openid, familyId, payload) {
+  const family = await getCurrentFamily(openid, familyId)
+  assertRole(family.role, EDIT_ROLES)
+  const taskId = payload.taskId
+  if (!taskId) {
+    throw new Error('taskId is required')
+  }
+  const task = await assertFamilyRecord('ai_tasks', taskId, family._id)
+  const output = payload.output || {}
+  const now = db.serverDate()
+  await db.collection('ai_tasks').doc(taskId).update({
+    data: {
+      output,
+      status: 'confirmed',
+      confirmedBy: openid,
+      confirmedAt: now,
+      updatedAt: now,
+    },
+  })
+
+  const attachmentId = task.attachmentIds && task.attachmentIds[0]
+  if (attachmentId) {
+    try {
+      await db.collection('attachments').doc(attachmentId).update({
+        data: {
+          aiStructured: output,
+          aiSummary: buildAiSummary(task.imageKind, output),
+          updatedBy: openid,
+          updatedAt: now,
+        },
+      })
+    } catch (error) {
+      console.warn('attachment update skipped', error.message)
+    }
+  }
+
+  return {
+    taskId,
+    output,
+    status: 'confirmed',
+  }
+}
+
 async function getFamilyInvite(inviteCode) {
   if (!inviteCode) {
     throw new Error('inviteCode is required')
@@ -901,6 +1006,57 @@ async function exportData(openid, familyId) {
   }
 }
 
+async function exportReport(openid, familyId, payload) {
+  const home = await getHome(openid, familyId)
+  if (!home.entitlement.limits.exportData) {
+    throw new Error('导出就医记录为会员权益，请开通会员后使用')
+  }
+  const days = Number(payload.days || 30)
+  const since = Date.now() - days * 86400000
+  const recentIllness = home.illnessRecords.filter((item) => toTime(item.startedAt || item.createdAt) >= since)
+  const recentMedication = home.medicationLogs.filter((item) => toTime(item.takenAt || item.createdAt) >= since)
+  const expiring = home.medicines.filter((medicine) => daysUntil(medicine.expireDate) <= 60)
+  const reportText = [
+    `# ${home.family.name || '家庭'}就医沟通记录`,
+    '',
+    `导出时间：${new Date().toLocaleString('zh-CN')}`,
+    `导出范围：最近 ${days} 天`,
+    '',
+    '## 安全提示',
+    SAFETY_NOTICE,
+    '',
+    '## 最近健康记录',
+    ...(recentIllness.length
+      ? recentIllness.map(
+          (item, index) =>
+            `${index + 1}. ${item.startedAt || '未记录时间'}｜${(item.symptoms || []).join('、') || '未填'}｜${item.summary || item.symptomDescription || '暂无总结'}`,
+        )
+      : ['暂无健康记录']),
+    '',
+    '## 用药时间线',
+    ...(recentMedication.length
+      ? recentMedication.map(
+          (item, index) =>
+            `${index + 1}. ${item.takenAt || '未记录时间'}｜${item.medicineNameSnapshot || '未命名药品'}｜${item.doseQuantity || 0}${item.doseUnit || ''}｜${item.reaction || '暂无反应记录'}`,
+        )
+      : ['暂无用药记录']),
+    '',
+    '## 需关注药品',
+    ...(expiring.length
+      ? expiring.map(
+          (item, index) =>
+            `${index + 1}. ${item.name}｜有效期 ${item.expireDate || '未记录'}｜剩余 ${item.remainingQuantity || 0}${item.unit || ''}`,
+        )
+      : ['暂无 60 天内到期药品']),
+  ].join('\n')
+
+  return {
+    days,
+    reportText,
+    exportedAt: new Date().toISOString(),
+  }
+}
+
 async function assertRecordQuota(familyId, type) {
   const rule = QUOTA_RULES[type]
   if (!rule) {
@@ -930,7 +1086,7 @@ async function assertAiQuota(familyId, usageType) {
   }
 }
 
-async function recordAiUsage(familyId, openid, usageType) {
+async function recordAiUsage(familyId, openid, usageType, relatedTaskId = '') {
   try {
     await db.collection('ai_usage_logs').add({
       data: {
@@ -938,6 +1094,7 @@ async function recordAiUsage(familyId, openid, usageType) {
         userOpenid: openid,
         usageType,
         count: 1,
+        relatedTaskId,
         createdAt: db.serverDate(),
       },
     })
@@ -1084,6 +1241,57 @@ function daysUntil(dateValue) {
 
 function hasAny(text, keywords) {
   return keywords.some((keyword) => text.includes(keyword))
+}
+
+function buildParseDraft(imageKind) {
+  if (imageKind === 'instruction') {
+    return {
+      name: '',
+      instructionText: '',
+      contraindications: '',
+    }
+  }
+  if (imageKind === 'prescription') {
+    return {
+      doctorDiagnosis: '',
+      doctorAdvice: '',
+      summary: '',
+    }
+  }
+  if (imageKind === 'examination') {
+    return {
+      examinationResult: '',
+      summary: '',
+    }
+  }
+  return {
+    name: '',
+    specification: '',
+    expireDate: '',
+    manufacturer: '',
+    approvalNo: '',
+  }
+}
+
+function buildAiSummary(imageKind, output) {
+  if (imageKind === 'medicine_box') {
+    return `药盒信息：${output.name || '未填写药名'} ${output.specification || ''} ${output.expireDate || ''}`.trim()
+  }
+  if (imageKind === 'instruction') {
+    return `说明书整理：${output.instructionText || '待补充'}`
+  }
+  if (imageKind === 'prescription') {
+    return `医嘱整理：${output.doctorAdvice || output.summary || '待补充'}`
+  }
+  return `检查单整理：${output.examinationResult || output.summary || '待补充'}`
+}
+
+function toTime(value) {
+  if (!value) {
+    return 0
+  }
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? 0 : time
 }
 
 function maskOpenid(openid) {

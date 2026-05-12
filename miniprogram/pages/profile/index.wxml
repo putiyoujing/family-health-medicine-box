@@ -33,6 +33,20 @@
       </view>
       <text class="menu-arrow">›</text>
     </view>
+    <view class="menu-row" bindtap="openReminders">
+      <view>
+        <view class="menu-title">提醒管理</view>
+        <view class="muted">设置用药提醒、复诊提醒和药品检查提醒</view>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-row" bindtap="openReport">
+      <view>
+        <view class="menu-title">导出就医记录</view>
+        <view class="muted">整理最近健康记录、用药时间线和药箱信息</view>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
   </view>
 
   <view class="section">
@@ -83,6 +97,7 @@
     <view class="section-title">数据备份</view>
     <view class="muted">导出当前家庭数据 JSON，用于自行备份或迁移。导出后会自动复制到剪贴板。</view>
     <button class="ghost-btn export-btn" bindtap="exportData">导出家庭数据</button>
+    <button class="ghost-btn export-btn" bindtap="openReport">导出就医沟通记录</button>
     <textarea class="textarea export-text" value="{{exportText}}" disabled wx:if="{{exportText}}"></textarea>
   </view>
 </view>

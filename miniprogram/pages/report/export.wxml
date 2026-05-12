@@ -1,0 +1,22 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">就医沟通记录</text>
+    <view class="h1">复诊时更好说明情况</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">导出范围</view>
+    <picker mode="selector" range="{{rangeOptions}}" range-key="label" value="{{rangeIndex}}" bindchange="onRangeChange">
+      <view class="picker-value">{{rangeLabel}}</view>
+    </picker>
+    <view class="muted report-note">导出内容包含健康记录、用药时间线、快过期药品和安全提示。</view>
+    <button class="primary-btn export-report-btn" bindtap="generate" loading="{{loading}}">
+      {{loading ? '整理中' : '生成并复制'}}
+    </button>
+  </view>
+
+  <view class="section" wx:if="{{reportText}}">
+    <view class="section-title">导出内容</view>
+    <textarea class="textarea report-text" value="{{reportText}}" disabled></textarea>
+  </view>
+</view>

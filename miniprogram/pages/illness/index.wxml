@@ -51,7 +51,7 @@
     </view>
     <view class="attachment-row">
       <button class="ghost-btn" bindtap="chooseAttachment">上传检查单 / 处方图片</button>
-      <view class="muted" wx:if="{{pendingAttachment}}">已暂存 1 张图片，保存记录后关联。OCR 后续接入。</view>
+      <view class="muted" wx:if="{{pendingAttachment}}">已暂存 1 张图片，保存记录后关联。</view>
     </view>
     <button class="primary-btn" bindtap="save">保存健康记录</button>
   </view>

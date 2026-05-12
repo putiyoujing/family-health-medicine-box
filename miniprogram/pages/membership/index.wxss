@@ -113,6 +113,12 @@
   margin-top: 14rpx;
 }
 
+.coupon-link {
+  color: #3f7d5b;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
 .checkout-card {
   border: 2rpx solid rgba(244, 185, 95, 0.32);
 }

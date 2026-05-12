@@ -11,6 +11,22 @@
   <button class="primary-btn add-btn" bindtap="toggleForm">{{showForm ? '收起表单' : '添加药品'}}</button>
 
   <view class="section" wx:if="{{showForm}}">
+    <view class="photo-panel">
+      <view>
+        <view class="record-title">药盒/说明书照片</view>
+        <view class="muted">拍照留存药盒、有效期、说明书，后续可用 AI 辅助整理。</view>
+      </view>
+      <button class="photo-btn" bindtap="chooseMedicinePhoto">拍照</button>
+    </view>
+    <view class="photo-preview" wx:if="{{pendingAttachment}}">
+      <image src="{{pendingAttachment.tempFilePath}}" mode="aspectFill"></image>
+      <view class="photo-preview-copy">
+        <view class="record-title">图片已暂存</view>
+        <view class="muted">保存药品后会自动关联这张图片。</view>
+        <button class="ghost-btn parse-btn" bindtap="openParse">AI 整理图片</button>
+      </view>
+    </view>
+
     <view class="field">
       <text class="field-label">药品名称</text>
       <input class="input" data-field="name" value="{{form.name}}" bindinput="onInput" placeholder="例如：对乙酰氨基酚混悬液" />

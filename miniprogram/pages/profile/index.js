@@ -91,4 +91,16 @@ Page({
       url: '/pages/membership/index',
     })
   },
+
+  openReport() {
+    wx.navigateTo({
+      url: '/pages/report/export',
+    })
+  },
+
+  openReminders() {
+    wx.navigateTo({
+      url: '/pages/reminders/index',
+    })
+  },
 })

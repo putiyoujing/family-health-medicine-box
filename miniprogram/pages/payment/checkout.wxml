@@ -1,0 +1,22 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">支付确认</text>
+    <view class="h1">确认开通会员</view>
+  </view>
+
+  <view class="section checkout-box">
+    <view class="section-title">订单信息</view>
+    <view class="checkout-row">
+      <text>订单号</text>
+      <text>{{orderNo}}</text>
+    </view>
+    <view class="checkout-row total-row">
+      <text>应付金额</text>
+      <text>¥{{amountText}}</text>
+    </view>
+    <button class="primary-btn pay-btn" bindtap="pay" loading="{{paying}}">
+      {{paying ? '开通中' : '确认开通'}}
+    </button>
+    <view class="muted pay-note">支付完成后，会员权益会同步到当前家庭。</view>
+  </view>
+</view>

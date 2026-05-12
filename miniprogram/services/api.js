@@ -125,12 +125,28 @@ async function saveReminder(payload) {
   return callHealthApi('saveReminder', payload)
 }
 
+async function parseAttachment(payload) {
+  return callHealthApi('parseAttachment', payload)
+}
+
+async function getAiTask(taskId) {
+  return callHealthApi('getAiTask', { taskId })
+}
+
+async function confirmAiParseResult(payload) {
+  return callHealthApi('confirmAiParseResult', payload)
+}
+
 async function assistantQuery(question) {
   return callHealthApi('assistantQuery', { question })
 }
 
 async function exportData() {
   return callHealthApi('exportData')
+}
+
+async function exportReport(payload = {}) {
+  return callHealthApi('exportReport', payload)
 }
 
 async function getPlans() {
@@ -170,6 +186,7 @@ module.exports = {
   exportData,
   getFamilyInvite,
   getHome,
+  getAiTask,
   getMembershipStatus,
   getPlans,
   listFamilyRoles,
@@ -177,7 +194,9 @@ module.exports = {
   listMyFamilies,
   mockPaymentSuccess,
   previewOrder,
+  parseAttachment,
   removeFamilyUser,
+  confirmAiParseResult,
   saveAttachment,
   saveIllness,
   saveMedication,
@@ -186,4 +205,5 @@ module.exports = {
   saveReminder,
   switchFamily,
   updateFamilyRole,
+  exportReport,
 }

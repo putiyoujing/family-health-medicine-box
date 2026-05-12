@@ -1,0 +1,12 @@
+.report-note {
+  margin-top: 14rpx;
+}
+
+.export-report-btn {
+  margin-top: 22rpx;
+}
+
+.report-text {
+  min-height: 520rpx;
+  font-size: 24rpx;
+}

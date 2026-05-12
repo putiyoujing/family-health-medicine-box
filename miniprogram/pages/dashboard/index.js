@@ -64,6 +64,14 @@ Page({
     wx.switchTab({ url: '/pages/medicines/index' })
   },
 
+  goMedicinePhoto() {
+    const app = getApp()
+    if (app.globalData) {
+      app.globalData.openMedicineCamera = true
+    }
+    wx.switchTab({ url: '/pages/medicines/index' })
+  },
+
   goIllness() {
     wx.switchTab({ url: '/pages/illness/index' })
   },

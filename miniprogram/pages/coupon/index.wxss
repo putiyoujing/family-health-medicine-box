@@ -1,0 +1,27 @@
+.coupon-input-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.coupon-input-row .input {
+  flex: 1;
+}
+
+.use-btn {
+  flex: 0 0 auto;
+  width: 128rpx;
+  height: 78rpx;
+}
+
+.coupon-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  margin-bottom: 16rpx;
+  padding: 22rpx;
+  background: #fbfdfb;
+  border: 1rpx solid #dce4dd;
+  border-radius: 16rpx;
+}

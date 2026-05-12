@@ -6,6 +6,9 @@ App({
     openid: '',
     currentFamilyId: '',
     userProfile: null,
+    selectedCouponCode: '',
+    openMedicineCamera: false,
+    pendingParseAttachment: null,
   },
 
   onLaunch() {

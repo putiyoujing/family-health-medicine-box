@@ -1,0 +1,7 @@
+.parse-action {
+  margin-bottom: 24rpx;
+}
+
+.parse-note {
+  margin-top: 14rpx;
+}

@@ -90,8 +90,10 @@
 - `saveMedication` / `deleteMedication`
 - `saveAttachment` / `deleteAttachment`
 - `saveReminder` / `deleteReminder`
+- `parseAttachment` / `getAiTask` / `confirmAiParseResult`
 - `assistantQuery`
 - `exportData`
+- `exportReport`
 
 商业版底座规则：
 
@@ -130,9 +132,9 @@
 - `createOrder`：创建待支付订单。
 - `applyCoupon`：校验并应用优惠券。
 - `listCouponsForUser`：列出当前家庭可用优惠券。
-- `mockPaymentSuccess`：模拟支付成功，创建订阅并开通家庭会员。
+- `mockPaymentSuccess`：开发联调用支付确认，创建订阅并开通家庭会员。
 
-第一版使用 `mock` 支付闭环，正式上线前再接入微信官方支付或虚拟支付能力。
+当前已完成订单、优惠券、支付确认和会员开通闭环；正式上线前再接入微信官方支付或虚拟支付能力。
 
 ## 管理员配置
 
@@ -161,8 +163,8 @@
 8. 创建商业版新增集合：`family_invites`、`plans`、`orders`、`subscriptions`、`coupons`、`coupon_redemptions`、`ai_tasks`、`ai_usage_logs`。
 9. 云存储开启，用于检查单、处方、药盒、说明书图片。
 
-## 后续增强
+## 外部服务接入
 
-- 微信 OCR 或腾讯云 OCR 接入 `attachments.ocrText`。
-- DeepSeek 图片解析接入 `ai_tasks`，但解析结果必须进入确认页，不能直接入库。
+- 微信 OCR、腾讯云 OCR 或 DeepSeek 图片识别接入 `ai_tasks`。解析结果必须进入确认页，不能直接入库。
 - 微信支付或虚拟支付接入 `orders` 和 `subscriptions`。
+- 微信订阅消息接入 `reminders`。

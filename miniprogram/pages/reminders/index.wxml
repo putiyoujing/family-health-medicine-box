@@ -1,0 +1,39 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">提醒管理</text>
+    <view class="h1">别漏掉重要事项</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">新增提醒</view>
+    <view class="field">
+      <text class="field-label">提醒类型</text>
+      <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">
+        <view class="picker-value">{{typeOptions[typeIndex].label}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <text class="field-label">提醒标题</text>
+      <input class="input" data-field="title" value="{{form.title}}" bindinput="onInput" placeholder="例如：晚饭后记录用药" />
+    </view>
+    <view class="field">
+      <text class="field-label">提醒时间</text>
+      <input class="input" data-field="remindAt" value="{{form.remindAt}}" bindinput="onInput" placeholder="2026-05-12 20:30" />
+    </view>
+    <view class="field">
+      <text class="field-label">备注</text>
+      <textarea class="textarea" data-field="note" value="{{form.note}}" bindinput="onInput"></textarea>
+    </view>
+    <button class="primary-btn" bindtap="save">保存提醒</button>
+  </view>
+
+  <view class="section">
+    <view class="section-title">提醒列表</view>
+    <view wx:if="{{!reminders.length}}" class="empty">还没有提醒，可以先添加一个用药或复诊提醒</view>
+    <view class="record-card" wx:for="{{reminders}}" wx:key="_id">
+      <view class="record-title">{{item.title}}</view>
+      <view class="muted">{{item.typeLabel}} · {{item.remindAt || '未设置时间'}}</view>
+      <view class="muted">{{item.note || '暂无备注'}}</view>
+    </view>
+  </view>
+</view>

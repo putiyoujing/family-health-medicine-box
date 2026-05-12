@@ -52,6 +52,12 @@ Page({
   },
 
   onShow() {
+    const app = getApp()
+    if (app.globalData && app.globalData.selectedCouponCode) {
+      this.setData({ couponCode: app.globalData.selectedCouponCode })
+      app.globalData.selectedCouponCode = ''
+      this.refreshPreview()
+    }
     this.load()
   },
 
@@ -196,7 +202,9 @@ Page({
         latestOrder: order,
         preview: order,
       })
-      this.confirmMockPay(order)
+      wx.navigateTo({
+        url: `/pages/payment/checkout?orderId=${order.orderId}&orderNo=${order.orderNo}&amount=${order.payableAmount}`,
+      })
     } catch (error) {
       wx.hideLoading()
       this.setData({ paying: false })
@@ -204,38 +212,12 @@ Page({
     }
   },
 
-  confirmMockPay(order) {
-    wx.showModal({
-      title: '确认支付',
-      content: `订单 ${order.orderNo}，应付 ¥${formatMoney(order.payableAmount)}。确认后为当前家庭开通会员权益。`,
-      confirmText: '确认开通',
-      success: (res) => {
-        if (res.confirm) {
-          this.mockPay(order.orderId)
-        }
-      },
+  openCoupons() {
+    wx.navigateTo({
+      url: `/pages/coupon/index?planId=${this.data.selectedPlanId}&code=${this.data.couponCode || ''}`,
     })
   },
 
-  async mockPay(orderId) {
-    this.setData({ paying: true })
-    wx.showLoading({ title: '支付中' })
-    try {
-      await api.mockPaymentSuccess({ orderId })
-      wx.hideLoading()
-      wx.showToast({ title: '会员已开通' })
-      this.setData({
-        paying: false,
-        couponCode: '',
-        latestOrder: null,
-      })
-      await this.load()
-    } catch (error) {
-      wx.hideLoading()
-      this.setData({ paying: false })
-      wx.showToast({ title: error.message || '支付失败', icon: 'none' })
-    }
-  },
 })
 
 function pickPlans(primaryPlans, fallbackPlans) {

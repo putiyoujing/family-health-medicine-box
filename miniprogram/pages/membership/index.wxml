@@ -27,7 +27,10 @@
   </view>
 
   <view class="section">
-    <view class="section-title">优惠券</view>
+    <view class="section-title">
+      <text>优惠券</text>
+      <text class="coupon-link" bindtap="openCoupons">选择优惠券</text>
+    </view>
     <view class="coupon-form">
       <input value="{{couponCode}}" placeholder="输入优惠码" bindinput="onCouponInput" />
       <button bindtap="applyCoupon" loading="{{paying}}">使用</button>
