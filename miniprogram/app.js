@@ -12,7 +12,7 @@ App({
     if (!wx.cloud) {
       wx.showModal({
         title: '初始化失败',
-        content: '请使用支持云开发的微信基础库打开项目。',
+        content: '当前微信版本暂不支持此服务，请升级微信后再试。',
         showCancel: false,
       })
       return

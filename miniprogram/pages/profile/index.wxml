@@ -1,24 +1,54 @@
-<view class="page">
-  <view class="page-title">
-    <text class="eyebrow">家庭与数据</text>
-    <view class="h1">{{family.name || '家庭设置'}}</view>
+<view class="page profile-page">
+  <view class="profile-hero">
+    <view>
+      <text class="eyebrow">我的家庭空间</text>
+      <view class="profile-title">{{family.name || '我的小药箱'}}</view>
+      <view class="profile-subtitle">把家人的健康记录、用药记录和药箱库存放在一起</view>
+    </view>
+    <view class="avatar-badge">我</view>
+  </view>
+
+  <view class="membership-card" bindtap="openMembership">
+    <view>
+      <view class="card-label">当前权益</view>
+      <view class="membership-title">{{entitlement.planName || '免费版'}}</view>
+      <view class="muted">成员上限 {{memberLimit}} 人 · 已添加 {{members.length || 0}} 人</view>
+    </view>
+    <view class="upgrade-pill">会员订阅</view>
   </view>
 
   <view class="section">
-    <view class="section-title">家庭成员</view>
-    <view class="muted" wx:if="{{entitlement}}">当前权益：{{entitlement.planName || '免费版'}} · 成员上限 {{entitlement.limits.maxMembers || 3}} 人</view>
-    <view class="record-card" wx:for="{{members}}" wx:key="_id">
-      <view class="record-title">{{item.name}}</view>
-      <view class="muted">{{item.relation}} · 过敏史：{{item.allergyHistory || '未记录'}}</view>
+    <view class="section-title">家庭设置</view>
+    <view class="menu-row" bindtap="openFamily">
+      <view>
+        <view class="menu-title">家庭管理</view>
+        <view class="muted">邀请家人、切换家庭、管理共享权限</view>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-row" bindtap="openMembership">
+      <view>
+        <view class="menu-title">会员中心</view>
+        <view class="muted">开通更多成员、共享协作和长期记录能力</view>
+      </view>
+      <text class="menu-arrow">›</text>
     </view>
   </view>
 
   <view class="section">
-    <view class="section-title">家庭共享</view>
-    <view class="muted">邀请家人一起查看或维护家庭药箱、健康记录和用药记录。</view>
-    <view class="grid-2 profile-actions">
-      <button class="ghost-btn" bindtap="openFamily">家庭管理</button>
-      <button class="ghost-btn" bindtap="openMembership">会员中心</button>
+    <view class="section-title">
+      <text>家庭成员</text>
+      <text class="section-count">{{members.length || 0}} / {{memberLimit}}</text>
+    </view>
+    <view wx:if="{{!members.length}}" class="empty">还没有成员，先添加一位家人</view>
+    <view class="member-list" wx:else>
+      <view class="member-card" wx:for="{{members}}" wx:key="_id">
+        <view class="member-avatar">{{item.initial}}</view>
+        <view class="member-info">
+          <view class="member-name">{{item.name}}</view>
+          <view class="muted">{{item.relation || '家庭成员'}} · 过敏史：{{item.allergyHistory || '未记录'}}</view>
+        </view>
+      </view>
     </view>
   </view>
 
@@ -26,38 +56,33 @@
     <view class="section-title">添加成员</view>
     <view class="field">
       <text class="field-label">名称</text>
-      <input class="input" data-field="name" value="{{form.name}}" bindinput="onInput" />
+      <input class="input" data-field="name" value="{{form.name}}" bindinput="onInput" placeholder="例如：妈妈、宝宝" />
     </view>
-    <view class="field">
-      <text class="field-label">关系</text>
-      <input class="input" data-field="relation" value="{{form.relation}}" bindinput="onInput" />
+    <view class="grid-2">
+      <view class="field">
+        <text class="field-label">关系</text>
+        <input class="input" data-field="relation" value="{{form.relation}}" bindinput="onInput" />
+      </view>
+      <view class="field">
+        <text class="field-label">生日</text>
+        <input class="input" data-field="birthday" value="{{form.birthday}}" bindinput="onInput" placeholder="2018-01-01" />
+      </view>
     </view>
     <view class="field">
       <text class="field-label">过敏史</text>
-      <input class="input" data-field="allergyHistory" value="{{form.allergyHistory}}" bindinput="onInput" />
+      <input class="input" data-field="allergyHistory" value="{{form.allergyHistory}}" bindinput="onInput" placeholder="没有可填未记录" />
     </view>
     <view class="field">
-      <text class="field-label">既往病史</text>
-      <input class="input" data-field="medicalHistory" value="{{form.medicalHistory}}" bindinput="onInput" />
+      <text class="field-label">健康备注</text>
+      <textarea class="textarea" data-field="medicalHistory" value="{{form.medicalHistory}}" bindinput="onInput" placeholder="记录重要健康信息、长期关注事项或医生提醒"></textarea>
     </view>
     <button class="primary-btn" bindtap="saveMember">保存成员</button>
   </view>
 
   <view class="section">
-    <view class="section-title">数据导出</view>
-    <view class="muted">导出当前家庭数据 JSON，用于备份或迁移。导出后会自动复制到剪贴板。</view>
+    <view class="section-title">数据备份</view>
+    <view class="muted">导出当前家庭数据 JSON，用于自行备份或迁移。导出后会自动复制到剪贴板。</view>
     <button class="ghost-btn export-btn" bindtap="exportData">导出家庭数据</button>
     <textarea class="textarea export-text" value="{{exportText}}" disabled wx:if="{{exportText}}"></textarea>
-  </view>
-
-  <view class="section">
-    <view class="section-title">发布配置提示</view>
-    <view class="muted">上线前请在 miniprogram/app.js 填入正式云开发 envId，并在微信开发者工具中上传 login 与 healthApi 云函数。</view>
-  </view>
-
-  <view class="section">
-    <view class="section-title">管理后台</view>
-    <view class="muted">用于查看全局用户、家庭、药品、健康记录、用药记录、附件和风险统计。需要在云数据库 admins 集合添加管理员 openid。</view>
-    <button class="ghost-btn export-btn" bindtap="openAdmin">进入管理后台</button>
   </view>
 </view>

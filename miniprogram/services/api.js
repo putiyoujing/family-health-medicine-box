@@ -11,7 +11,7 @@ async function callHealthApi(action, payload = {}) {
   })
 
   if (!result.result || !result.result.ok) {
-    throw new Error((result.result && result.result.message) || '云函数调用失败')
+    throw new Error((result.result && result.result.message) || '服务暂不可用，请稍后再试')
   }
 
   const data = result.result.data
@@ -39,7 +39,7 @@ async function callPaymentApi(action, payload = {}) {
   })
 
   if (!result.result || !result.result.ok) {
-    throw new Error((result.result && result.result.message) || '支付云函数调用失败')
+    throw new Error((result.result && result.result.message) || '支付服务暂不可用，请稍后再试')
   }
 
   return result.result.data

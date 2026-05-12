@@ -6,6 +6,15 @@
 
   <view class="safety">{{safetyNotice}}</view>
 
+  <view class="member-banner" bindtap="goMembership">
+    <view>
+      <text class="eyebrow">会员订阅</text>
+      <view class="member-title">升级家庭共享与长期记录能力</view>
+      <view class="muted">支持更多成员、共享协作、AI 额度和数据导出</view>
+    </view>
+    <text class="member-action">去开通</text>
+  </view>
+
   <view class="stats-grid">
     <view class="stat-card">
       <text>家庭成员</text>
@@ -30,7 +39,8 @@
     <button class="ghost-btn" bindtap="goMedication">记录一次用药</button>
     <button class="ghost-btn" bindtap="goMedicines">添加药品</button>
     <button class="ghost-btn" bindtap="goAssistant">问 AI</button>
-    <button class="ghost-btn" bindtap="goProfile">家庭设置</button>
+    <button class="ghost-btn" bindtap="goMembership">会员订阅</button>
+    <button class="ghost-btn" bindtap="goProfile">我的</button>
   </view>
 
   <view class="section">

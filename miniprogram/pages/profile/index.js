@@ -22,6 +22,7 @@ Page({
     members: [],
     form: { ...emptyMember },
     exportText: '',
+    memberLimit: 3,
   },
 
   onShow() {
@@ -34,7 +35,11 @@ Page({
       this.setData({
         family: home.family,
         entitlement: home.entitlement,
-        members: home.members,
+        members: (home.members || []).map((member) => ({
+          ...member,
+          initial: (member.name || '家').slice(0, 1),
+        })),
+        memberLimit: home.entitlement && home.entitlement.limits ? home.entitlement.limits.maxMembers : 3,
       })
     } catch (error) {
       wx.showToast({ title: error.message || '加载失败', icon: 'none' })
@@ -73,12 +78,6 @@ Page({
       wx.hideLoading()
       wx.showToast({ title: error.message || '导出失败', icon: 'none' })
     }
-  },
-
-  openAdmin() {
-    wx.navigateTo({
-      url: '/pages/admin/index',
-    })
   },
 
   openFamily() {

@@ -73,10 +73,14 @@ Page({
   },
 
   goAssistant() {
-    wx.switchTab({ url: '/pages/assistant/index' })
+    wx.navigateTo({ url: '/pages/assistant/index' })
   },
 
   goProfile() {
-    wx.navigateTo({ url: '/pages/profile/index' })
+    wx.switchTab({ url: '/pages/profile/index' })
+  },
+
+  goMembership() {
+    wx.navigateTo({ url: '/pages/membership/index' })
   },
 })
