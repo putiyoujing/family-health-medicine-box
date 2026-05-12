@@ -41,7 +41,7 @@ source: family_health_commercial_product_plan_v1.md
 
 > 帮家庭记录每次健康情况、每次用药、每一盒药，让家人的健康信息不再靠记忆。
 
-前端统一使用「健康记录」，不使用「生病记录」作为产品表达。数据库短期可继续保留 `illness_records`，避免迁移风险。
+前端统一使用「健康记录」作为产品表达。数据库短期可继续保留 `illness_records`，避免迁移风险。
 
 ## 3. 商业版 P0 范围
 

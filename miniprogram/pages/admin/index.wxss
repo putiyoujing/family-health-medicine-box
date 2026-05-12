@@ -24,6 +24,43 @@
   font-weight: 800;
 }
 
+.ops-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14rpx;
+}
+
+.ops-card {
+  display: grid;
+  gap: 8rpx;
+  padding: 20rpx;
+  background: #eef4ef;
+  border-radius: 16rpx;
+}
+
+.ops-card text {
+  color: #66726c;
+  font-size: 22rpx;
+}
+
+.ops-card view {
+  color: #102018;
+  font-size: 38rpx;
+  font-weight: 800;
+}
+
+.revenue-card {
+  background: #24352e;
+}
+
+.revenue-card text {
+  color: #d8f2de;
+}
+
+.revenue-card view {
+  color: #ffffff;
+}
+
 .risk-row {
   display: flex;
   align-items: center;

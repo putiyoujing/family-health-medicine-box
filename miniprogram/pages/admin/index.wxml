@@ -44,6 +44,48 @@
         <text>提醒</text>
         <view>{{stats.reminders || 0}}</view>
       </view>
+      <view class="admin-stat">
+        <text>订单</text>
+        <view>{{stats.orders || 0}}</view>
+      </view>
+      <view class="admin-stat">
+        <text>会员家庭</text>
+        <view>{{stats.activeSubscriptions || 0}}</view>
+      </view>
+      <view class="admin-stat">
+        <text>优惠券</text>
+        <view>{{stats.coupons || 0}}</view>
+      </view>
+      <view class="admin-stat">
+        <text>AI 用量</text>
+        <view>{{stats.aiUsageLogs || 0}}</view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-title">运营中心</view>
+      <view class="ops-grid">
+        <view class="ops-card revenue-card">
+          <text>会员收入</text>
+          <view>{{revenue.revenueText || '¥0'}}</view>
+          <text>客单价 {{revenue.averageOrderText || '¥0'}}，优惠 {{revenue.discountText || '¥0'}}</text>
+        </view>
+        <view class="ops-card">
+          <text>付费订单</text>
+          <view>{{membership.paidOrders || 0}}</view>
+          <text>待支付 {{membership.pendingOrders || 0}}</text>
+        </view>
+        <view class="ops-card">
+          <text>优惠券核销</text>
+          <view>{{stats.couponRedemptions || 0}}</view>
+          <text>券池 {{stats.coupons || 0}}</text>
+        </view>
+        <view class="ops-card">
+          <text>AI 用量</text>
+          <view>{{aiUsage.total || 0}}</view>
+          <text>问答 {{aiUsage.assistantQuery || 0}}，图片 {{aiUsage.imageParse || 0}}</text>
+        </view>
+      </view>
     </view>
 
     <view class="section">
@@ -117,6 +159,10 @@
       <view class="tabs">
         <button class="tab {{activeList === 'users' ? 'active' : ''}}" data-type="users" bindtap="switchList">用户</button>
         <button class="tab {{activeList === 'families' ? 'active' : ''}}" data-type="families" bindtap="switchList">家庭</button>
+        <button class="tab {{activeList === 'orders' ? 'active' : ''}}" data-type="orders" bindtap="switchList">订单</button>
+        <button class="tab {{activeList === 'subscriptions' ? 'active' : ''}}" data-type="subscriptions" bindtap="switchList">会员家庭</button>
+        <button class="tab {{activeList === 'coupons' ? 'active' : ''}}" data-type="coupons" bindtap="switchList">优惠券</button>
+        <button class="tab {{activeList === 'aiUsage' ? 'active' : ''}}" data-type="aiUsage" bindtap="switchList">AI 用量</button>
         <button class="tab {{activeList === 'medicines' ? 'active' : ''}}" data-type="medicines" bindtap="switchList">药品</button>
         <button class="tab {{activeList === 'illness' ? 'active' : ''}}" data-type="illness" bindtap="switchList">健康</button>
         <button class="tab {{activeList === 'medication' ? 'active' : ''}}" data-type="medication" bindtap="switchList">用药</button>

@@ -3,19 +3,32 @@ import {
   AlertTriangle,
   BarChart3,
   Boxes,
-  FileText,
+  Brain,
   HeartPulse,
   Home,
   Lock,
   Pill,
+  ReceiptText,
   RefreshCw,
   ShieldCheck,
-  Syringe,
+  Sparkles,
+  TicketPercent,
   Users,
+  WalletCards,
 } from 'lucide-react'
 import './App.css'
 
-type ListType = 'users' | 'families' | 'medicines' | 'illness' | 'medication' | 'attachments'
+type ListType =
+  | 'users'
+  | 'families'
+  | 'orders'
+  | 'subscriptions'
+  | 'coupons'
+  | 'aiUsage'
+  | 'medicines'
+  | 'illness'
+  | 'medication'
+  | 'attachments'
 
 interface AdminStats {
   users: number
@@ -26,6 +39,30 @@ interface AdminStats {
   medicationLogs: number
   attachments: number
   reminders: number
+  orders: number
+  paidOrders: number
+  subscriptions: number
+  activeSubscriptions: number
+  coupons: number
+  couponRedemptions: number
+  aiUsageLogs: number
+}
+
+interface AdminRevenue {
+  revenueAmount: number
+  discountAmount: number
+  averageOrderAmount: number
+  yearlyOrders: number
+  monthlyOrders: number
+}
+
+interface AdminMembership {
+  paidOrders: number
+  pendingOrders: number
+  subscriptions: number
+  activeSubscriptions: number
+  conversionRate: number
+  memberFamilyRate: number
 }
 
 interface AdminHealth {
@@ -43,6 +80,12 @@ interface AdminRisk {
   pendingOcrAttachments: number
 }
 
+interface AdminAiUsage {
+  total: number
+  assistantQuery: number
+  imageParse: number
+}
+
 interface TrendPoint {
   date: string
   count: number
@@ -50,12 +93,19 @@ interface TrendPoint {
 
 interface AdminDashboardData {
   stats: AdminStats
+  revenue: AdminRevenue
+  membership: AdminMembership
   health: AdminHealth
   risk: AdminRisk
   trend: Record<string, TrendPoint[]>
+  aiUsage: AdminAiUsage
   recentUsers: Record<string, unknown>[]
   recentIllness: Record<string, unknown>[]
   recentMedication: Record<string, unknown>[]
+  recentOrders: Record<string, unknown>[]
+  recentSubscriptions: Record<string, unknown>[]
+  recentCoupons: Record<string, unknown>[]
+  recentAiUsage: Record<string, unknown>[]
   expiringMedicines: Record<string, unknown>[]
   lowStockMedicines: Record<string, unknown>[]
   generatedAt: string
@@ -80,6 +130,10 @@ const API_TOKEN = import.meta.env.VITE_ADMIN_API_TOKEN || ''
 const listTabs: Array<{ id: ListType; label: string }> = [
   { id: 'users', label: '用户' },
   { id: 'families', label: '家庭' },
+  { id: 'orders', label: '订单' },
+  { id: 'subscriptions', label: '会员家庭' },
+  { id: 'coupons', label: '优惠券' },
+  { id: 'aiUsage', label: 'AI 用量' },
   { id: 'medicines', label: '药品' },
   { id: 'illness', label: '健康记录' },
   { id: 'medication', label: '用药' },
@@ -88,8 +142,8 @@ const listTabs: Array<{ id: ListType; label: string }> = [
 
 function App() {
   const [dashboard, setDashboard] = useState<AdminDashboardData>(() => mockDashboard())
-  const [activeList, setActiveList] = useState<ListType>('users')
-  const [list, setList] = useState<AdminListItem[]>(() => normalizeList('users', mockDashboard().recentUsers))
+  const [activeList, setActiveList] = useState<ListType>('orders')
+  const [list, setList] = useState<AdminListItem[]>(() => normalizeList('orders', mockDashboard().recentOrders))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const isConfigured = Boolean(API_BASE && API_TOKEN)
@@ -156,6 +210,10 @@ function App() {
             <Home size={18} />
             概览
           </a>
+          <a href="#commerce">
+            <WalletCards size={18} />
+            运营中心
+          </a>
           <a href="#risk">
             <AlertTriangle size={18} />
             风险
@@ -180,7 +238,7 @@ function App() {
         <header className="topbar">
           <div>
             <p className="eyebrow">运营数据</p>
-            <h2>产品使用与健康数据情况</h2>
+            <h2>用户增长、会员收入与家庭健康数据</h2>
           </div>
           <button className="refresh-btn" onClick={refreshDashboard} type="button">
             <RefreshCw size={16} />
@@ -206,10 +264,48 @@ function App() {
         <section className="stat-grid" id="overview">
           <StatCard icon={Users} label="用户" value={dashboard.stats.users} />
           <StatCard icon={Home} label="家庭" value={dashboard.stats.families} />
+          <StatCard icon={WalletCards} label="会员家庭" value={dashboard.stats.activeSubscriptions} />
+          <StatCard icon={ReceiptText} label="付费订单" value={dashboard.stats.paidOrders} />
           <StatCard icon={Pill} label="药品" value={dashboard.stats.medicines} />
           <StatCard icon={HeartPulse} label="健康记录" value={dashboard.stats.illnessRecords} />
-          <StatCard icon={Syringe} label="用药记录" value={dashboard.stats.medicationLogs} />
-          <StatCard icon={FileText} label="附件" value={dashboard.stats.attachments} />
+        </section>
+
+        <section className="commerce-grid" id="commerce">
+          <article className="commerce-card revenue-card">
+            <div className="commerce-head">
+              <WalletCards size={22} />
+              <span>收入概览</span>
+            </div>
+            <strong>{formatMoney(dashboard.revenue.revenueAmount)}</strong>
+            <p>
+              已优惠 {formatMoney(dashboard.revenue.discountAmount)}，客单价{' '}
+              {formatMoney(dashboard.revenue.averageOrderAmount)}
+            </p>
+          </article>
+          <article className="commerce-card">
+            <div className="commerce-head">
+              <TicketPercent size={22} />
+              <span>优惠券</span>
+            </div>
+            <strong>{dashboard.stats.couponRedemptions || 0}</strong>
+            <p>已核销，当前券池 {dashboard.stats.coupons || 0} 张</p>
+          </article>
+          <article className="commerce-card">
+            <div className="commerce-head">
+              <Sparkles size={22} />
+              <span>会员结构</span>
+            </div>
+            <strong>{dashboard.membership.memberFamilyRate || 0}</strong>
+            <p>会员家庭率，待支付订单 {dashboard.membership.pendingOrders || 0}</p>
+          </article>
+          <article className="commerce-card">
+            <div className="commerce-head">
+              <Brain size={22} />
+              <span>AI 用量</span>
+            </div>
+            <strong>{dashboard.aiUsage.total || 0}</strong>
+            <p>问答 {dashboard.aiUsage.assistantQuery || 0}，图片解析 {dashboard.aiUsage.imageParse || 0}</p>
+          </article>
         </section>
 
         <section className="panel-grid">
@@ -228,7 +324,7 @@ function App() {
         </section>
 
         <section className="panel" id="trend">
-          <PanelTitle title="7 天趋势" subtitle="新增用户、健康记录和用药记录" />
+          <PanelTitle title="7 天趋势" subtitle="新增用户、订单、AI 用量和核心记录" />
           <div className="trend-grid">
             {trendCards.map((card) => (
               <article className="trend-card" key={card.label}>
@@ -250,7 +346,7 @@ function App() {
         </section>
 
         <section className="panel" id="data">
-          <PanelTitle title="数据列表" subtitle="查看用户、家庭、药品、健康记录、用药、附件" />
+          <PanelTitle title="数据列表" subtitle="查看订单、会员家庭、优惠券、用户和核心健康数据" />
           <div className="tabs">
             {listTabs.map((tab) => (
               <button
@@ -372,11 +468,15 @@ async function callAdminApi<T>(action: string, payload: Record<string, unknown> 
 
 function listAction(type: ListType) {
   return {
+    aiUsage: 'listAiUsage',
     attachments: 'listAttachments',
+    coupons: 'listCoupons',
     families: 'listFamilies',
     illness: 'listIllness',
     medication: 'listMedication',
     medicines: 'listMedicines',
+    orders: 'listOrders',
+    subscriptions: 'listSubscriptions',
     users: 'listUsers',
   }[type]
 }
@@ -384,6 +484,38 @@ function listAction(type: ListType) {
 function normalizeList(type: ListType, list: Record<string, unknown>[]): AdminListItem[] {
   return list.map((item, index) => {
     const id = String(item._id || item.id || index)
+    if (type === 'orders') {
+      return {
+        id,
+        title: String(item.orderNo || '未命名订单'),
+        subtitle: `${item.planName || item.planId || '套餐'} · 应付 ${formatMoney(item.payableAmount)} · ${formatValue(item.createdAt)}`,
+        tag: String(item.status || 'pending'),
+      }
+    }
+    if (type === 'subscriptions') {
+      return {
+        id,
+        title: String(item.planName || item.planId || '会员订阅'),
+        subtitle: `家庭 ${item.familyId || '-'} · 到期 ${formatValue(item.expireAt)}`,
+        tag: String(item.status || 'active'),
+      }
+    }
+    if (type === 'coupons') {
+      return {
+        id,
+        title: String(item.name || item.code || '优惠券'),
+        subtitle: `${item.code || '-'} · 已用 ${item.usedQuantity || 0}/${item.totalQuantity || '不限'}`,
+        tag: String(item.status || 'active'),
+      }
+    }
+    if (type === 'aiUsage') {
+      return {
+        id,
+        title: String(item.usageType || 'AI 用量'),
+        subtitle: `家庭 ${item.familyId || '-'} · ${formatValue(item.createdAt)}`,
+        tag: String(item.count || 1),
+      }
+    }
     if (type === 'users') {
       return {
         id,
@@ -397,7 +529,7 @@ function normalizeList(type: ListType, list: Record<string, unknown>[]): AdminLi
         id,
         title: String(item.name || '未命名家庭'),
         subtitle: `创建：${formatValue(item.createdAt)}`,
-        tag: '家庭',
+        tag: String(item.plan || 'free'),
       }
     }
     if (type === 'medicines') {
@@ -437,7 +569,9 @@ function normalizeList(type: ListType, list: Record<string, unknown>[]): AdminLi
 function buildTrendCards(trend: Record<string, TrendPoint[]>) {
   const config = [
     ['新增用户', 'users'],
-    ['新增药品', 'medicines'],
+    ['新增订单', 'orders'],
+    ['付费订单', 'paidOrders'],
+    ['AI 用量', 'aiUsage'],
     ['新增健康记录', 'illnessRecords'],
     ['新增用药记录', 'medicationLogs'],
   ] as const
@@ -454,11 +588,21 @@ function buildTrendCards(trend: Record<string, TrendPoint[]>) {
 function formatValue(value: unknown) {
   if (!value) return '未记录'
   if (typeof value === 'string') return value.slice(0, 16).replace('T', ' ')
+  if (value instanceof Date) return value.toISOString().slice(0, 16).replace('T', ' ')
   return '已记录'
+}
+
+function formatMoney(value: unknown) {
+  return `¥${(Number(value || 0) / 100).toFixed(2).replace(/\.00$/, '')}`
 }
 
 function mockDashboard(): AdminDashboardData {
   return {
+    aiUsage: {
+      assistantQuery: 42,
+      imageParse: 9,
+      total: 51,
+    },
     expiringMedicines: [],
     generatedAt: new Date().toISOString(),
     health: {
@@ -469,6 +613,20 @@ function mockDashboard(): AdminDashboardData {
       averageMembersPerFamily: 3.1,
     },
     lowStockMedicines: [],
+    membership: {
+      activeSubscriptions: 11,
+      conversionRate: 0.18,
+      memberFamilyRate: 0.35,
+      paidOrders: 15,
+      pendingOrders: 4,
+      subscriptions: 16,
+    },
+    recentAiUsage: [
+      { _id: 'ai1', count: 1, createdAt: '2026-05-12T09:18:00.000Z', familyId: 'f1', usageType: 'assistant_query' },
+    ],
+    recentCoupons: [
+      { _id: 'c1', code: 'NEWUSER20', name: '新用户年费立减', status: 'active', totalQuantity: 500, usedQuantity: 21 },
+    ],
     recentIllness: [
       { _id: 'h1', status: '观察中', summary: '儿童发热观察记录', temperatureMax: 38.5 },
       { _id: 'h2', status: '已恢复', summary: '鼻塞咳嗽恢复记录' },
@@ -476,10 +634,24 @@ function mockDashboard(): AdminDashboardData {
     recentMedication: [
       { _id: 'm1', medicineNameSnapshot: '对乙酰氨基酚混悬液', doseQuantity: 5, doseUnit: 'ml' },
     ],
+    recentOrders: [
+      { _id: 'o1', createdAt: '2026-05-12T08:30:00.000Z', orderNo: 'FH20260512A1', payableAmount: 7900, planName: '年度会员', status: 'paid' },
+      { _id: 'o2', createdAt: '2026-05-12T10:10:00.000Z', orderNo: 'FH20260512B2', payableAmount: 990, planName: '月度会员', status: 'pending' },
+    ],
+    recentSubscriptions: [
+      { _id: 's1', expireAt: '2027-05-12T08:30:00.000Z', familyId: 'f1', planName: '年度会员', status: 'active' },
+    ],
     recentUsers: [
       { _id: 'u1', nickname: '测试用户 A', createdAt: '2026-05-12T08:00:00.000Z' },
       { _id: 'u2', nickname: '测试用户 B', createdAt: '2026-05-11T21:00:00.000Z' },
     ],
+    revenue: {
+      averageOrderAmount: 5280,
+      discountAmount: 2000,
+      monthlyOrders: 5,
+      revenueAmount: 79200,
+      yearlyOrders: 10,
+    },
     risk: {
       expiringMedicines: 4,
       lowStockMedicines: 2,
@@ -487,19 +659,29 @@ function mockDashboard(): AdminDashboardData {
       pendingOcrAttachments: 5,
     },
     stats: {
+      activeSubscriptions: 11,
+      aiUsageLogs: 51,
       attachments: 18,
+      couponRedemptions: 21,
+      coupons: 3,
       families: 31,
       illnessRecords: 86,
       medicationLogs: 132,
       medicines: 257,
       members: 96,
+      orders: 19,
+      paidOrders: 15,
       reminders: 12,
+      subscriptions: 16,
       users: 48,
     },
     trend: {
+      aiUsage: mockTrend([4, 8, 6, 7, 12, 9, 11]),
       illnessRecords: mockTrend([2, 5, 4, 7, 8, 6, 9]),
       medicationLogs: mockTrend([3, 8, 6, 9, 11, 10, 14]),
       medicines: mockTrend([5, 2, 6, 8, 4, 7, 9]),
+      orders: mockTrend([0, 1, 2, 1, 4, 3, 5]),
+      paidOrders: mockTrend([0, 1, 1, 1, 3, 2, 4]),
       users: mockTrend([1, 3, 2, 5, 6, 4, 7]),
     },
   }
@@ -508,6 +690,10 @@ function mockDashboard(): AdminDashboardData {
 function mockList(type: ListType) {
   const data = mockDashboard()
   if (type === 'users') return data.recentUsers
+  if (type === 'orders') return data.recentOrders
+  if (type === 'subscriptions') return data.recentSubscriptions
+  if (type === 'coupons') return data.recentCoupons
+  if (type === 'aiUsage') return data.recentAiUsage
   if (type === 'illness') return data.recentIllness
   if (type === 'medication') return data.recentMedication
   if (type === 'medicines') {
@@ -516,14 +702,14 @@ function mockList(type: ListType) {
       { _id: 'med2', category: '鼻炎', expireDate: '2026-06-18', name: '生理盐水鼻喷', remainingQuantity: 18, unit: 'ml' },
     ]
   }
-  if (type === 'families') return [{ _id: 'f1', createdAt: '2026-05-12', name: '测试家庭' }]
+  if (type === 'families') return [{ _id: 'f1', createdAt: '2026-05-12', name: '测试家庭', plan: 'pro' }]
   return [{ _id: 'a1', aiSummary: 'OCR 待处理', fileType: 'image', relatedType: 'health' }]
 }
 
 function mockTrend(values: number[]): TrendPoint[] {
   return values.map((count, index) => ({
     count,
-    date: `05/${String(6 + index).padStart(2, '0')}`,
+    date: `05-${String(6 + index).padStart(2, '0')}`,
   }))
 }
 

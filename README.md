@@ -7,6 +7,7 @@
 - `miniprogram/`：微信原生小程序前端
 - `cloudfunctions/login`：用户登录、openid 获取、首次家庭初始化
 - `cloudfunctions/healthApi`：统一业务后台接口
+- `cloudfunctions/paymentApi`：会员、订单、优惠券和模拟支付接口
 - `cloudfunctions/adminApi`：管理后台统计接口
 - `docs/`：数据库与发布说明
 - `src/`：产品管理者使用的独立 Web 管理后台
@@ -14,6 +15,7 @@
 ## 已实现
 
 - 用户 openid 登录与家庭初始化
+- 多家庭、家庭切换、家庭共享邀请和角色权限
 - 家庭成员管理
 - 药箱库存管理
 - 健康记录
@@ -22,8 +24,9 @@
 - AI 查询助手安全版，先基于数据库检索，不做诊断或处方
 - 家庭数据导出
 - 按家庭 `familyId` 做数据隔离
-- 管理后台：用户、家庭、药品、记录、附件统计与列表
-- 独立 Web 管理后台：产品管理者查看整体用户和运营数据
+- 会员中心：套餐选择、优惠券预览、订单创建、模拟支付开通
+- 管理后台：用户、家庭、订单、会员家庭、优惠券、AI 用量、药品、记录、附件统计与列表
+- 独立 Web 管理后台：产品管理者查看整体用户、会员收入和运营数据
 
 ## 微信开发者工具运行
 
@@ -31,7 +34,7 @@
 2. 在 `project.config.json` 中替换正式 `appid`。
 3. 在 `miniprogram/app.js` 中填写云开发环境 `ENV_ID`。
 4. 在云开发控制台创建数据库集合，见 [docs/wechat-cloud-database.md](docs/wechat-cloud-database.md)。
-5. 上传并部署 `cloudfunctions/login`、`cloudfunctions/healthApi` 和 `cloudfunctions/adminApi`。
+5. 上传并部署 `cloudfunctions/login`、`cloudfunctions/healthApi`、`cloudfunctions/paymentApi` 和 `cloudfunctions/adminApi`。
 6. 编译运行小程序。
 
 ## 管理后台

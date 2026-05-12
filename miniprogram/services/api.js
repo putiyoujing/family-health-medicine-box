@@ -24,6 +24,27 @@ async function callHealthApi(action, payload = {}) {
   return data
 }
 
+async function callPaymentApi(action, payload = {}) {
+  const app = getApp()
+  const currentFamilyId = app.globalData && app.globalData.currentFamilyId
+  const result = await wx.cloud.callFunction({
+    name: 'paymentApi',
+    data: {
+      action,
+      payload: {
+        ...payload,
+        familyId: payload.familyId || currentFamilyId || '',
+      },
+    },
+  })
+
+  if (!result.result || !result.result.ok) {
+    throw new Error((result.result && result.result.message) || '支付云函数调用失败')
+  }
+
+  return result.result.data
+}
+
 async function getHome() {
   return callHealthApi('getHome')
 }
@@ -112,9 +133,35 @@ async function exportData() {
   return callHealthApi('exportData')
 }
 
+async function getPlans() {
+  return callPaymentApi('getPlans')
+}
+
+async function listCouponsForUser(payload = {}) {
+  return callPaymentApi('listCouponsForUser', payload)
+}
+
+async function previewOrder(payload) {
+  return callPaymentApi('previewOrder', payload)
+}
+
+async function createOrder(payload) {
+  return callPaymentApi('createOrder', payload)
+}
+
+async function applyCoupon(payload) {
+  return callPaymentApi('applyCoupon', payload)
+}
+
+async function mockPaymentSuccess(payload) {
+  return callPaymentApi('mockPaymentSuccess', payload)
+}
+
 module.exports = {
   assistantQuery,
   acceptFamilyInvite,
+  applyCoupon,
+  createOrder,
   createFamilyInvite,
   deleteIllness,
   deleteMedication,
@@ -124,8 +171,12 @@ module.exports = {
   getFamilyInvite,
   getHome,
   getMembershipStatus,
+  getPlans,
   listFamilyRoles,
+  listCouponsForUser,
   listMyFamilies,
+  mockPaymentSuccess,
+  previewOrder,
   removeFamilyUser,
   saveAttachment,
   saveIllness,

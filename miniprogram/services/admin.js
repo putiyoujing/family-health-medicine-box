@@ -42,12 +42,32 @@ async function listAttachments(payload) {
   return callAdminApi('listAttachments', payload)
 }
 
+async function listOrders(payload) {
+  return callAdminApi('listOrders', payload)
+}
+
+async function listSubscriptions(payload) {
+  return callAdminApi('listSubscriptions', payload)
+}
+
+async function listCoupons(payload) {
+  return callAdminApi('listCoupons', payload)
+}
+
+async function listAiUsage(payload) {
+  return callAdminApi('listAiUsage', payload)
+}
+
 module.exports = {
   getDashboard,
+  listAiUsage,
   listAttachments,
+  listCoupons,
   listFamilies,
   listIllness,
   listMedication,
   listMedicines,
+  listOrders,
+  listSubscriptions,
   listUsers,
 }

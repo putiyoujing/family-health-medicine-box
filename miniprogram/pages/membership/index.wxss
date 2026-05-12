@@ -1,6 +1,6 @@
 .member-hero {
   margin-bottom: 24rpx;
-  padding: 32rpx;
+  padding: 34rpx;
   background: linear-gradient(135deg, #eef7f1 0%, #fff6e5 100%);
   border-radius: 28rpx;
   box-shadow: 0 8rpx 24rpx rgba(36, 53, 46, 0.06);
@@ -15,21 +15,124 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16rpx;
-  padding: 24rpx;
+  padding: 26rpx;
   background: #ffffff;
-  border: 1rpx solid rgba(63, 125, 91, 0.12);
+  border: 2rpx solid rgba(63, 125, 91, 0.12);
   border-radius: 24rpx;
 }
 
 .recommend-plan {
-  background: #eef7f1;
-  border-color: #3f7d5b;
+  background: #f7fbf7;
 }
 
-.price {
+.active-plan {
+  border-color: #3f7d5b;
+  box-shadow: 0 10rpx 26rpx rgba(63, 125, 91, 0.12);
+}
+
+.plan-copy {
+  max-width: 430rpx;
+}
+
+.plan-price {
   color: #3f7d5b;
-  font-size: 42rpx;
+  font-size: 44rpx;
   font-weight: 800;
+  line-height: 1;
+}
+
+.plan-price text {
+  margin-right: 2rpx;
+  font-size: 24rpx;
+}
+
+.coupon-form {
+  display: flex;
+  gap: 14rpx;
+  align-items: center;
+}
+
+.coupon-form input {
+  flex: 1;
+  height: 72rpx;
+  padding: 0 20rpx;
+  background: #f7faf7;
+  border: 1rpx solid #dce4dd;
+  border-radius: 16rpx;
+}
+
+.coupon-form button,
+.primary-action {
+  height: 72rpx;
+  color: #ffffff;
+  background: #3f7d5b;
+  border-radius: 16rpx;
+}
+
+.coupon-form button {
+  width: 150rpx;
+  font-size: 26rpx;
+}
+
+.coupon-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 18rpx;
+}
+
+.coupon-chip {
+  display: inline-flex;
+  gap: 10rpx;
+  align-items: center;
+  padding: 12rpx 16rpx;
+  color: #3f7d5b;
+  background: #eef7f1;
+  border: 1rpx solid rgba(63, 125, 91, 0.16);
+  border-radius: 999rpx;
+  font-size: 24rpx;
+}
+
+.active-coupon {
+  color: #ffffff;
+  background: #3f7d5b;
+}
+
+.clear-coupon {
+  margin-top: 14rpx;
+}
+
+.checkout-card {
+  border: 2rpx solid rgba(244, 185, 95, 0.32);
+}
+
+.checkout-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 14rpx 0;
+  color: #66726c;
+}
+
+.total-row {
+  align-items: baseline;
+  color: #24352e;
+  font-weight: 800;
+  border-top: 1rpx solid rgba(63, 125, 91, 0.12);
+}
+
+.total-row text:last-child {
+  color: #3f7d5b;
+  font-size: 44rpx;
+}
+
+.primary-action {
+  margin-top: 18rpx;
+  font-weight: 800;
+}
+
+.payment-note {
+  margin-top: 14rpx;
+  text-align: center;
 }
 
 .benefit-row {

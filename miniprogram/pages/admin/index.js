@@ -8,6 +8,9 @@ Page({
     stats: {},
     health: {},
     risk: {},
+    revenue: {},
+    membership: {},
+    aiUsage: {},
     trend: {},
     trendCards: [],
     generatedAt: '',
@@ -34,6 +37,14 @@ Page({
         stats: data.stats,
         health: data.health,
         risk: data.risk,
+        revenue: {
+          ...data.revenue,
+          revenueText: formatMoney(data.revenue && data.revenue.revenueAmount),
+          discountText: formatMoney(data.revenue && data.revenue.discountAmount),
+          averageOrderText: formatMoney(data.revenue && data.revenue.averageOrderAmount),
+        },
+        membership: data.membership || {},
+        aiUsage: data.aiUsage || {},
         trend: data.trend,
         trendCards: this.buildTrendCards(data.trend),
         generatedAt: formatDateTime(data.generatedAt),
@@ -61,6 +72,9 @@ Page({
   buildTrendCards(trend) {
     const config = [
       ['新增用户', 'users'],
+      ['新增订单', 'orders'],
+      ['付费订单', 'paidOrders'],
+      ['AI 用量', 'aiUsage'],
       ['新增药品', 'medicines'],
       ['新增健康记录', 'illnessRecords'],
       ['新增用药记录', 'medicationLogs'],
@@ -105,6 +119,10 @@ Page({
     const config = {
       users: ['用户列表', adminApi.listUsers],
       families: ['家庭列表', adminApi.listFamilies],
+      orders: ['订单列表', adminApi.listOrders],
+      subscriptions: ['会员家庭', adminApi.listSubscriptions],
+      coupons: ['优惠券列表', adminApi.listCoupons],
+      aiUsage: ['AI 用量', adminApi.listAiUsage],
       medicines: ['药品列表', adminApi.listMedicines],
       illness: ['健康记录', adminApi.listIllness],
       medication: ['用药记录', adminApi.listMedication],
@@ -142,7 +160,39 @@ Page({
           id: item._id,
           title: item.name || '未命名家庭',
           subtitle: `创建：${formatDateTime(item.createdAt)}`,
-          tag: item.ownerOpenid ? 'owner' : 'family',
+          tag: item.plan || (item.ownerOpenid ? 'owner' : 'family'),
+        }
+      }
+      if (type === 'orders') {
+        return {
+          id: item._id,
+          title: item.orderNo || '未命名订单',
+          subtitle: `${item.planName || item.planId || '套餐'} · 应付 ${formatMoney(item.payableAmount)} · ${formatDateTime(item.createdAt)}`,
+          tag: item.status || 'pending',
+        }
+      }
+      if (type === 'subscriptions') {
+        return {
+          id: item._id,
+          title: item.planName || item.planId || '会员订阅',
+          subtitle: `家庭：${item.familyId || '-'} · 到期：${formatDateTime(item.expireAt)}`,
+          tag: item.status || 'active',
+        }
+      }
+      if (type === 'coupons') {
+        return {
+          id: item._id,
+          title: item.name || item.code || '优惠券',
+          subtitle: `${item.code || '-'} · 已用 ${item.usedQuantity || 0}/${item.totalQuantity || '不限'}`,
+          tag: item.status || 'active',
+        }
+      }
+      if (type === 'aiUsage') {
+        return {
+          id: item._id,
+          title: item.usageType || 'AI 用量',
+          subtitle: `家庭：${item.familyId || '-'} · ${formatDateTime(item.createdAt)}`,
+          tag: item.count || 1,
         }
       }
       if (type === 'medicines') {
@@ -178,3 +228,7 @@ Page({
     })
   },
 })
+
+function formatMoney(amount) {
+  return `¥${(Number(amount || 0) / 100).toFixed(2).replace(/\.00$/, '')}`
+}

@@ -31,6 +31,24 @@ exports.main = async (event = {}) => {
         return ok(await pageList('medication_logs', payload))
       case 'listAttachments':
         return ok(await pageList('attachments', payload))
+      case 'listOrders':
+      case 'adminListOrders':
+        return ok(await pageList('orders', payload))
+      case 'listSubscriptions':
+      case 'adminListSubscriptions':
+        return ok(await pageList('subscriptions', payload))
+      case 'listCoupons':
+      case 'adminListCoupons':
+        return ok(await pageList('coupons', payload))
+      case 'listAiUsage':
+      case 'adminListAiUsage':
+        return ok(await pageList('ai_usage_logs', payload))
+      case 'createCoupon':
+      case 'adminCreateCoupon':
+        return ok(await createCoupon(payload))
+      case 'updateCoupon':
+      case 'adminUpdateCoupon':
+        return ok(await updateCoupon(payload))
       default:
         return fail(`unknown admin action: ${action}`)
     }
@@ -66,7 +84,23 @@ async function assertAdmin(openid, event) {
 }
 
 async function getDashboard() {
-  const [users, families, members, medicines, illnessRecords, medicationLogs, attachments, reminders] =
+  const [
+    users,
+    families,
+    members,
+    medicines,
+    illnessRecords,
+    medicationLogs,
+    attachments,
+    reminders,
+    orders,
+    paidOrders,
+    subscriptions,
+    activeSubscriptions,
+    coupons,
+    couponRedemptions,
+    aiUsageLogs,
+  ] =
     await Promise.all([
     count('users'),
     count('families'),
@@ -76,16 +110,40 @@ async function getDashboard() {
     count('medication_logs'),
     count('attachments'),
     count('reminders'),
+    count('orders'),
+    countWhere('orders', { status: 'paid', deletedAt: _.exists(false) }),
+    count('subscriptions'),
+    countActiveSubscriptions(),
+    count('coupons'),
+    countWhere('coupon_redemptions', { status: 'used' }),
+    count('ai_usage_logs'),
   ])
 
-  const [recentUsers, recentIllness, recentMedication, medicineSample, memberSample, attachmentSample] =
+  const [
+    recentUsers,
+    recentIllness,
+    recentMedication,
+    recentOrders,
+    recentSubscriptions,
+    recentCoupons,
+    recentAiUsage,
+    medicineSample,
+    memberSample,
+    attachmentSample,
+    paidOrderSample,
+  ] =
     await Promise.all([
       latest('users', 8),
       latest('illness_records', 8),
       latest('medication_logs', 8),
+      latest('orders', 8),
+      latest('subscriptions', 8),
+      latest('coupons', 8),
+      latest('ai_usage_logs', 8),
       sample('medicines', 100),
       sample('family_members', 100),
       sample('attachments', 100),
+      paidOrdersSample(200),
     ])
 
   const expiringMedicines = medicineSample.data
@@ -106,7 +164,12 @@ async function getDashboard() {
     illnessRecords: await trendCount('illness_records', 'createdAt', 7),
     medicationLogs: await trendCount('medication_logs', 'createdAt', 7),
     medicines: await trendCount('medicines', 'createdAt', 7),
+    orders: await trendCount('orders', 'createdAt', 7),
+    paidOrders: await trendCountWhere('orders', 'paidAt', 7, { status: 'paid' }),
+    aiUsage: await trendCount('ai_usage_logs', 'createdAt', 7),
   }
+  const revenue = buildRevenue(paidOrderSample.data)
+  const aiUsage = buildAiUsage(recentAiUsage.data)
 
   return {
     stats: {
@@ -118,6 +181,22 @@ async function getDashboard() {
       medicationLogs,
       attachments,
       reminders,
+      orders,
+      paidOrders,
+      subscriptions,
+      activeSubscriptions,
+      coupons,
+      couponRedemptions,
+      aiUsageLogs,
+    },
+    revenue,
+    membership: {
+      paidOrders,
+      pendingOrders: Math.max(orders - paidOrders, 0),
+      subscriptions,
+      activeSubscriptions,
+      conversionRate: ratio(paidOrders, users),
+      memberFamilyRate: ratio(activeSubscriptions, families),
     },
     health: {
       averageMembersPerFamily: ratio(members, families),
@@ -133,9 +212,14 @@ async function getDashboard() {
       pendingOcrAttachments: pendingOcrAttachments.length,
     },
     trend,
+    aiUsage,
     recentUsers: recentUsers.data,
     recentIllness: recentIllness.data,
     recentMedication: recentMedication.data,
+    recentOrders: recentOrders.data,
+    recentSubscriptions: recentSubscriptions.data,
+    recentCoupons: recentCoupons.data,
+    recentAiUsage: recentAiUsage.data,
     expiringMedicines,
     lowStockMedicines,
     missingProfileMembers: missingProfileMembers.slice(0, 20),
@@ -145,52 +229,128 @@ async function getDashboard() {
 }
 
 async function count(collection) {
-  const result = await db
-    .collection(collection)
-    .where({
-      deletedAt: _.exists(false),
-    })
-    .count()
-  return result.total
-}
-
-async function latest(collection, limit) {
-  return db
-    .collection(collection)
-    .where({
-      deletedAt: _.exists(false),
-    })
-    .orderBy('createdAt', 'desc')
-    .limit(limit)
-    .get()
-}
-
-async function sample(collection, limit) {
-  return db
-    .collection(collection)
-    .where({
-      deletedAt: _.exists(false),
-    })
-    .orderBy('updatedAt', 'desc')
-    .limit(limit)
-    .get()
-}
-
-async function trendCount(collection, field, days) {
-  const trend = []
-  for (let index = days - 1; index >= 0; index -= 1) {
-    const day = dateOffset(-index)
-    const nextDay = dateOffset(-index + 1)
+  try {
     const result = await db
       .collection(collection)
       .where({
         deletedAt: _.exists(false),
-        [field]: _.gte(day).and(_.lt(nextDay)),
       })
       .count()
+    return result.total
+  } catch (error) {
+    console.warn(`count ${collection}`, error.message)
+    return 0
+  }
+}
+
+async function countWhere(collection, query) {
+  try {
+    const result = await db.collection(collection).where(query).count()
+    return result.total
+  } catch (error) {
+    console.warn(`countWhere ${collection}`, error.message)
+    return 0
+  }
+}
+
+async function countActiveSubscriptions() {
+  try {
+    const result = await db
+      .collection('subscriptions')
+      .where({
+        status: 'active',
+        expireAt: _.gt(new Date()),
+        deletedAt: _.exists(false),
+      })
+      .count()
+    return result.total
+  } catch (error) {
+    console.warn('countActiveSubscriptions', error.message)
+    return 0
+  }
+}
+
+async function latest(collection, limit) {
+  try {
+    return await db
+      .collection(collection)
+      .where({
+        deletedAt: _.exists(false),
+      })
+      .orderBy('createdAt', 'desc')
+      .limit(limit)
+      .get()
+  } catch (error) {
+    console.warn(`latest ${collection}`, error.message)
+    return {
+      data: [],
+    }
+  }
+}
+
+async function sample(collection, limit) {
+  try {
+    return await db
+      .collection(collection)
+      .where({
+        deletedAt: _.exists(false),
+      })
+      .orderBy('updatedAt', 'desc')
+      .limit(limit)
+      .get()
+  } catch (error) {
+    console.warn(`sample ${collection}`, error.message)
+    return {
+      data: [],
+    }
+  }
+}
+
+async function paidOrdersSample(limit) {
+  try {
+    return db
+      .collection('orders')
+      .where({
+        deletedAt: _.exists(false),
+        status: 'paid',
+      })
+      .orderBy('paidAt', 'desc')
+      .limit(limit)
+      .get()
+  } catch (error) {
+    console.warn('paidOrdersSample', error.message)
+    return {
+      data: [],
+    }
+  }
+}
+
+async function trendCount(collection, field, days) {
+  return trendCountWhere(collection, field, days, {})
+}
+
+async function trendCountWhere(collection, field, days, extraQuery) {
+  const trend = []
+  for (let index = days - 1; index >= 0; index -= 1) {
+    const day = dateOffset(-index)
+    const nextDay = dateOffset(-index + 1)
+    let total = 0
+    try {
+      const result = await db
+        .collection(collection)
+        .where({
+          ...extraQuery,
+          deletedAt: _.exists(false),
+          [field]: _.gte(day).and(_.lt(nextDay)),
+        })
+        .count()
+      total = result.total
+    } catch (error) {
+      console.warn(`trend ${collection}`, error.message)
+    }
     trend.push({
-      date: day.slice(5, 10),
-      count: result.total,
+      date: formatDateLabel(day),
+      count: total,
     })
   }
   return trend
@@ -199,15 +359,22 @@ async function trendCount(collection, field, days) {
 async function pageList(collection, payload) {
   const limit = Math.min(Number(payload.limit || 50), 100)
   const skip = Math.max(Number(payload.skip || 0), 0)
-  const result = await db
-    .collection(collection)
-    .where({
-      deletedAt: _.exists(false),
-    })
-    .orderBy('createdAt', 'desc')
-    .skip(skip)
-    .limit(limit)
-    .get()
+  let result = {
+    data: [],
+  }
+  try {
+    result = await db
+      .collection(collection)
+      .where({
+        deletedAt: _.exists(false),
+      })
+      .orderBy('createdAt', 'desc')
+      .skip(skip)
+      .limit(limit)
+      .get()
+  } catch (error) {
+    console.warn(`pageList ${collection}`, error.message)
+  }
   return {
     list: result.data,
     skip,
@@ -215,10 +382,105 @@ async function pageList(collection, payload) {
   }
 }
 
-function daysFromNow(days) {
-  const date = new Date()
-  date.setDate(date.getDate() + days)
-  return date.toISOString().slice(0, 10)
+async function createCoupon(payload) {
+  const code = String(payload.code || '').trim().toUpperCase()
+  if (!code) {
+    throw new Error('coupon code is required')
+  }
+  const existing = await db
+    .collection('coupons')
+    .where({
+      code,
+      deletedAt: _.exists(false),
+    })
+    .limit(1)
+    .get()
+  if (existing.data.length) {
+    throw new Error('coupon code already exists')
+  }
+  const now = db.serverDate()
+  const data = normalizeCouponPayload(payload)
+  const result = await db.collection('coupons').add({
+    data: {
+      ...data,
+      code,
+      usedQuantity: 0,
+      createdAt: now,
+      updatedAt: now,
+    },
+  })
+  return {
+    id: result._id,
+    code,
+  }
+}
+
+async function updateCoupon(payload) {
+  const id = payload._id || payload.id
+  if (!id) {
+    throw new Error('coupon id is required')
+  }
+  const data = normalizeCouponPayload(payload)
+  delete data.code
+  await db.collection('coupons').doc(id).update({
+    data: {
+      ...data,
+      updatedAt: db.serverDate(),
+    },
+  })
+  return {
+    id,
+  }
+}
+
+function normalizeCouponPayload(payload) {
+  return {
+    name: payload.name || '未命名优惠券',
+    code: payload.code ? String(payload.code).trim().toUpperCase() : undefined,
+    type: payload.type || 'fixed_amount',
+    value: Number(payload.value || 0),
+    applicablePlans: Array.isArray(payload.applicablePlans) ? payload.applicablePlans : [],
+    minAmount: Number(payload.minAmount || 0),
+    maxDiscountAmount: Number(payload.maxDiscountAmount || 0),
+    totalQuantity: Number(payload.totalQuantity || 0),
+    perUserLimit: Number(payload.perUserLimit || 1),
+    perFamilyLimit: Number(payload.perFamilyLimit || 1),
+    startAt: payload.startAt || null,
+    endAt: payload.endAt || null,
+    familyId: payload.familyId || '',
+    status: payload.status || 'active',
+  }
+}
+
+function buildRevenue(orders) {
+  const paid = orders || []
+  const revenueAmount = paid.reduce((sum, order) => sum + Number(order.payableAmount || 0), 0)
+  const discountAmount = paid.reduce((sum, order) => sum + Number(order.discountAmount || 0), 0)
+  const yearlyOrders = paid.filter((order) => order.planId === 'yearly_pro').length
+  const monthlyOrders = paid.filter((order) => order.planId === 'monthly_pro').length
+  return {
+    revenueAmount,
+    discountAmount,
+    averageOrderAmount: paid.length ? Math.round(revenueAmount / paid.length) : 0,
+    yearlyOrders,
+    monthlyOrders,
+  }
+}
+
+function buildAiUsage(logs) {
+  const summary = {
+    total: logs.length,
+    assistantQuery: 0,
+    imageParse: 0,
+  }
+  logs.forEach((log) => {
+    if (log.usageType === 'image_parse') {
+      summary.imageParse += Number(log.count || 1)
+    } else {
+      summary.assistantQuery += Number(log.count || 1)
+    }
+  })
+  return summary
 }
 
 function dateOffset(offset) {
@@ -226,6 +488,10 @@ function dateOffset(offset) {
   date.setHours(0, 0, 0, 0)
   date.setDate(date.getDate() + offset)
   return date
+}
+
+function formatDateLabel(date) {
+  return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 function daysUntil(dateValue) {

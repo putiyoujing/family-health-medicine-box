@@ -135,6 +135,7 @@
 }
 
 .config-warning,
+.commerce-card,
 .error-box,
 .panel,
 .stat-card {
@@ -192,6 +193,58 @@
   color: #102018;
   font-size: 34px;
   line-height: 1;
+}
+
+.commerce-grid {
+  display: grid;
+  grid-template-columns: 1.25fr repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.commerce-card {
+  display: grid;
+  gap: 12px;
+  min-height: 160px;
+  padding: 18px;
+}
+
+.revenue-card {
+  color: #f7fbf7;
+  background: #24352e;
+  border-color: #24352e;
+}
+
+.commerce-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #66726c;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.revenue-card .commerce-head {
+  color: #d8f2de;
+}
+
+.commerce-card strong {
+  color: #102018;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.revenue-card strong {
+  color: #ffffff;
+  font-size: 44px;
+}
+
+.commerce-card p {
+  margin: 0;
+  color: #66726c;
+}
+
+.revenue-card p {
+  color: #d8f2de;
 }
 
 .panel-grid {
@@ -342,6 +395,7 @@
 
 @media (max-width: 1180px) {
   .stat-grid,
+  .commerce-grid,
   .trend-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -359,6 +413,7 @@
   }
 
   .stat-grid,
+  .commerce-grid,
   .trend-grid,
   .health-grid {
     grid-template-columns: 1fr;

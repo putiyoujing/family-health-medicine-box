@@ -7,14 +7,63 @@
   </view>
 
   <view class="section">
-    <view class="section-title">套餐</view>
-    <view class="plan-card {{item.badge ? 'recommend-plan' : ''}}" wx:for="{{plans}}" wx:key="planId" data-id="{{item.planId}}" bindtap="choosePlan">
-      <view>
+    <view class="section-title">选择套餐</view>
+    <view
+      class="plan-card {{item.badge ? 'recommend-plan' : ''}} {{item.active ? 'active-plan' : ''}}"
+      wx:for="{{plans}}"
+      wx:key="planId"
+      data-id="{{item.planId}}"
+      bindtap="choosePlan"
+    >
+      <view class="plan-copy">
         <view class="record-title">{{item.name}}</view>
         <view class="muted">{{item.durationDays}} 天 · {{item.badge || '适合先体验'}}</view>
       </view>
-      <view class="price">¥{{item.displayPrice}}</view>
+      <view class="plan-price">
+        <text>¥</text>{{item.priceText}}
+      </view>
     </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">优惠券</view>
+    <view class="coupon-form">
+      <input value="{{couponCode}}" placeholder="输入优惠码" bindinput="onCouponInput" />
+      <button bindtap="applyCoupon" loading="{{paying}}">使用</button>
+    </view>
+    <view class="coupon-list" wx:if="{{coupons.length}}">
+      <view
+        class="coupon-chip {{couponCode === item.code ? 'active-coupon' : ''}}"
+        wx:for="{{coupons}}"
+        wx:key="_id"
+        data-code="{{item.code}}"
+        bindtap="chooseCoupon"
+      >
+        <text>{{item.code}}</text>
+        <text>{{item.discountPreview}}</text>
+      </view>
+    </view>
+    <view wx:if="{{couponCode}}" class="muted clear-coupon" bindtap="clearCoupon">清除当前优惠码</view>
+  </view>
+
+  <view class="section checkout-card">
+    <view class="section-title">订单预览</view>
+    <view class="checkout-row">
+      <text>原价</text>
+      <text>¥{{preview.originalAmount ? (preview.originalAmount / 100) : '0'}}</text>
+    </view>
+    <view class="checkout-row">
+      <text>优惠</text>
+      <text>- ¥{{preview.discountAmount ? (preview.discountAmount / 100) : '0'}}</text>
+    </view>
+    <view class="checkout-row total-row">
+      <text>应付</text>
+      <text>¥{{preview.payableAmount ? (preview.payableAmount / 100) : '0'}}</text>
+    </view>
+    <button class="primary-action" bindtap="createOrder" loading="{{paying}}">
+      {{paying ? '处理中' : '确认开通'}}
+    </button>
+    <view class="muted payment-note">当前版本使用模拟支付闭环，正式发布前再接入微信官方支付。</view>
   </view>
 
   <view class="section">
@@ -27,6 +76,6 @@
 
   <view class="section">
     <view class="section-title">会员价值</view>
-    <view class="muted">会员可获得更多家庭成员、共享成员、AI 图片识别、长期健康记录保存、导出和健康月报能力。当前先完成权益底座，真实支付将在下一阶段接入。</view>
+    <view class="muted">会员可获得更多家庭成员、共享成员、AI 图片识别、长期健康记录保存、导出和健康月报能力。</view>
   </view>
 </view>

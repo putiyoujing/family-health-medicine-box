@@ -34,8 +34,8 @@
 3. 读取 `users.currentFamilyId`，也支持请求显式传入 `familyId`。
 4. 所有业务集合按 `familyId` 隔离。
 5. 所有写入操作校验当前 openid 在该家庭的角色权限。
-4. 删除采用软删除，写入 `deletedAt`。
-5. 用药记录若关联健康记录，必须校验该健康记录也属于当前家庭。
+6. 删除采用软删除，写入 `deletedAt`。
+7. 用药记录若关联健康记录，必须校验该健康记录也属于当前家庭。
 
 ## 家庭与会员字段
 
@@ -114,6 +114,25 @@
 - `listIllness`：健康记录列表。
 - `listMedication`：用药记录列表。
 - `listAttachments`：附件列表。
+- `listOrders` / `adminListOrders`：订单列表。
+- `listSubscriptions` / `adminListSubscriptions`：会员家庭列表。
+- `listCoupons` / `adminListCoupons`：优惠券列表。
+- `listAiUsage` / `adminListAiUsage`：AI 用量列表。
+- `createCoupon` / `adminCreateCoupon`：创建优惠券。
+- `updateCoupon` / `adminUpdateCoupon`：更新优惠券。
+
+### paymentApi
+
+会员与订单入口：
+
+- `getPlans`：读取会员套餐。
+- `previewOrder`：预览订单金额和优惠。
+- `createOrder`：创建待支付订单。
+- `applyCoupon`：校验并应用优惠券。
+- `listCouponsForUser`：列出当前家庭可用优惠券。
+- `mockPaymentSuccess`：模拟支付成功，创建订阅并开通家庭会员。
+
+第一版使用 `mock` 支付闭环，正式上线前再接入微信官方支付或虚拟支付能力。
 
 ## 管理员配置
 
@@ -137,9 +156,10 @@
 3. 上传并部署 `cloudfunctions/login`。
 4. 上传并部署 `cloudfunctions/healthApi`。
 5. 上传并部署 `cloudfunctions/adminApi`。
-6. 创建上述数据库集合。
-7. 创建商业版新增集合：`family_invites`、`plans`、`orders`、`subscriptions`、`coupons`、`coupon_redemptions`、`ai_tasks`、`ai_usage_logs`。
-8. 云存储开启，用于检查单、处方、药盒、说明书图片。
+6. 上传并部署 `cloudfunctions/paymentApi`。
+7. 创建上述数据库集合。
+8. 创建商业版新增集合：`family_invites`、`plans`、`orders`、`subscriptions`、`coupons`、`coupon_redemptions`、`ai_tasks`、`ai_usage_logs`。
+9. 云存储开启，用于检查单、处方、药盒、说明书图片。
 
 ## 后续增强
 
