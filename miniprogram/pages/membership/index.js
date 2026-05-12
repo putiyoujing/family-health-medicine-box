@@ -1,14 +1,46 @@
 const api = require('../../services/api')
 
+const DEFAULT_PLANS = [
+  {
+    planId: 'yearly_pro',
+    name: '年度会员',
+    price: 9900,
+    durationDays: 365,
+    badge: '推荐',
+    sort: 0,
+    benefitsText: '10 位家庭成员、6 位共享成员、长期健康记录、AI 问答与数据导出',
+  },
+  {
+    planId: 'monthly_pro',
+    name: '月度会员',
+    price: 990,
+    durationDays: 30,
+    badge: '灵活体验',
+    sort: 1,
+    benefitsText: '适合先体验完整家庭共享、用药记录和药箱管理能力',
+  },
+]
+
+const DEFAULT_ENTITLEMENT = {
+  planName: '免费版',
+  limits: {
+    maxMembers: 3,
+    maxSharedUsers: 1,
+    maxMedicines: 50,
+    maxHealthRecords: 200,
+    maxMedicationLogs: 500,
+    maxAttachments: 20,
+    aiAssistantMonthly: 20,
+    aiImageParseMonthly: 0,
+  },
+}
+
 Page({
   data: {
     loading: true,
     paying: false,
     family: {},
-    entitlement: {
-      planName: '免费版',
-      limits: {},
-    },
+    entitlement: DEFAULT_ENTITLEMENT,
     usage: {},
     plans: [],
     coupons: [],
@@ -25,28 +57,50 @@ Page({
 
   async load() {
     this.setData({ loading: true })
-    try {
-      const [membership, planData] = await Promise.all([
-        api.getMembershipStatus(),
-        api.getPlans(),
-      ])
-      const plans = decoratePlans(planData.plans || membership.plans || [], this.data.selectedPlanId)
-      const selectedPlanId = plans[0] ? plans[0].planId : this.data.selectedPlanId
-      this.setData({
-        loading: false,
-        family: membership.family,
-        entitlement: membership.entitlement,
-        usage: membership.usage,
-        plans: decoratePlans(plans, selectedPlanId),
-        selectedPlanId,
-        benefitRows: buildBenefitRows(membership.entitlement.limits, membership.usage),
-      })
-      await this.loadCoupons()
-      await this.refreshPreview()
-    } catch (error) {
-      this.setData({ loading: false })
-      wx.showToast({ title: error.message || '加载失败', icon: 'none' })
+    let membership = {
+      family: {},
+      entitlement: this.data.entitlement,
+      usage: {},
+      plans: [],
     }
+    let planData = { plans: [] }
+
+    try {
+      membership = await api.getMembershipStatus()
+    } catch (error) {
+      membership = {
+        family: {},
+        entitlement: this.data.entitlement,
+        usage: {},
+        plans: [],
+      }
+    }
+
+    try {
+      planData = await api.getPlans()
+    } catch (error) {
+      planData = { plans: [] }
+    }
+
+    const planSource = pickPlans(planData.plans, membership.plans)
+    const selectedPlanId = planSource.some((plan) => plan.planId === this.data.selectedPlanId)
+      ? this.data.selectedPlanId
+      : planSource[0].planId
+    const plans = decoratePlans(planSource, selectedPlanId)
+    const entitlement = membership.entitlement || this.data.entitlement
+    const usage = membership.usage || {}
+
+    this.setData({
+      loading: false,
+      family: membership.family || {},
+      entitlement,
+      usage,
+      plans,
+      selectedPlanId,
+      benefitRows: buildBenefitRows(entitlement.limits || {}, usage),
+    })
+    await this.loadCoupons()
+    await this.refreshPreview()
   },
 
   async loadCoupons() {
@@ -102,6 +156,7 @@ Page({
     if (!this.data.selectedPlanId) {
       return
     }
+    const selectedPlan = this.data.plans.find((plan) => plan.planId === this.data.selectedPlanId)
     try {
       const preview = await api.previewOrder({
         planId: this.data.selectedPlanId,
@@ -117,6 +172,8 @@ Page({
       }
       if (this.data.couponCode) {
         this.setData({ preview: null })
+      } else if (selectedPlan) {
+        this.setData({ preview: buildLocalPreview(selectedPlan) })
       }
     }
   },
@@ -150,8 +207,8 @@ Page({
   confirmMockPay(order) {
     wx.showModal({
       title: '确认支付',
-      content: `订单 ${order.orderNo}，应付 ¥${formatMoney(order.payableAmount)}。当前版本使用模拟支付完成会员开通。`,
-      confirmText: '模拟支付',
+      content: `订单 ${order.orderNo}，应付 ¥${formatMoney(order.payableAmount)}。确认后为当前家庭开通会员权益。`,
+      confirmText: '确认开通',
       success: (res) => {
         if (res.confirm) {
           this.mockPay(order.orderId)
@@ -181,6 +238,11 @@ Page({
   },
 })
 
+function pickPlans(primaryPlans, fallbackPlans) {
+  const plans = [primaryPlans, fallbackPlans].find((items) => Array.isArray(items) && items.length)
+  return plans && plans.length ? plans : DEFAULT_PLANS
+}
+
 function decoratePlans(plans, selectedPlanId) {
   return (plans || [])
     .slice()
@@ -189,20 +251,39 @@ function decoratePlans(plans, selectedPlanId) {
       ...plan,
       active: plan.planId === selectedPlanId,
       priceText: formatMoney(plan.price),
+      benefitsText: plan.benefitsText || buildPlanBenefitsText(plan),
     }))
+}
+
+function buildPlanBenefitsText(plan) {
+  if (plan.benefitsText) {
+    return plan.benefitsText
+  }
+  if (plan.durationDays >= 365) {
+    return '适合长期记录家庭健康、药箱库存、用药记录和共享协作'
+  }
+  return '适合先体验会员权益与家庭共享能力'
 }
 
 function buildBenefitRows(limits, usage) {
   return [
-    { label: '家庭成员', used: usage.members, limit: limits.maxMembers },
-    { label: '共享成员', used: usage.sharedUsers, limit: limits.maxSharedUsers },
-    { label: '药品数量', used: usage.medicines, limit: limits.maxMedicines },
-    { label: '健康记录', used: usage.healthRecords, limit: limits.maxHealthRecords },
-    { label: '用药记录', used: usage.medicationLogs, limit: limits.maxMedicationLogs },
-    { label: '附件上传', used: usage.attachments, limit: limits.maxAttachments },
-    { label: 'AI 问答', used: usage.aiAssistantMonthly, limit: limits.aiAssistantMonthly },
-    { label: 'AI 图片解析', used: usage.aiImageParseMonthly, limit: limits.aiImageParseMonthly },
+    { label: '家庭成员', used: usage.members || 0, limit: limits.maxMembers || 3 },
+    { label: '共享成员', used: usage.sharedUsers || 0, limit: limits.maxSharedUsers || 1 },
+    { label: '药品数量', used: usage.medicines || 0, limit: limits.maxMedicines || 50 },
+    { label: '健康记录', used: usage.healthRecords || 0, limit: limits.maxHealthRecords || 200 },
+    { label: '用药记录', used: usage.medicationLogs || 0, limit: limits.maxMedicationLogs || 500 },
+    { label: '附件上传', used: usage.attachments || 0, limit: limits.maxAttachments || 20 },
+    { label: 'AI 问答', used: usage.aiAssistantMonthly || 0, limit: limits.aiAssistantMonthly || 20 },
+    { label: 'AI 图片解析', used: usage.aiImageParseMonthly || 0, limit: limits.aiImageParseMonthly || 0 },
   ]
+}
+
+function buildLocalPreview(plan) {
+  return {
+    originalAmount: plan.price || 0,
+    discountAmount: 0,
+    payableAmount: plan.price || 0,
+  }
 }
 
 function formatMoney(amount) {

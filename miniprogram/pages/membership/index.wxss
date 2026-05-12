@@ -31,7 +31,14 @@
 }
 
 .plan-copy {
-  max-width: 430rpx;
+  max-width: 420rpx;
+}
+
+.plan-benefits {
+  margin-top: 10rpx;
+  color: #3f5147;
+  font-size: 24rpx;
+  line-height: 1.45;
 }
 
 .plan-price {
@@ -63,10 +70,14 @@
 
 .coupon-form button,
 .primary-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: 72rpx;
   color: #ffffff;
   background: #3f7d5b;
   border-radius: 16rpx;
+  line-height: 1;
 }
 
 .coupon-form button {

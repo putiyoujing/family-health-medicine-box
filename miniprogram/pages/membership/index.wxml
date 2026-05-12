@@ -18,6 +18,7 @@
       <view class="plan-copy">
         <view class="record-title">{{item.name}}</view>
         <view class="muted">{{item.durationDays}} 天 · {{item.badge || '适合先体验'}}</view>
+        <view class="plan-benefits">{{item.benefitsText}}</view>
       </view>
       <view class="plan-price">
         <text>¥</text>{{item.priceText}}
@@ -63,7 +64,7 @@
     <button class="primary-action" bindtap="createOrder" loading="{{paying}}">
       {{paying ? '处理中' : '确认开通'}}
     </button>
-    <view class="muted payment-note">当前版本使用模拟支付闭环，正式发布前再接入微信官方支付。</view>
+    <view class="muted payment-note">支付完成后，会员权益将立即同步到当前家庭。</view>
   </view>
 
   <view class="section">

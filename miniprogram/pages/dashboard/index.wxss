@@ -1,3 +1,7 @@
+.page {
+  padding-bottom: 132rpx;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -55,7 +59,43 @@
 
 .quick-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16rpx;
   margin-bottom: 24rpx;
+}
+
+.quick-grid .ghost-btn {
+  height: 82rpx;
+  font-weight: 800;
+}
+
+.ai-float {
+  position: fixed;
+  right: 28rpx;
+  bottom: 144rpx;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 112rpx;
+  height: 112rpx;
+  color: #ffffff;
+  background: #2f7d57;
+  border: 6rpx solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  box-shadow: 0 12rpx 28rpx rgba(47, 125, 87, 0.28);
+}
+
+.ai-float-main {
+  font-size: 30rpx;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.ai-float-sub {
+  margin-top: 6rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 1;
 }
