@@ -10,7 +10,7 @@
 - `family_roles`：家庭成员权限，`owner/admin/member/viewer`。
 - `family_members`：家庭成员档案。
 - `medicines`：药箱药品库存。
-- `illness_records`：生病记录。
+- `illness_records`：健康记录。
 - `medication_logs`：用药记录。
 - `attachments`：检查单、处方、药盒、说明书等附件。
 - `reminders`：提醒记录。
@@ -60,7 +60,7 @@
 - `listUsers`：用户列表。
 - `listFamilies`：家庭列表。
 - `listMedicines`：药品列表。
-- `listIllness`：生病记录列表。
+- `listIllness`：健康记录列表。
 - `listMedication`：用药记录列表。
 - `listAttachments`：附件列表。
 

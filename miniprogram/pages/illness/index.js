@@ -126,7 +126,7 @@ Page({
 
   async remove(event) {
     const id = event.currentTarget.dataset.id
-    const confirmed = await confirm('确认删除这条生病记录？')
+    const confirmed = await confirm('确认删除这条健康记录？')
     if (!confirmed) {
       return
     }

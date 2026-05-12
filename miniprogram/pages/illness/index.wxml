@@ -1,10 +1,10 @@
 <view class="page">
   <view class="page-title">
-    <text class="eyebrow">生病记录</text>
-    <view class="h1">谁什么时候生病了</view>
+    <text class="eyebrow">健康记录</text>
+    <view class="h1">记录一次健康情况</view>
   </view>
 
-  <button class="primary-btn add-btn" bindtap="toggleForm">{{showForm ? '收起表单' : '新增生病记录'}}</button>
+  <button class="primary-btn add-btn" bindtap="toggleForm">{{showForm ? '收起表单' : '新增健康记录'}}</button>
 
   <view class="section" wx:if="{{showForm}}">
     <view class="field">
@@ -14,7 +14,7 @@
       </picker>
     </view>
     <view class="field">
-      <text class="field-label">发病时间</text>
+      <text class="field-label">记录时间</text>
       <input class="input" data-field="startedAt" value="{{form.startedAt}}" bindinput="onInput" placeholder="2026-05-11 20:30" />
     </view>
     <view class="field">
@@ -39,7 +39,7 @@
     </view>
     <view class="field">
       <text class="field-label">医生诊断</text>
-      <input class="input" data-field="doctorDiagnosis" value="{{form.doctorDiagnosis}}" bindinput="onInput" placeholder="按病历或医生原话记录" />
+      <input class="input" data-field="doctorDiagnosis" value="{{form.doctorDiagnosis}}" bindinput="onInput" placeholder="按医生记录或原话记录" />
     </view>
     <view class="field">
       <text class="field-label">医嘱</text>
@@ -53,11 +53,11 @@
       <button class="ghost-btn" bindtap="chooseAttachment">上传检查单 / 处方图片</button>
       <view class="muted" wx:if="{{pendingAttachment}}">已暂存 1 张图片，保存记录后关联。OCR 后续接入。</view>
     </view>
-    <button class="primary-btn" bindtap="save">保存生病记录</button>
+    <button class="primary-btn" bindtap="save">保存健康记录</button>
   </view>
 
   <view class="card-list">
-    <view wx:if="{{!records.length}}" class="empty">还没有生病记录</view>
+    <view wx:if="{{!records.length}}" class="empty">还没有健康记录</view>
     <view class="record-card" wx:for="{{records}}" wx:key="_id">
       <view class="record-head">
         <view>

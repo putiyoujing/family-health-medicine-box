@@ -29,7 +29,7 @@
         <view>{{stats.medicines || 0}}</view>
       </view>
       <view class="admin-stat">
-        <text>生病记录</text>
+        <text>健康记录</text>
         <view>{{stats.illnessRecords || 0}}</view>
       </view>
       <view class="admin-stat">
@@ -78,11 +78,11 @@
           <view>{{health.averageMedicinesPerFamily || 0}}</view>
         </view>
         <view class="health-card">
-          <text>户均生病记录</text>
+          <text>户均健康记录</text>
           <view>{{health.averageIllnessPerFamily || 0}}</view>
         </view>
         <view class="health-card">
-          <text>用药/生病</text>
+          <text>用药/健康记录</text>
           <view>{{health.averageMedicationPerIllness || 0}}</view>
         </view>
       </view>
@@ -118,7 +118,7 @@
         <button class="tab {{activeList === 'users' ? 'active' : ''}}" data-type="users" bindtap="switchList">用户</button>
         <button class="tab {{activeList === 'families' ? 'active' : ''}}" data-type="families" bindtap="switchList">家庭</button>
         <button class="tab {{activeList === 'medicines' ? 'active' : ''}}" data-type="medicines" bindtap="switchList">药品</button>
-        <button class="tab {{activeList === 'illness' ? 'active' : ''}}" data-type="illness" bindtap="switchList">生病</button>
+        <button class="tab {{activeList === 'illness' ? 'active' : ''}}" data-type="illness" bindtap="switchList">健康</button>
         <button class="tab {{activeList === 'medication' ? 'active' : ''}}" data-type="medication" bindtap="switchList">用药</button>
         <button class="tab {{activeList === 'attachments' ? 'active' : ''}}" data-type="attachments" bindtap="switchList">附件</button>
       </view>

@@ -324,7 +324,7 @@ async function assistantQuery(openid, question) {
 
   return {
     intent: '历史记录整理',
-    answer: latest ? '我按最近一条生病记录整理了历史情况和关联用药。' : '当前还没有生病记录。',
+    answer: latest ? '我按最近一条健康记录整理了历史情况和关联用药。' : '当前还没有健康记录。',
     facts: latest
       ? [
           `最近记录：${latest.startedAt || '未记录时间'}，症状 ${(latest.symptoms || []).join('、') || '未填'}`,

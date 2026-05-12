@@ -47,7 +47,7 @@
 
   <view class="section">
     <view class="section-title">管理后台</view>
-    <view class="muted">用于查看全局用户、家庭、药品、生病记录、用药记录、附件和风险统计。需要在云数据库 admins 集合添加管理员 openid。</view>
+    <view class="muted">用于查看全局用户、家庭、药品、健康记录、用药记录、附件和风险统计。需要在云数据库 admins 集合添加管理员 openid。</view>
     <button class="ghost-btn export-btn" bindtap="openAdmin">进入管理后台</button>
   </view>
 </view>

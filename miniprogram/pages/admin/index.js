@@ -62,7 +62,7 @@ Page({
     const config = [
       ['新增用户', 'users'],
       ['新增药品', 'medicines'],
-      ['新增生病记录', 'illnessRecords'],
+      ['新增健康记录', 'illnessRecords'],
       ['新增用药记录', 'medicationLogs'],
     ]
     return config.map(([label, key]) => {
@@ -106,7 +106,7 @@ Page({
       users: ['用户列表', adminApi.listUsers],
       families: ['家庭列表', adminApi.listFamilies],
       medicines: ['药品列表', adminApi.listMedicines],
-      illness: ['生病记录', adminApi.listIllness],
+      illness: ['健康记录', adminApi.listIllness],
       medication: ['用药记录', adminApi.listMedication],
       attachments: ['附件列表', adminApi.listAttachments],
     }[type]
@@ -156,7 +156,7 @@ Page({
       if (type === 'illness') {
         return {
           id: item._id,
-          title: (item.symptoms || []).join('、') || item.summary || '生病记录',
+          title: (item.symptoms || []).join('、') || item.summary || '健康记录',
           subtitle: `${item.status || '未填状态'} · ${formatDateTime(item.startedAt)}`,
           tag: item.temperatureMax ? `${item.temperatureMax}℃` : '体温未填',
         }

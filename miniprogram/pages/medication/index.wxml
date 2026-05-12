@@ -20,7 +20,7 @@
       </picker>
     </view>
     <view class="field">
-      <text class="field-label">关联生病记录</text>
+      <text class="field-label">关联健康记录</text>
       <picker mode="selector" range="{{illnessRecords}}" range-key="summary" bindchange="onIllnessChange">
         <view class="picker-value">可选</view>
       </picker>

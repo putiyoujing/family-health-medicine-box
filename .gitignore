@@ -12,6 +12,7 @@ dist
 dist-ssr
 screenshots/
 *.local
+project.private.config.json
 
 # Editor directories and files
 .vscode/*
