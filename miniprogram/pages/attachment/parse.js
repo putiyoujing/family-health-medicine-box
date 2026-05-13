@@ -1,7 +1,7 @@
 const api = require('../../services/api')
 
 const kindOptions = [
-  { label: '药盒 / 药瓶', value: 'medicine_box' },
+  { label: '外包装 / 药瓶', value: 'medicine_box' },
   { label: '药品说明书', value: 'instruction' },
   { label: '处方 / 医嘱', value: 'prescription' },
   { label: '检查单', value: 'examination' },

@@ -9,7 +9,7 @@ const emptyForm = {
   remainingQuantity: '',
   unit: '盒',
   expireDate: '',
-  location: '家庭药箱',
+  location: '家庭常备区',
   source: '常备',
   indicationsText: '',
   instructionText: '',
@@ -110,7 +110,7 @@ Page({
           fileId: this.data.pendingAttachment.fileID,
           imageKind: this.data.pendingAttachment.imageKind || 'medicine_box',
           ocrText: '',
-          aiSummary: '已保存药盒或说明书图片，可进入图片解析确认页整理药品信息。',
+          aiSummary: '已保存外包装或说明书图片，可进入图片解析确认页整理药品信息。',
         })
       }
       wx.hideLoading()
@@ -141,7 +141,7 @@ Page({
   async chooseMedicinePhoto() {
     try {
       const res = await wx.showActionSheet({
-        itemList: ['拍药盒/药瓶', '拍说明书', '从相册选择'],
+        itemList: ['拍外包装/药瓶', '拍说明书', '从相册选择'],
       })
       const imageKind = res.tapIndex === 1 ? 'instruction' : 'medicine_box'
       const sourceType = res.tapIndex === 2 ? ['album'] : ['camera', 'album']
@@ -163,7 +163,7 @@ Page({
         fileId: uploadResult.fileID,
         imageKind,
         ocrText: '',
-        aiSummary: '已上传药盒或说明书图片，等待确认关联药品。',
+        aiSummary: '已上传外包装或说明书图片，等待确认关联药品。',
       })
       wx.hideLoading()
       this.setData({

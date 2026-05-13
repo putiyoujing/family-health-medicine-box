@@ -1,6 +1,6 @@
 {
   "appid": "touristappid",
-  "projectname": "family-health-medicine-box",
+  "projectname": "jiaren-health-note",
   "compileType": "miniprogram",
   "miniprogramRoot": "miniprogram/",
   "cloudfunctionRoot": "cloudfunctions/",

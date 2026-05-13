@@ -10,10 +10,10 @@
 - `family_roles`：家庭成员权限，`owner/admin/member/viewer`。
 - `family_invites`：家庭共享邀请，记录邀请码、角色、有效期和使用状态。
 - `family_members`：家庭成员档案。
-- `medicines`：药箱药品库存。
+- `medicines`：家庭常备健康用品记录。
 - `illness_records`：健康记录。
 - `medication_logs`：用药记录。
-- `attachments`：检查单、处方、药盒、说明书等附件。
+- `attachments`：检查单、处方、外包装、说明书等附件。
 - `reminders`：提醒记录。
 - `plans`：会员套餐。
 - `orders`：会员订单。
@@ -161,7 +161,7 @@
 6. 上传并部署 `cloudfunctions/paymentApi`。
 7. 创建上述数据库集合。
 8. 创建商业版新增集合：`family_invites`、`plans`、`orders`、`subscriptions`、`coupons`、`coupon_redemptions`、`ai_tasks`、`ai_usage_logs`。
-9. 云存储开启，用于检查单、处方、药盒、说明书图片。
+9. 云存储开启，用于检查单、处方、外包装、说明书图片。
 
 ## 外部服务接入
 

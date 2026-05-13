@@ -1,7 +1,7 @@
 <view class="page">
   <view class="page-title">
-    <text class="eyebrow">药箱库存管理</text>
-    <view class="h1">家里有哪些药</view>
+    <text class="eyebrow">家庭常备记录</text>
+    <view class="h1">常备健康用品</view>
   </view>
 
   <view class="section">
@@ -13,8 +13,8 @@
   <view class="section" wx:if="{{showForm}}">
     <view class="photo-panel">
       <view>
-        <view class="record-title">药盒/说明书照片</view>
-        <view class="muted">拍照留存药盒、有效期、说明书，后续可用 AI 辅助整理。</view>
+        <view class="record-title">外包装/说明书照片</view>
+        <view class="muted">拍照留存名称、有效期、说明书，后续可用 AI 辅助整理。</view>
       </view>
       <button class="photo-btn" bindtap="chooseMedicinePhoto">拍照</button>
     </view>

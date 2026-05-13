@@ -1,7 +1,7 @@
 <view class="page">
   <view class="page-title">
-    <text class="eyebrow">家庭健康记忆系统</text>
-    <view class="h1">{{family.name || '我的小药箱'}}</view>
+    <text class="eyebrow">家人健康记</text>
+    <view class="h1">{{family.name || '家庭健康管理'}}</view>
   </view>
 
   <view class="safety">{{safetyNotice}}</view>
@@ -21,7 +21,7 @@
       <view>{{stats.members || 0}}</view>
     </view>
     <view class="stat-card">
-      <text>药品库存</text>
+      <text>常备记录</text>
       <view>{{stats.medicines || 0}}</view>
     </view>
     <view class="stat-card">
@@ -37,7 +37,7 @@
   <view class="quick-grid">
     <button class="ghost-btn" bindtap="goIllness">新增健康记录</button>
     <button class="ghost-btn" bindtap="goMedication">记录一次用药</button>
-    <button class="ghost-btn" bindtap="goMedicinePhoto">拍药盒</button>
+    <button class="ghost-btn" bindtap="goMedicinePhoto">拍照添加</button>
   </view>
 
   <view class="section">

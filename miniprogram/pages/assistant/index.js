@@ -3,7 +3,7 @@ const { SAFETY_NOTICE } = require('../../utils/constants')
 
 Page({
   data: {
-    question: '家里有哪些药快过期了？',
+    question: '哪些常备用品快到期了？',
     result: {
       intent: '等待问题',
       answer: '输入问题后，我会只基于当前家庭记录做检索和整理。',
@@ -11,7 +11,7 @@ Page({
       safetyNotice: SAFETY_NOTICE,
     },
     quickQuestions: [
-      '家里有哪些药快过期了？',
+      '哪些常备用品快到期了？',
       '上次孩子咳嗽吃了什么？',
       '家里有没有退烧药？',
       '这个症状是不是肺炎？',

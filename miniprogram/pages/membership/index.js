@@ -17,7 +17,7 @@ const DEFAULT_PLANS = [
     durationDays: 30,
     badge: '灵活体验',
     sort: 1,
-    benefitsText: '适合先体验完整家庭共享、用药记录和药箱管理能力',
+    benefitsText: '适合先体验完整家庭共享、用药记录和常备管理能力',
   },
 ]
 
@@ -242,7 +242,7 @@ function buildPlanBenefitsText(plan) {
     return plan.benefitsText
   }
   if (plan.durationDays >= 365) {
-    return '适合长期记录家庭健康、药箱库存、用药记录和共享协作'
+    return '适合长期记录家庭健康、常备信息、用药记录和共享协作'
   }
   return '适合先体验会员权益与家庭共享能力'
 }

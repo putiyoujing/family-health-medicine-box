@@ -1,15 +1,15 @@
 ---
-title: 家庭健康药箱小程序-商业版开发设计-v1
+title: 家人健康记小程序-商业版开发设计-v1
 date: 2026-05-12
 tags: [项目, 家庭健康, 小程序, 商业化, 会员, 优惠券, 家庭共享]
-project: 家庭健康记录与药箱管理系统
+project: 家人健康记
 source: family_health_commercial_product_plan_v1.md
 ---
 
-# 家庭健康药箱小程序-商业版开发设计-v1
+# 家人健康记小程序-商业版开发设计-v1
 
-> 来源方案：[[家庭健康药箱小程序-收费版产品与开发优化方案-v1]]  
-> 当前代码仓库：`F:\Project\xiaochengxu\family-health-medicine-box`  
+> 来源方案：[[家庭健康记录工具小程序-收费版产品与开发优化方案-v1]]
+> 当前代码仓库：`F:\Project\xiaochengxu\family-health-medicine-box`
 > 线上后台：<https://putiyoujing.github.io/family-health-medicine-box/>
 
 ## 1. 开发判断
@@ -31,11 +31,11 @@ source: family_health_commercial_product_plan_v1.md
 
 小程序名称继续保留：
 
-> 我的小药箱
+> 家人健康记
 
 产品主标题升级为：
 
-> 家庭健康记录助手
+> 家庭健康管理助手
 
 一句话定位：
 
@@ -340,7 +340,7 @@ assertQuota(familyId, usageType)
 保留 tabBar：
 
 ```text
-首页 / 药箱 / 健康 / 用药 / AI
+首页 / 常备 / 健康 / 用药 / 我的（AI 使用首页悬浮入口）
 ```
 
 入口位置：
@@ -385,7 +385,7 @@ assertQuota(familyId, usageType)
 
 家庭切换
 今日安心卡
-快捷操作：拍药盒 / 记健康 / 记用药 / 问 AI
+悬浮入口：AI 健康整理；主要操作进入各功能页，首页不堆叠按钮
 家庭成员卡
 最近记录
 ```

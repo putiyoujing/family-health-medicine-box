@@ -1,7 +1,7 @@
 const api = require('../../services/api')
 
 const roleOptions = [
-  { role: 'viewer', label: '查看者', desc: '只能查看家庭药箱、健康记录和用药记录' },
+  { role: 'viewer', label: '查看者', desc: '只能查看家庭常备记录、健康记录和用药记录' },
   { role: 'member', label: '协作者', desc: '可以新增和编辑记录，适合共同照顾家人' },
   { role: 'admin', label: '管理员', desc: '可以管理成员和邀请家人' },
 ]
