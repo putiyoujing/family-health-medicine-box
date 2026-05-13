@@ -9,6 +9,7 @@ App({
     selectedCouponCode: '',
     openMedicineCamera: false,
     pendingParseAttachment: null,
+    useDemoData: true,
   },
 
   onLaunch() {

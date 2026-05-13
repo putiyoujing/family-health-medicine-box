@@ -1,3 +1,5 @@
+const demo = require('./demo-data')
+
 async function callHealthApi(action, payload = {}) {
   const app = getApp()
   const currentFamilyId = app.globalData && app.globalData.currentFamilyId
@@ -73,132 +75,172 @@ function normalizeCloudError(error, fallback) {
   return message
 }
 
+function shouldUseDemoData() {
+  const app = getApp()
+  return !!(app.globalData && app.globalData.useDemoData)
+}
+
+async function callHealthOrDemo(action, payload = {}, demoHandler) {
+  if (shouldUseDemoData() && demoHandler) {
+    return demoHandler(payload)
+  }
+  try {
+    return await callHealthApi(action, payload)
+  } catch (error) {
+    if (demoHandler && isDemoFallbackError(error)) {
+      console.warn(`use demo data for ${action}`, error)
+      return demoHandler(payload)
+    }
+    throw error
+  }
+}
+
+async function callPaymentOrDemo(action, payload = {}, demoHandler) {
+  if (shouldUseDemoData() && demoHandler) {
+    return demoHandler(payload)
+  }
+  try {
+    return await callPaymentApi(action, payload)
+  } catch (error) {
+    if (demoHandler && isDemoFallbackError(error)) {
+      console.warn(`use demo payment data for ${action}`, error)
+      return demoHandler(payload)
+    }
+    throw error
+  }
+}
+
+function isDemoFallbackError(error) {
+  const message = (error && error.message) || ''
+  return message === '云服务暂不可用' || message === '支付服务暂不可用'
+}
+
 async function getHome() {
-  return callHealthApi('getHome')
+  return callHealthOrDemo('getHome', {}, demo.getHome)
 }
 
 async function listMyFamilies() {
-  return callHealthApi('listMyFamilies')
+  return callHealthOrDemo('listMyFamilies', {}, demo.listMyFamilies)
 }
 
 async function switchFamily(familyId) {
-  return callHealthApi('switchFamily', { familyId })
+  return callHealthOrDemo('switchFamily', { familyId }, demo.listMyFamilies)
 }
 
 async function getMembershipStatus() {
-  return callHealthApi('getMembershipStatus')
+  return callHealthOrDemo('getMembershipStatus', {}, demo.getMembershipStatus)
 }
 
 async function getFamilyInvite(inviteCode) {
-  return callHealthApi('getFamilyInvite', { inviteCode })
+  return callHealthOrDemo('getFamilyInvite', { inviteCode }, demo.getFamilyInvite)
 }
 
 async function createFamilyInvite(payload) {
-  return callHealthApi('createFamilyInvite', payload)
+  return callHealthOrDemo('createFamilyInvite', payload, demo.createFamilyInvite)
 }
 
 async function acceptFamilyInvite(inviteCode) {
-  return callHealthApi('acceptFamilyInvite', { inviteCode })
+  return callHealthOrDemo('acceptFamilyInvite', { inviteCode }, demo.acceptFamilyInvite)
 }
 
 async function listFamilyRoles() {
-  return callHealthApi('listFamilyRoles')
+  return callHealthOrDemo('listFamilyRoles', {}, demo.listFamilyRoles)
 }
 
 async function updateFamilyRole(payload) {
-  return callHealthApi('updateFamilyRole', payload)
+  return callHealthOrDemo('updateFamilyRole', payload, demo.updateFamilyRole)
 }
 
 async function removeFamilyUser(openid) {
-  return callHealthApi('removeFamilyUser', { openid })
+  return callHealthOrDemo('removeFamilyUser', { openid }, () => demo.removeFamilyUser(openid))
 }
 
 async function saveMember(payload) {
-  return callHealthApi('saveMember', payload)
+  return callHealthOrDemo('saveMember', payload, demo.saveMember)
 }
 
 async function deleteMember(id) {
-  return callHealthApi('deleteMember', { id })
+  return callHealthOrDemo('deleteMember', { id }, () => demo.deleteMember(id))
 }
 
 async function saveMedicine(payload) {
-  return callHealthApi('saveMedicine', payload)
+  return callHealthOrDemo('saveMedicine', payload, demo.saveMedicine)
 }
 
 async function deleteMedicine(id) {
-  return callHealthApi('deleteMedicine', { id })
+  return callHealthOrDemo('deleteMedicine', { id }, () => demo.deleteMedicine(id))
 }
 
 async function saveIllness(payload) {
-  return callHealthApi('saveIllness', payload)
+  return callHealthOrDemo('saveIllness', payload, demo.saveIllness)
 }
 
 async function deleteIllness(id) {
-  return callHealthApi('deleteIllness', { id })
+  return callHealthOrDemo('deleteIllness', { id }, () => demo.deleteIllness(id))
 }
 
 async function saveMedication(payload) {
-  return callHealthApi('saveMedication', payload)
+  return callHealthOrDemo('saveMedication', payload, demo.saveMedication)
 }
 
 async function deleteMedication(id) {
-  return callHealthApi('deleteMedication', { id })
+  return callHealthOrDemo('deleteMedication', { id }, () => demo.deleteMedication(id))
 }
 
 async function saveAttachment(payload) {
-  return callHealthApi('saveAttachment', payload)
+  return callHealthOrDemo('saveAttachment', payload, demo.saveAttachment)
 }
 
 async function saveReminder(payload) {
-  return callHealthApi('saveReminder', payload)
+  return callHealthOrDemo('saveReminder', payload, demo.saveReminder)
 }
 
 async function parseAttachment(payload) {
-  return callHealthApi('parseAttachment', payload)
+  return callHealthOrDemo('parseAttachment', payload, demo.parseAttachment)
 }
 
 async function getAiTask(taskId) {
-  return callHealthApi('getAiTask', { taskId })
+  return callHealthOrDemo('getAiTask', { taskId }, () => ({ task: { _id: taskId, status: 'success' } }))
 }
 
 async function confirmAiParseResult(payload) {
-  return callHealthApi('confirmAiParseResult', payload)
+  return callHealthOrDemo('confirmAiParseResult', payload, demo.confirmAiParseResult)
 }
 
 async function assistantQuery(question) {
-  return callHealthApi('assistantQuery', { question })
+  return callHealthOrDemo('assistantQuery', { question }, () => demo.assistantQuery(question))
 }
 
 async function exportData() {
-  return callHealthApi('exportData')
+  return callHealthOrDemo('exportData', {}, demo.exportData)
 }
 
 async function exportReport(payload = {}) {
-  return callHealthApi('exportReport', payload)
+  return callHealthOrDemo('exportReport', payload, demo.exportReport)
 }
 
 async function getPlans() {
-  return callPaymentApi('getPlans')
+  return callPaymentOrDemo('getPlans', {}, demo.getPlans)
 }
 
 async function listCouponsForUser(payload = {}) {
-  return callPaymentApi('listCouponsForUser', payload)
+  return callPaymentOrDemo('listCouponsForUser', payload, demo.listCouponsForUser)
 }
 
 async function previewOrder(payload) {
-  return callPaymentApi('previewOrder', payload)
+  return callPaymentOrDemo('previewOrder', payload, demo.previewOrder)
 }
 
 async function createOrder(payload) {
-  return callPaymentApi('createOrder', payload)
+  return callPaymentOrDemo('createOrder', payload, demo.createOrder)
 }
 
 async function applyCoupon(payload) {
-  return callPaymentApi('applyCoupon', payload)
+  return callPaymentOrDemo('applyCoupon', payload, demo.applyCoupon)
 }
 
 async function mockPaymentSuccess(payload) {
-  return callPaymentApi('mockPaymentSuccess', payload)
+  return callPaymentOrDemo('mockPaymentSuccess', payload, demo.mockPaymentSuccess)
 }
 
 module.exports = {

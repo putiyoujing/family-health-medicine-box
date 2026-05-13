@@ -144,10 +144,7 @@ Page({
       })
       const filePath = chooseResult.tempFiles[0].tempFilePath
       wx.showLoading({ title: '上传中' })
-      const uploadResult = await wx.cloud.uploadFile({
-        cloudPath: `illness/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`,
-        filePath,
-      })
+      const uploadResult = await uploadImageOrDemo(`illness/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`, filePath)
       wx.hideLoading()
       this.setData({
         pendingAttachment: uploadResult,
@@ -176,4 +173,19 @@ function confirm(content) {
 
 function getFirstId(list) {
   return list && list.length ? list[0]._id : ''
+}
+
+async function uploadImageOrDemo(cloudPath, filePath) {
+  const app = getApp()
+  if (app.globalData && app.globalData.useDemoData) {
+    return {
+      fileID: filePath,
+      tempFilePath: filePath,
+      demoLocal: true,
+    }
+  }
+  return wx.cloud.uploadFile({
+    cloudPath,
+    filePath,
+  })
 }

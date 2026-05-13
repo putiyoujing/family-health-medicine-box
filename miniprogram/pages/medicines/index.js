@@ -152,10 +152,7 @@ Page({
       })
       const filePath = chooseResult.tempFiles[0].tempFilePath
       wx.showLoading({ title: '上传中' })
-      const uploadResult = await wx.cloud.uploadFile({
-        cloudPath: `medicines/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`,
-        filePath,
-      })
+      const uploadResult = await uploadImageOrDemo(`medicines/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`, filePath)
       const attachmentRecord = await api.saveAttachment({
         relatedType: 'medicine_draft',
         relatedId: '',
@@ -211,5 +208,20 @@ function confirm(content) {
       success: (result) => resolve(result.confirm),
       fail: () => resolve(false),
     })
+  })
+}
+
+async function uploadImageOrDemo(cloudPath, filePath) {
+  const app = getApp()
+  if (app.globalData && app.globalData.useDemoData) {
+    return {
+      fileID: filePath,
+      tempFilePath: filePath,
+      demoLocal: true,
+    }
+  }
+  return wx.cloud.uploadFile({
+    cloudPath,
+    filePath,
   })
 }
