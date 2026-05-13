@@ -157,7 +157,7 @@ const dataTables: Array<{
   { id: 'subscriptions', label: '会员家庭表', icon: WalletCards, description: '订阅状态、到期时间和所属家庭', statKey: 'subscriptions' },
   { id: 'coupons', label: '优惠券表', icon: TicketPercent, description: '券码、使用量、有效期和状态', statKey: 'coupons' },
   { id: 'aiUsage', label: 'AI 用量表', icon: Brain, description: '问答、图片解析和家庭维度额度消耗', statKey: 'aiUsageLogs' },
-  { id: 'medicines', label: '常备记录表', icon: Pill, description: '常备健康用品、分类、位置和有效期', statKey: 'medicines' },
+  { id: 'medicines', label: '药箱记录表', icon: Pill, description: '家庭药箱药品、分类、位置和有效期', statKey: 'medicines' },
   { id: 'illness', label: '健康记录表', icon: HeartPulse, description: '家庭健康记录、状态和摘要', statKey: 'illnessRecords' },
   { id: 'medication', label: '用药记录表', icon: Syringe, description: '用药时间、剂量和关联药品', statKey: 'medicationLogs' },
   { id: 'attachments', label: '附件表', icon: Paperclip, description: '检查单、处方、外包装和说明书附件', statKey: 'attachments' },
@@ -1059,7 +1059,7 @@ function mockList(type: ListType) {
   if (type === 'medication') return data.recentMedication
   if (type === 'medicines') {
     return [
-      { _id: 'med1', category: '退烧', expireDate: '2026-08-20', location: '客厅常备区上层', name: '对乙酰氨基酚混悬液', remainingQuantity: 62, unit: 'ml' },
+      { _id: 'med1', category: '退烧', expireDate: '2026-08-20', location: '客厅药箱上层', name: '对乙酰氨基酚混悬液', remainingQuantity: 62, unit: 'ml' },
       { _id: 'med2', category: '鼻炎', expireDate: '2026-06-18', location: '儿童护理抽屉', name: '生理盐水鼻喷', remainingQuantity: 18, unit: 'ml' },
     ]
   }

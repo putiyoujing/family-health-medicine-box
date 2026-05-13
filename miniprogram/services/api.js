@@ -1,14 +1,20 @@
 async function callHealthApi(action, payload = {}) {
   const app = getApp()
   const currentFamilyId = app.globalData && app.globalData.currentFamilyId
-  const result = await wx.cloud.callFunction({
-    name: 'healthApi',
-    data: {
-      action,
-      familyId: payload.familyId || currentFamilyId || '',
-      payload,
-    },
-  })
+  let result
+  try {
+    result = await wx.cloud.callFunction({
+      name: 'healthApi',
+      data: {
+        action,
+        familyId: payload.familyId || currentFamilyId || '',
+        payload,
+      },
+    })
+  } catch (error) {
+    console.error('healthApi call failed', action, error)
+    throw new Error(normalizeCloudError(error, '云服务暂不可用'))
+  }
 
   if (!result.result || !result.result.ok) {
     throw new Error((result.result && result.result.message) || '服务暂不可用，请稍后再试')
@@ -27,22 +33,44 @@ async function callHealthApi(action, payload = {}) {
 async function callPaymentApi(action, payload = {}) {
   const app = getApp()
   const currentFamilyId = app.globalData && app.globalData.currentFamilyId
-  const result = await wx.cloud.callFunction({
-    name: 'paymentApi',
-    data: {
-      action,
-      payload: {
-        ...payload,
-        familyId: payload.familyId || currentFamilyId || '',
+  let result
+  try {
+    result = await wx.cloud.callFunction({
+      name: 'paymentApi',
+      data: {
+        action,
+        payload: {
+          ...payload,
+          familyId: payload.familyId || currentFamilyId || '',
+        },
       },
-    },
-  })
+    })
+  } catch (error) {
+    console.error('paymentApi call failed', action, error)
+    throw new Error(normalizeCloudError(error, '支付服务暂不可用'))
+  }
 
   if (!result.result || !result.result.ok) {
     throw new Error((result.result && result.result.message) || '支付服务暂不可用，请稍后再试')
   }
 
   return result.result.data
+}
+
+function normalizeCloudError(error, fallback) {
+  const message = (error && (error.errMsg || error.message)) || String(error || '')
+  if (!message) {
+    return fallback
+  }
+  if (
+    message.includes('operateWXData') ||
+    message.includes('cloud.callFunction:fail') ||
+    message.includes('system error') ||
+    message.length > 60
+  ) {
+    return fallback
+  }
+  return message
 }
 
 async function getHome() {

@@ -688,7 +688,7 @@ async function getFamilyInvite(inviteCode) {
     role: invite.role,
     expiresAt: invite.expiresAt,
     privacyNotice:
-      '加入后，对方将能够根据你的角色权限查看或编辑该家庭空间内的常备记录、健康记录、用药记录和附件。请仅接受你信任的家庭成员邀请。',
+      '加入后，对方将能够根据你的角色权限查看或编辑该家庭空间内的药箱记录、健康记录、用药记录和附件。请仅接受你信任的家庭成员邀请。',
   }
 }
 
@@ -951,7 +951,7 @@ async function assistantQuery(openid, familyId, question) {
     }
   }
 
-  if (hasAny(normalized, ['药', '有没有', '还剩', '常备', '退烧', '咳嗽', '鼻炎', '腹泻'])) {
+  if (hasAny(normalized, ['药', '有没有', '还剩', '药箱', '退烧', '咳嗽', '鼻炎', '腹泻'])) {
     const keyword = normalized.replace('家里有没有', '').replace('？', '').trim()
     const facts = home.medicines
       .filter((medicine) =>
@@ -965,8 +965,8 @@ async function assistantQuery(openid, familyId, question) {
           `${medicine.name}：${medicine.category || '未分类'}，剩余 ${medicine.remainingQuantity || 0}${medicine.unit || ''}，位置 ${medicine.location || '未记录'}`,
       )
     return {
-      intent: '常备记录查询',
-      answer: facts.length ? `根据家庭常备记录，找到 ${facts.length} 个相关记录。` : '没有精确匹配记录，请检查名称或分类记录。',
+      intent: '药箱记录查询',
+      answer: facts.length ? `根据家庭药箱记录，找到 ${facts.length} 个相关记录。` : '没有精确匹配记录，请检查名称或分类记录。',
       facts,
       safetyNotice: SAFETY_NOTICE,
     }

@@ -10,7 +10,7 @@
 - `family_roles`：家庭成员权限，`owner/admin/member/viewer`。
 - `family_invites`：家庭共享邀请，记录邀请码、角色、有效期和使用状态。
 - `family_members`：家庭成员档案。
-- `medicines`：家庭常备健康用品记录。
+- `medicines`：家庭药箱药品记录。
 - `illness_records`：健康记录。
 - `medication_logs`：用药记录。
 - `attachments`：检查单、处方、外包装、说明书等附件。

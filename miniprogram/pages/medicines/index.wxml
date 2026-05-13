@@ -1,7 +1,7 @@
 <view class="page">
   <view class="page-title">
-    <text class="eyebrow">家庭常备记录</text>
-    <view class="h1">常备健康用品</view>
+    <text class="eyebrow">家庭药箱记录</text>
+    <view class="h1">药箱管理</view>
   </view>
 
   <view class="section">

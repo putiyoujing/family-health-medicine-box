@@ -21,7 +21,7 @@
       <view>{{stats.members || 0}}</view>
     </view>
     <view class="stat-card">
-      <text>常备记录</text>
+      <text>药箱记录</text>
       <view>{{stats.medicines || 0}}</view>
     </view>
     <view class="stat-card">

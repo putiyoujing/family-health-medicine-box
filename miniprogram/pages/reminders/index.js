@@ -4,7 +4,7 @@ const { nowDateTimeInput } = require('../../utils/format')
 const typeOptions = [
   { label: '用药提醒', value: 'medication' },
   { label: '复诊提醒', value: 'follow_up' },
-  { label: '常备检查', value: 'stock_check' },
+  { label: '药箱检查', value: 'stock_check' },
 ]
 
 const emptyForm = {

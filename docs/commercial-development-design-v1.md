@@ -340,7 +340,7 @@ assertQuota(familyId, usageType)
 保留 tabBar：
 
 ```text
-首页 / 常备 / 健康 / 用药 / 我的（AI 使用首页悬浮入口）
+首页 / 药箱 / 健康 / 用药 / 我的（AI 使用首页悬浮入口）
 ```
 
 入口位置：

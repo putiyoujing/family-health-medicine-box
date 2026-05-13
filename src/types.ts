@@ -2,7 +2,7 @@ export type Gender = 'female' | 'male' | 'other'
 
 export type IllnessStatus = '观察中' | '已就医' | '已恢复'
 
-export type MedicineSource = '医生开具' | '自购' | '常备'
+export type MedicineSource = '医生开具' | '自购' | '药箱'
 
 export interface FamilyMember {
   id: string

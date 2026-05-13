@@ -178,7 +178,7 @@ export function buildAssistantAnswer(data: AppData, question: string): Assistant
     }
   }
 
-  if (containsAny(normalized, ['有没有', '还剩', '常备', '退烧', '咳嗽', '鼻炎', '腹泻', '药'])) {
+  if (containsAny(normalized, ['有没有', '还剩', '药箱', '退烧', '咳嗽', '鼻炎', '腹泻', '药'])) {
     const matches = data.medicines.filter((medicine) => {
       const haystack = [
         medicine.name,
@@ -202,10 +202,10 @@ export function buildAssistantAnswer(data: AppData, question: string): Assistant
     )
 
     return {
-      intent: '常备记录查询',
+      intent: '药箱记录查询',
       answer: matches.length
-        ? `根据家庭常备记录，找到 ${matches.length} 个相关记录。`
-        : '没有精确匹配的记录，我先列出当前家庭常备信息中最相关的记录供你核对。',
+        ? `根据家庭药箱记录，找到 ${matches.length} 个相关记录。`
+        : '没有精确匹配的记录，我先列出当前家庭药箱信息中最相关的记录供你核对。',
       facts,
       reminders,
     }
@@ -246,7 +246,7 @@ export function buildAssistantAnswer(data: AppData, question: string): Assistant
   return {
     intent: '通用记录整理',
     answer:
-      '我可以基于已录入的家庭成员、健康记录、用药记录和常备信息做检索。当前问题没有命中明确分类，你可以尝试问“哪些常备用品快到期”“上次孩子咳嗽吃了什么”“这个药还剩多少”。',
+      '我可以基于已录入的家庭成员、健康记录、用药记录和药箱信息做检索。当前问题没有命中明确分类，你可以尝试问“药箱里哪些药快到期”“上次孩子咳嗽吃了什么”“这个药还剩多少”。',
     facts: [
       `当前成员 ${data.members.length} 位，药品 ${data.medicines.length} 个，健康记录 ${data.illnessRecords.length} 条，用药记录 ${data.medicationLogs.length} 条。`,
     ],

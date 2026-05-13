@@ -38,7 +38,7 @@
       },
       {
         "pagePath": "pages/medicines/index",
-        "text": "常备",
+        "text": "药箱",
         "iconPath": "assets/tabbar/box-default.png",
         "selectedIconPath": "assets/tabbar/box-active.png"
       },

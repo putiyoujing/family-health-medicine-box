@@ -3,7 +3,7 @@
     <view>
       <text class="eyebrow">我的家庭空间</text>
       <view class="profile-title">{{family.name || '家人健康记'}}</view>
-      <view class="profile-subtitle">把家人的健康记录、用药记录和常备信息放在一起</view>
+      <view class="profile-subtitle">把家人的健康记录、用药记录和药箱信息放在一起</view>
     </view>
     <view class="avatar-badge">我</view>
   </view>
@@ -43,7 +43,7 @@
     <view class="menu-row" bindtap="openReport">
       <view>
         <view class="menu-title">导出就医记录</view>
-        <view class="muted">整理最近健康记录、用药时间线和常备信息</view>
+        <view class="muted">整理最近健康记录、用药时间线和药箱信息</view>
       </view>
       <text class="menu-arrow">›</text>
     </view>
