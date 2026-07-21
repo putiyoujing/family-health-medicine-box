@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家人健康记｜前后台与服务端映射</title>
+  <style>
+    :root{--bg:#f4f1eb;--paper:#fffdf9;--ink:#20312c;--muted:#6f7b75;--line:#ded8cf;--brand:#31584d;--soft:#f7f3ec}
+    *{box-sizing:border-box}html,body{margin:0;background:var(--bg);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;color:var(--ink)}
+    body{width:1800px;padding:46px 56px}
+    h1{margin:0;font-size:34px}.sub{margin-top:10px;font-size:18px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:28px}
+    .col{background:var(--paper);border:1px solid var(--line);border-radius:24px;padding:20px}
+    .col h2{margin:0 0 14px;font-size:22px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px}
+    .card h3{margin:0 0 8px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
+    .tag{display:inline-block;background:var(--soft);padding:6px 10px;border-radius:999px;font-size:12px;margin-right:6px;margin-top:8px}
+    .footer{margin-top:20px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px}
+    .footer h2{margin:0 0 12px;font-size:20px}.footer p{margin:0;color:var(--muted);font-size:15px;line-height:1.7}.status{margin-top:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.status .card{margin:0}.ok{color:#2f6c52}.todo{color:#9a5b2f}
+  </style>
+  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+</head>
+<body>
+  <h1>家人健康记｜前后台与服务端映射</h1>
+  <div class="sub">每一个前台动作，都必须在服务端找到归宿，并能在后台被查看或审计。</div>
+  <div class="grid">
+    <div class="col">
+      <h2>前台</h2>
+      <div class="card"><h3>快速记录</h3><p>症状 / 体温 / 备注</p><span class="tag">saveIllness</span><span class="tag">saveCourseEvent</span></div>
+      <div class="card"><h3>上传资料</h3><p>检查单 / 处方 / 药盒</p><span class="tag">saveAttachment</span><span class="tag">parseAttachment</span></div>
+      <div class="card"><h3>病程详情</h3><p>按时间线查看已确认事件</p><span class="tag">getIllnessDetail</span><span class="tag">listCourseEvents</span></div>
+      <div class="card"><h3>复诊摘要</h3><p>用户补充问题后生成</p><span class="tag">generateFollowupSummary</span></div>
+    </div>
+    <div class="col">
+      <h2>服务端</h2>
+      <div class="card"><h3>illness_records</h3><p>一次连续病程的主表</p></div>
+      <div class="card"><h3>course_events</h3><p>症状 / 体温 / 用药 / 就诊 / 检查 / 备注</p></div>
+      <div class="card"><h3>attachments + ai_tasks</h3><p>上传、解析、确认</p></div>
+      <div class="card"><h3>followup_summaries</h3><p>摘要快照 + 用户问题</p></div>
+    </div>
+    <div class="col">
+      <h2>后台</h2>
+      <div class="card"><h3>病程记录</h3><p>查主表状态与最近更新时间</p></div>
+      <div class="card"><h3>病程事件</h3><p>查时间线来源是否完整</p></div>
+      <div class="card"><h3>附件与解析</h3><p>查待确认、已确认、拒绝</p></div>
+      <div class="card"><h3>复诊摘要</h3><p>查生成、复制、下载、问题数</p></div>
+    </div>
+  </div>
+  <div class="footer">
+    <h2>闭环原则</h2>
+    <p>1. 未确认附件不进入正式时间线；2. 时间线只展示可追溯事件；3. “想问医生的问题”只能来自用户手动输入；4. 后台必须能看到前台关键对象的状态变化；5. 如果某个前台元素在服务端没有对象承接，它就不能直接出现在中保真设计里。</p>
+  </div>
+  
+  <div class="footer">
+    <h2>闭环原则</h2>
+    <p>1. 未确认附件不进入正式时间线；2. 时间线只展示可追溯事件；3. “想问医生的问题”只能来自用户手动输入；4. 后台必须能看到前台关键对象的状态变化；5. 如果某个前台元素在服务端没有对象承接，它就不能直接出现在中保真设计里。</p>
+  </div>
+  <div class="footer">
+    <h2>当前代码实现状态</h2>
+    <div class="status">
+      <div class="card"><h3>illness_records</h3><p class="ok">已实现</p></div>
+      <div class="card"><h3>attachments + ai_tasks</h3><p class="ok">已实现基础链路</p></div>
+      <div class="card"><h3>course_events</h3><p class="todo">目标新增</p></div>
+      <div class="card"><h3>followup_summaries</h3><p class="todo">目标新增</p></div>
+    </div>
+  </div>
+</body>
+</html>

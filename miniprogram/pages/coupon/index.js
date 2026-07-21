@@ -1,4 +1,5 @@
 const api = require('../../services/api')
+const { ensureLoginReady } = require('../../utils/operation-guards')
 
 Page({
   data: {
@@ -17,6 +18,10 @@ Page({
 
   async load() {
     try {
+      const loggedIn = await ensureLoginReady()
+      if (!loggedIn) {
+        return
+      }
       const data = await api.listCouponsForUser({ planId: this.data.planId })
       this.setData({ coupons: data.coupons || [] })
     } catch (error) {

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家人健康记｜后台中保真</title>
+  <style>
+    :root{--bg:#f1f4f6;--paper:#fff;--ink:#15232b;--muted:#66727a;--line:#d8e0e5;--soft:#f7fafb;--brand:#23485b;--blue:#e8f0f6}
+    *{box-sizing:border-box}html,body{margin:0;background:var(--bg);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;color:var(--ink)}
+    body{width:1800px;padding:46px 56px}
+    h1{margin:0;font-size:34px}.sub{margin-top:10px;color:var(--muted);font-size:18px}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;margin-top:28px}
+    .panel{height:420px;background:var(--paper);border:1px solid var(--line);border-radius:24px;display:grid;grid-template-columns:170px 1fr;overflow:hidden}
+    .nav{background:var(--soft);padding:18px;display:grid;align-content:start;gap:12px}
+    .nav b{font-size:18px}.nav span{font-size:14px;color:var(--muted)}
+    .main{padding:18px;display:grid;align-content:start;gap:14px}
+    .ttl{font-size:24px;font-weight:700}.mini{font-size:13px;color:var(--muted)}
+    .kpis{display:flex;gap:10px}.kpi,.card{background:var(--blue);border-radius:16px;padding:14px;border:1px solid var(--line)}
+    .kpi b{display:block;font-size:22px}.kpi span{font-size:12px;color:var(--muted)}
+    .table{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:10px}
+    .row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:13px}
+    .row.head{font-weight:700;color:var(--muted)}
+    .note{font-size:12px;color:var(--muted);line-height:1.55}
+  </style>
+  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+</head>
+<body>
+  <h1>家人健康记｜后台中保真</h1>
+  <div class="sub">后台不只是看总量，而是要能看到前台关键对象在服务端是否真的闭环。</div>
+  <div class="grid">
+    <section class="panel">
+      <div class="nav"><b>后台</b><span>总览</span><span>病程</span><span>事件</span><span>附件</span><span>摘要</span></div>
+      <div class="main">
+        <div class="ttl">总览</div><div class="mini">关注规模、质量与风险</div>
+        <div class="kpis"><div class="kpi"><b>36</b><span>进行中病程</span></div><div class="kpi"><b>182</b><span>今日事件</span></div><div class="kpi"><b>24</b><span>摘要生成</span></div></div>
+        <div class="table"><div class="row head"><span>风险</span><span>数量</span><span>对象</span><span>动作</span></div><div class="row"><span>待确认附件</span><span>12</span><span>attachments</span><span>去处理</span></div><div class="row"><span>长期未更新病程</span><span>8</span><span>illness_records</span><span>查看</span></div></div>
+        <div class="note">依赖：`illness_records / course_events / attachments / followup_summaries`。</div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="nav"><b>后台</b><span>总览</span><span>病程记录</span><span>事件</span></div>
+      <div class="main">
+        <div class="ttl">病程记录</div><div class="mini">查看一次病程主表</div>
+        <div class="table"><div class="row head"><span>成员</span><span>主症状</span><span>状态</span><span>最近更新</span></div><div class="row"><span>宝宝</span><span>发烧咳嗽</span><span>进行中</span><span>20:10</span></div><div class="row"><span>宝宝</span><span>腹泻</span><span>已恢复</span><span>4/30</span></div></div>
+        <div class="note">对象：`illness_records`，后台需可进入详情查看对应事件流。</div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="nav"><b>后台</b><span>病程</span><span>病程事件</span><span>附件</span></div>
+      <div class="main">
+        <div class="ttl">病程事件</div><div class="mini">核对前台时间线来源</div>
+        <div class="table"><div class="row head"><span>时间</span><span>事件类型</span><span>来源</span><span>关联病程</span></div><div class="row"><span>20:10</span><span>temperature</span><span>manual</span><span>A018</span></div><div class="row"><span>19:20</span><span>exam</span><span>attachment_confirmed</span><span>A018</span></div></div>
+        <div class="note">新增对象：`course_events`，用于让前台每一行时间线都有出处。</div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="nav"><b>后台</b><span>附件</span><span>AI 任务</span><span>摘要</span></div>
+      <div class="main">
+        <div class="ttl">附件与解析</div><div class="mini">上传、解析、确认分状态管理</div>
+        <div class="table"><div class="row head"><span>æä»¶</span><span>ç¶æ</span><span>AI ä»»å¡</span><span>ç»æ</span></div><div class="row"><span>æ£æ¥å.jpg</span><span>parsed</span><span>T901</span><span>å¾ç¡®è®¤</span></div><div class="row"><span>æ¨¡ç³å¾.jpg</span><span>parse_failed</span><span>T902</span><span>éä¼ </span></div><div class="row"><span>è¯çå¾.jpg</span><span>confirmed</span><span>T888</span><span>å·²å¥åº</span></div><div class="row"><span>æ§å¤æ¹.jpg</span><span>rejected</span><span>T877</span><span>å·²æç»</span></div></div>
+        <div class="note">对象：`attachments + ai_tasks`；确认后才可派生事件。</div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="nav"><b>后台</b><span>摘要</span><span>AI 使用</span></div>
+      <div class="main">
+        <div class="ttl">复诊摘要</div><div class="mini">查看生成、复制与问题补充</div>
+        <div class="table"><div class="row head"><span>çç¨</span><span>é®é¢æ°</span><span>ç¶æ</span><span>çææ¶é´</span></div><div class="row"><span>A018</span><span>1</span><span>generated</span><span>20:30</span></div><div class="row"><span>A021</span><span>0</span><span>generated</span><span>18:12</span></div><div class="row"><span>A018</span><span>1</span><span>regenerated</span><span>21:10</span></div></div>
+        <div class="note">新增对象：`followup_summaries`；承接用户手动补充问题。</div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="nav"><b>后台</b><span>AI 使用</span><span>风险</span></div>
+      <div class="main">
+        <div class="ttl">AI 使用</div><div class="mini">区分解析、摘要与安全拒答</div>
+        <div class="kpis"><div class="kpi"><b>146</b><span>调用数</span></div><div class="kpi"><b>4</b><span>拒答</span></div><div class="kpi"><b>98.6%</b><span>成功率</span></div></div>
+        <div class="table"><div class="row head"><span>类型</span><span>状态</span><span>关联对象</span><span>备注</span></div><div class="row"><span>image_parse</span><span>success</span><span>T901</span><span>待确认</span></div><div class="row"><span>summary</span><span>success</span><span>S088</span><span>已生成</span></div></div>
+        <div class="note">对象：`ai_tasks / ai_usage_logs`，后台要能看见安全边界是否被触发。</div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

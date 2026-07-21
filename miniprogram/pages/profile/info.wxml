@@ -1,0 +1,48 @@
+<view class="page profile-info-page">
+  <view class="section profile-card">
+    <button class="avatar-picker" style="{{form.avatarUrl ? '' : avatarStyle}}" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" disabled="{{uploadingAvatar}}" aria-label="上传或更换头像">
+      <image wx:if="{{form.avatarUrl}}" src="{{form.avatarUrl}}" mode="aspectFill"></image>
+      <text wx:elif="{{uploadingAvatar}}">上传中</text>
+      <text wx:else>{{avatarText}}</text>
+      <view class="camera-badge">换</view>
+    </button>
+    <view class="profile-intro">
+      <view class="record-title">{{form.nickname || '未设置昵称'}}</view>
+      <view class="muted">点击头像可上传新图片，用于个人中心与家庭协作展示</view>
+    </view>
+  </view>
+
+  <view class="section form-card">
+    <view class="field">
+      <text class="field-label">昵称</text>
+      <input class="input" type="nickname" data-field="nickname" value="{{form.nickname}}" bindinput="onInput" placeholder="点击填写昵称" />
+    </view>
+    <view class="field">
+      <text class="field-label">性别</text>
+      <picker range="{{genderOptions}}" range-key="label" value="{{genderIndex}}" bindchange="onGenderChange">
+        <view class="picker-value profile-picker {{form.gender ? '' : 'picker-placeholder'}}">
+          <text>{{genderLabel || '请选择性别'}}</text>
+          <text class="picker-arrow">›</text>
+        </view>
+      </picker>
+    </view>
+    <view class="field">
+      <text class="field-label">生日</text>
+      <picker mode="date" value="{{form.birthday}}" end="{{today}}" bindchange="onBirthdayChange">
+        <view class="picker-value profile-picker {{form.birthday ? '' : 'picker-placeholder'}}">
+          <text>{{form.birthday || '请选择生日'}}</text>
+          <text class="picker-arrow">›</text>
+        </view>
+      </picker>
+    </view>
+    <button class="primary-btn save-profile-btn" bindtap="save" loading="{{saving}}">
+      {{saving ? '保存中' : '保存个人资料'}}
+    </button>
+  </view>
+
+  <view class="privacy-note">
+    <view class="privacy-mark">隐</view>
+    <view wx:if="{{isDemoMode}}">当前为演示模式，头像仅在本次演示中预览；正式环境会上传到当前小程序云存储。</view>
+    <view wx:else>头像会上传到当前小程序云存储；昵称、性别和生日仅用于账户资料及家庭协作展示。</view>
+  </view>
+</view>

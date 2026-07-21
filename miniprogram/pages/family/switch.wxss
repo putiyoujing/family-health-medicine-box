@@ -6,3 +6,42 @@
   border-color: #3f7d5b;
   background: #eef7f1;
 }
+
+.creation-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.creation-summary > view {
+  min-width: 0;
+}
+
+.create-family-btn {
+  width: 100%;
+  margin-top: 22rpx;
+}
+
+.create-form {
+  margin-top: 22rpx;
+}
+
+.create-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.create-actions button {
+  width: 100%;
+  min-width: 0;
+  height: 82rpx;
+  margin: 0;
+}
+
+.limit-tip {
+  margin-top: 18rpx;
+  text-align: center;
+}

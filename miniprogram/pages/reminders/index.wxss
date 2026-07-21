@@ -1,3 +1,183 @@
 .record-card {
   margin-bottom: 16rpx;
 }
+
+.todo-completed {
+  background: #f6f8f7;
+}
+
+.todo-completed .record-title,
+.todo-completed .todo-note {
+  color: #7b8884;
+  text-decoration: line-through;
+}
+
+.notice-card {
+  margin-bottom: 24rpx;
+  padding: 22rpx 24rpx;
+  border: 2rpx solid rgba(181, 112, 45, 0.24);
+  border-radius: 20rpx;
+  background: rgba(255, 246, 229, 0.9);
+}
+
+.notice-title {
+  margin-bottom: 8rpx;
+  color: #8a531f;
+  font-weight: 800;
+}
+
+.notice-ready {
+  border-color: rgba(37, 159, 142, 0.26);
+  background: rgba(232, 249, 245, 0.92);
+}
+
+.notice-ready .notice-title {
+  color: #176f63;
+}
+
+.field-help {
+  margin-top: 8rpx;
+  color: #82918d;
+  font-size: 23rpx;
+  line-height: 1.5;
+}
+
+.plan-time-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 16rpx;
+}
+
+.plan-time-grid > view,
+.notify-row > view {
+  min-width: 0;
+}
+
+.notify-row,
+.record-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.notify-row {
+  margin-bottom: 24rpx;
+  padding: 20rpx 22rpx;
+  border: 2rpx solid #dcebe7;
+  border-radius: 18rpx;
+  background: #f8fcfb;
+}
+
+.notify-title {
+  color: #213a35;
+  font-weight: 800;
+}
+
+.todo-status {
+  flex: none;
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  color: #176f63;
+  background: #e8f7f3;
+  font-size: 21rpx;
+}
+
+.illness-link {
+  margin: 10rpx 0;
+  color: #47736a;
+  font-size: 24rpx;
+}
+
+.todo-note {
+  margin-top: 12rpx;
+  color: #52615d;
+  font-size: 25rpx;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.todo-note-collapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.expand-toggle {
+  display: inline-block;
+  margin-top: 8rpx;
+  padding: 6rpx 0;
+  color: #1b8274;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.todo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10rpx;
+  margin-top: 14rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx solid #e4ece9;
+}
+
+.todo-action {
+  flex: 1 1 96rpx;
+  min-width: 0;
+  height: 52rpx;
+  margin: 0;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 52rpx;
+}
+
+.todo-action::after {
+  border: 0;
+}
+
+.complete-action {
+  color: #ffffff;
+  background: #28a391;
+}
+
+.edit-action {
+  color: #176f63;
+  background: #e8f7f3;
+}
+
+.delete-action {
+  color: #b64c43;
+  background: #fff1ef;
+}
+
+.cancel-edit-btn {
+  width: 100%;
+  height: 92rpx;
+  margin: 0;
+  color: #47736a;
+  background: #edf5f2;
+  border-radius: 999rpx;
+  font-size: 25rpx;
+  font-weight: 700;
+  line-height: 92rpx;
+}
+
+.cancel-edit-btn::after {
+  border: 0;
+}
+
+.form-actions.is-editing {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.form-actions.is-editing button {
+  width: 100%;
+  min-width: 0;
+}

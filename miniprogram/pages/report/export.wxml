@@ -1,22 +1,30 @@
 <view class="page">
   <view class="page-title">
-    <text class="eyebrow">就医沟通记录</text>
-    <view class="h1">复诊时更好说明情况</view>
+    <text class="eyebrow">复诊沟通摘要</text>
+    <view class="h1">本次病程复诊摘要</view>
   </view>
 
   <view class="section">
-    <view class="section-title">导出范围</view>
-    <picker mode="selector" range="{{rangeOptions}}" range-key="label" value="{{rangeIndex}}" bindchange="onRangeChange">
-      <view class="picker-value">{{rangeLabel}}</view>
-    </picker>
-    <view class="muted report-note">导出内容包含健康记录、用药时间线、快过期药品和安全提示。</view>
+    <view class="section-title">复诊前想问医生的问题</view>
+    <textarea class="textarea question-text" value="{{doctorQuestions}}" bindinput="onQuestionsInput" placeholder="可选：一行一个问题，例如：这次咳嗽多久需要复诊？"></textarea>
+    <view class="muted report-note">摘要只整理本次病程中已记录的信息，不做诊断和用药建议。</view>
     <button class="primary-btn export-report-btn" bindtap="generate" loading="{{loading}}">
-      {{loading ? '整理中' : '生成并复制'}}
+      {{loading ? '整理中' : '生成摘要'}}
     </button>
   </view>
 
   <view class="section" wx:if="{{reportText}}">
     <view class="section-title">导出内容</view>
-    <textarea class="textarea report-text" value="{{reportText}}" disabled></textarea>
+    <scroll-view class="report-scroll" scroll-y="true" enhanced="true" show-scrollbar="true">
+      <view class="report-text"><text>{{reportText}}</text></view>
+    </scroll-view>
+    <view class="muted copy-warning">按钮会复制上方摘要的全部内容，请确认隐私环境安全。</view>
+    <button class="primary-btn copy-report-btn" bindtap="copyReport">复制全部内容</button>
+    <button class="ghost-btn image-report-btn" bindtap="generateReportImage" loading="{{imageGenerating}}">
+      {{imageGenerating ? '生成长图中' : '生成摘要长图'}}
+    </button>
+    <view class="muted image-status" wx:if="{{imageStatus}}">{{imageStatus}}</view>
   </view>
+
+  <canvas type="2d" id="reportCanvas" class="report-canvas"></canvas>
 </view>

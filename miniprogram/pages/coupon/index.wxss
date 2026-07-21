@@ -6,6 +6,11 @@
 
 .coupon-input-row .input {
   flex: 1;
+  min-width: 0;
+}
+
+.coupon-card > view {
+  min-width: 0;
 }
 
 .use-btn {

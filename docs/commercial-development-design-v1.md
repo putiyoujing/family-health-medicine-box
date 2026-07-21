@@ -286,14 +286,14 @@ action：
 
 ```js
 const FREE_LIMITS = {
-  maxFamilies: 1,
+  maxOwnedFamilies: 1,
   maxMembers: 3,
-  maxSharedUsers: 1,
-  sharedRoles: ['viewer'],
+  maxSharedUsers: 2,
+  sharedRoles: ['viewer', 'member', 'admin'],
   maxMedicines: 30,
-  maxHealthRecords: 30,
+  maxHealthRecords: 10,
   maxMedicationLogs: 100,
-  maxAttachments: 30,
+  maxAttachments: 10,
   aiImageParseMonthly: 3,
   aiAssistantMonthly: 10,
   exportPdf: false,
@@ -301,7 +301,7 @@ const FREE_LIMITS = {
 }
 
 const PRO_LIMITS = {
-  maxFamilies: 1,
+  maxOwnedFamilies: 3,
   maxMembers: 10,
   maxSharedUsers: 6,
   sharedRoles: ['viewer', 'member', 'admin'],
@@ -315,6 +315,8 @@ const PRO_LIMITS = {
   familyMonthlyReport: true
 }
 ```
+
+`maxOwnedFamilies` 是账号级创建权益：只统计该账号作为 owner 创建的家庭，受邀加入的家庭不计入；其他额度仍按当前 `familyId` 独立统计。
 
 所有涉及额度的操作都必须走统一函数：
 

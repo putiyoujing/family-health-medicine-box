@@ -1,0 +1,43 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">用户反馈</text>
+    <view class="h1">告诉我们哪里不好用</view>
+  </view>
+
+  <view class="section">
+    <view class="field">
+      <text class="field-label">反馈类型</text>
+      <picker mode="selector" range="{{typeOptions}}" value="{{typeIndex}}" bindchange="onTypeChange">
+        <view class="picker-value">{{form.type}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <text class="field-label">反馈内容</text>
+      <textarea
+        class="textarea feedback-text"
+        data-field="content"
+        value="{{form.content}}"
+        bindinput="onInput"
+        maxlength="800"
+        placeholder="请描述你遇到的问题、希望优化的功能，或哪个页面不好操作。"
+      ></textarea>
+    </view>
+    <view class="field">
+      <text class="field-label">联系方式（选填）</text>
+      <input class="input" data-field="contact" value="{{form.contact}}" bindinput="onInput" placeholder="微信号 / 手机 / 邮箱，方便后续联系" />
+    </view>
+    <button class="primary-btn" bindtap="submit" loading="{{submitting}}">
+      {{submitting ? '提交中' : '提交反馈'}}
+    </button>
+  </view>
+
+  <view class="section">
+    <view class="section-title">我们会优先看这些反馈</view>
+    <view class="tip-list">
+      <view>哪个步骤太麻烦</view>
+      <view>哪个按钮不明显</view>
+      <view>病程记录、药箱、用药、会员哪里容易填错</view>
+      <view>希望新增的家庭健康记录功能</view>
+    </view>
+  </view>
+</view>

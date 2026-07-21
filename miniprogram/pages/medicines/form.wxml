@@ -1,0 +1,232 @@
+<view class="page form-page">
+  <view class="loading-state" wx:if="{{loading}}">正在准备药品信息…</view>
+
+  <block wx:else>
+    <view class="form-hero">
+      <text class="eyebrow">{{form._id ? '编辑药箱记录' : (fromPrescription ? '本次就诊开药' : '新药入箱')}}</text>
+      <view class="h1">{{form._id ? '更新这件药品' : (fromPrescription ? '登记医生开的药' : '添加一件药品')}}</view>
+      <view class="hero-note">{{fromPrescription ? '填写当前这一个药后再保存；这里只登记药品，不记录已经服用。' : '先填名称与库存，其他信息可以之后继续补充。'}}</view>
+      <view class="prescription-progress" wx:if="{{fromPrescription}}">
+        <text>本次已添加 {{prescriptionMedicineCount}} 种药</text>
+        <button class="edit-previous-btn" bindtap="editPreviousPrescriptionMedicine">修改上一种药品</button>
+      </view>
+    </view>
+
+    <view class="section photo-section" wx:if="{{!fromPrescription}}">
+      <view class="photo-copy">
+        <view class="section-kicker">包装或说明书</view>
+        <view class="muted">保存原图便于以后核对，上传前请遮挡无关个人信息。</view>
+      </view>
+      <button class="ghost-btn photo-action" bindtap="chooseMedicinePhoto">
+        {{pendingAttachments.length ? '继续添加包装' : '添加药品包装'}}
+      </button>
+      <view class="photo-preview-grid" wx:if="{{pendingAttachments.length}}">
+        <view class="photo-preview" wx:for="{{pendingAttachments}}" wx:key="attachmentId">
+          <image src="{{item.tempFilePath || item.fileID}}" mode="aspectFill"></image>
+          <button class="photo-remove" data-index="{{index}}" bindtap="removeMedicinePhoto">删除</button>
+        </view>
+        <view class="photo-count">已添加 {{pendingAttachments.length}}/5 张，保存药品后自动关联</view>
+        <button class="ghost-btn parse-btn" bindtap="openParse">
+          {{imageParsingEnabled ? '整理第一张图片信息' : '图片整理暂未开放'}}
+        </button>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{fromPrescription}}">
+      <view class="section-kicker">快速添加本次开药</view>
+      <view class="field">
+        <text class="field-label">药品名称 *</text>
+        <input class="input {{errors.name ? 'field-control-error' : ''}}" data-field="name" value="{{form.name}}" bindinput="onInput" placeholder="例如：对乙酰氨基酚混悬液" />
+        <view class="field-error" wx:if="{{errors.name}}">{{errors.name}}</view>
+      </view>
+      <view class="field">
+        <text class="field-label">规格（选填）</text>
+        <input class="input" data-field="specification" value="{{form.specification}}" bindinput="onInput" placeholder="例如：100ml/瓶" />
+      </view>
+      <view class="field last-field">
+        <text class="field-label">开了几盒</text>
+        <input class="input {{errors.totalQuantity ? 'field-control-error' : ''}}" data-field="totalQuantity" value="{{form.totalQuantity}}" bindinput="onInput" type="digit" placeholder="1" />
+        <view class="field-help">默认 1 盒；可在药箱详情补充分类、有效期和说明。</view>
+        <view class="field-error" wx:if="{{errors.totalQuantity}}">{{errors.totalQuantity}}</view>
+      </view>
+    </view>
+
+    <view class="section" wx:else>
+      <view class="section-kicker">基本信息</view>
+      <view class="field">
+        <text class="field-label">药品名称 *</text>
+        <input
+          class="input {{errors.name ? 'field-control-error' : ''}}"
+          data-field="name"
+          value="{{form.name}}"
+          bindinput="onInput"
+          placeholder="例如：对乙酰氨基酚混悬液"
+        />
+        <view class="field-error" wx:if="{{errors.name}}">{{errors.name}}</view>
+      </view>
+
+      <view class="field">
+        <text class="field-label">归属成员</text>
+        <picker mode="selector" range="{{memberPickerOptions}}" range-key="name" value="{{memberIndex}}" bindchange="onMemberChange">
+          <view class="picker-row">
+            <text>{{form.memberNameSnapshot || '全家通用'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="field">
+        <text class="field-label">药品分类 *</text>
+        <picker mode="selector" range="{{categoryOptions}}" value="{{categoryIndex}}" bindchange="onCategoryChange">
+          <view class="picker-row {{errors.category ? 'field-control-error' : ''}}">
+            <text class="{{form.category ? '' : 'placeholder'}}">{{form.category || '请选择药品分类'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+        <view class="field-error" wx:if="{{errors.category}}">{{errors.category}}</view>
+      </view>
+
+      <view class="field">
+        <text class="field-label">药品规格（选填）</text>
+        <input class="input" data-field="specification" value="{{form.specification}}" bindinput="onInput" placeholder="例如：0.5g、100ml" />
+      </view>
+
+      <view class="field last-field">
+        <text class="field-label">包装换算（选填）</text>
+        <view class="package-grid">
+          <view class="package-input-wrap">
+            <text class="package-prefix">每</text>
+            <input class="input package-input {{errors.packageSize ? 'field-control-error' : ''}}" data-field="packageSize" value="{{form.packageSize}}" bindinput="onInput" type="digit" placeholder="24" />
+          </view>
+          <picker mode="selector" range="{{unitOptions}}" value="{{unitIndex}}" bindchange="onUnitChange">
+            <view class="picker-row {{errors.unit ? 'field-control-error' : ''}}"><text class="{{form.unit ? '' : 'placeholder'}}">{{form.unit || '片'}}</text><text class="picker-arrow">›</text></view>
+          </picker>
+          <text class="package-divider">/</text>
+          <picker mode="selector" range="{{packageUnitOptions}}" value="{{packageUnitIndex}}" bindchange="onPackageUnitChange">
+            <view class="picker-row {{errors.packageUnit ? 'field-control-error' : ''}}"><text class="{{form.packageUnit ? '' : 'placeholder'}}">{{form.packageUnit || '盒'}}</text><text class="picker-arrow">›</text></view>
+          </picker>
+        </view>
+        <view class="field-error" wx:if="{{errors.packageSize}}">{{errors.packageSize}}</view>
+        <view class="field-error" wx:if="{{errors.unit}}">{{errors.unit}}</view>
+        <view class="field-error" wx:if="{{errors.packageUnit}}">{{errors.packageUnit}}</view>
+        <view class="field-help">例如：每 24 片 / 盒。填写后库存会自动按“片”扣减。</view>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{!fromPrescription}}">
+      <view class="section-kicker">库存与位置</view>
+      <view class="grid-2" wx:if="{{hasPackageConversion}}">
+        <view class="field">
+          <text class="field-label">入箱时有多少</text>
+          <view class="unit-input-shell {{errors.packageCount ? 'field-control-error' : ''}}">
+            <input class="unit-input" data-field="packageCount" value="{{form.packageCount}}" bindinput="onInput" type="digit" placeholder="例如 2" />
+            <text class="unit-suffix">{{form.packageUnit}}</text>
+          </view>
+          <view class="field-error" wx:if="{{errors.packageCount}}">{{errors.packageCount}}</view>
+          <view class="field-help" wx:if="{{packageStockTotalText}}">{{packageStockTotalText}}</view>
+        </view>
+        <view class="field">
+          <text class="field-label">现在还剩多少</text>
+          <view class="unit-input-shell {{errors.remainingQuantity ? 'field-control-error' : ''}}">
+            <input class="unit-input" data-field="remainingQuantity" value="{{form.remainingQuantity}}" bindinput="onInput" type="digit" placeholder="例如 48" />
+            <text class="unit-suffix">{{form.unit}}</text>
+          </view>
+          <view class="field-error" wx:if="{{errors.remainingQuantity}}">{{errors.remainingQuantity}}</view>
+        </view>
+      </view>
+      <view class="package-stock-note" wx:if="{{hasPackageConversion}}">库存按 {{form.unit}} 自动扣减；例如服用 1 片后，会显示为“1盒+23片”。</view>
+      <view class="grid-2" wx:else>
+        <view class="field">
+          <text class="field-label">入箱时有多少</text>
+          <input
+            class="input {{errors.totalQuantity ? 'field-control-error' : ''}}"
+            data-field="totalQuantity"
+            value="{{form.totalQuantity}}"
+            bindinput="onInput"
+            type="digit"
+            placeholder="例如 2"
+          />
+          <view class="field-error" wx:if="{{errors.totalQuantity}}">{{errors.totalQuantity}}</view>
+        </view>
+        <view class="field">
+          <text class="field-label">现在还剩多少</text>
+          <input
+            class="input {{errors.remainingQuantity ? 'field-control-error' : ''}}"
+            data-field="remainingQuantity"
+            value="{{form.remainingQuantity}}"
+            bindinput="onInput"
+            type="digit"
+            placeholder="例如 1"
+          />
+          <view class="field-error" wx:if="{{errors.remainingQuantity}}">{{errors.remainingQuantity}}</view>
+        </view>
+      </view>
+
+      <view class="field" wx:if="{{!hasPackageConversion}}">
+        <text class="field-label">库存按什么算</text>
+        <picker mode="selector" range="{{unitOptions}}" value="{{unitIndex}}" bindchange="onUnitChange">
+          <view class="picker-row {{errors.unit ? 'field-control-error' : ''}}">
+            <text class="{{form.unit ? '' : 'placeholder'}}">{{form.unit || '请选择片、粒、ml 等'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+        <view class="field-error" wx:if="{{errors.unit}}">{{errors.unit}}</view>
+        <view class="field-help">用药会直接按此单位扣库存。口服液建议按 ml 录入总量，片剂按片录入；只有整盒或整瓶取用时才选盒、瓶。</view>
+      </view>
+
+      <view class="field">
+        <view class="label-row">
+          <text class="field-label">有效期</text>
+          <text class="clear-value" wx:if="{{form.expireDate}}" bindtap="clearExpireDate">清除</text>
+        </view>
+        <picker mode="date" value="{{form.expireDate || today}}" bindchange="onExpireDateChange">
+          <view class="picker-row date-picker">
+            <text class="{{form.expireDate ? '' : 'placeholder'}}">{{form.expireDate || '请选择日期'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="field last-field">
+        <text class="field-label">存放位置</text>
+        <input class="input" data-field="location" value="{{form.location}}" bindinput="onInput" placeholder="例如：客厅药柜上层" />
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{!fromPrescription}}">
+      <view class="section-kicker">标签</view>
+      <view class="form-tag-grid">
+        <view
+          class="form-tag-chip {{item.active ? 'selected-tag' : ''}}"
+          wx:for="{{formTagOptions}}"
+          wx:key="value"
+          data-value="{{item.value}}"
+          bindtap="toggleFormTag"
+        >{{item.label}}</view>
+      </view>
+      <input class="input" data-field="tagsText" value="{{form.tagsText}}" bindinput="onInput" placeholder="也可自定义，多个标签用顿号隔开" />
+    </view>
+
+    <view class="section notes-section" wx:if="{{!fromPrescription}}">
+      <view class="section-kicker">说明信息</view>
+      <view class="field">
+        <text class="field-label">适用说明</text>
+        <textarea class="textarea" data-field="indicationsText" value="{{form.indicationsText}}" bindinput="onInput" placeholder="只记录说明书、医嘱或历史信息"></textarea>
+      </view>
+      <view class="field last-field">
+        <text class="field-label">用法说明</text>
+        <textarea class="textarea" data-field="instructionText" value="{{form.instructionText}}" bindinput="onInput" placeholder="按说明书或医生医嘱记录"></textarea>
+      </view>
+    </view>
+
+    <view class="save-bar prescription-save-bar" wx:if="{{fromPrescription}}">
+      <button class="ghost-btn save-btn" loading="{{saving}}" disabled="{{saving}}" bindtap="saveAndContinue">保存并继续添加</button>
+      <button class="primary-btn save-btn" loading="{{saving}}" disabled="{{saving}}" bindtap="saveAndReturn">保存并返回</button>
+    </view>
+    <view class="save-bar" wx:else>
+      <button class="primary-btn save-btn" loading="{{saving}}" disabled="{{saving}}" bindtap="save">
+        {{form._id ? '保存修改' : '保存药品'}}
+      </button>
+    </view>
+  </block>
+</view>

@@ -1,0 +1,11 @@
+.form-page { padding-bottom: 180rpx; }
+.load-error { color: #b23434; line-height: 1.6; }
+.load-error-action { width: 100%; margin-top: 24rpx; }
+.form-hero { margin-bottom: 24rpx; }
+.hero-note, .field-hint, .stock-hint { margin-top: 10rpx; color: #6f827d; font-size: 24rpx; line-height: 1.55; }
+.section-kicker { margin-bottom: 20rpx; color: #18322d; font-size: 30rpx; font-weight: 900; }
+.picker-row, .unit-input-shell { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 88rpx; padding: 20rpx 28rpx; color: #18322d; background: #fff; border: 1rpx solid #cfe7e1; border-radius: 28rpx; }
+.picker-arrow { color: #7b918b; font-size: 36rpx; }.unit-input-shell { gap: 12rpx; }.unit-input { flex: 1; min-width: 0; }.unit-suffix { flex: 0 0 auto; color: #178575; font-weight: 800; }
+.date-time-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16rpx; }.field-control-error { background: #fff8f6; border-color: #d95f4f; }.field-control-error-grid .picker-row { background: #fff8f6; border-color: #d95f4f; }.field-error { margin-top: 8rpx; color: #b23434; font-size: 23rpx; line-height: 1.45; }.last-field { margin-bottom: 0; }
+.medicine-search { margin-bottom: 16rpx; }.medicine-picker-list { max-height: 400rpx; overflow: auto; border: 1rpx solid #ddeee8; border-radius: 22rpx; }.medicine-option { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; padding: 20rpx 22rpx; border-bottom: 1rpx solid #edf5f2; }.medicine-option:last-child { border-bottom: 0; }.medicine-option-selected { background: #effbf7; }.medicine-option-name, .dose-entry-head text:first-child { color: #18322d; font-weight: 800; }.medicine-check { color: #178575; font-size: 24rpx; font-weight: 800; }.medicine-option-selected .medicine-check { color: #fff; background: #259f8e; border-radius: 999rpx; padding: 4rpx 14rpx; }.dose-entry { margin-top: 22rpx; padding-top: 22rpx; border-top: 1rpx solid #edf5f2; }.dose-entry-head { display: flex; justify-content: space-between; gap: 16rpx; margin-bottom: 10rpx; }.dose-entry-head .muted { text-align: right; }
+.save-bar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 10; padding: 22rpx 32rpx calc(22rpx + env(safe-area-inset-bottom)); background: rgba(244, 251, 248, .96); border-top: 1rpx solid #ddeee8; }.save-btn { width: 100%; }

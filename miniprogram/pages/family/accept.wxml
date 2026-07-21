@@ -15,6 +15,7 @@
     <view class="record-card">
       <view class="record-title">{{invite.familyNameSnapshot}}</view>
       <view class="muted">{{invite.inviterNameSnapshot}} 邀请你以「{{invite.roleLabel}}」身份加入</view>
+      <view class="muted" wx:if="{{invite.targetMemberId}}">接受后将关联已有成员档案：{{invite.targetMemberNameSnapshot}}</view>
       <view class="muted">有效期至：{{invite.expiresAt}}</view>
     </view>
   </view>
@@ -24,5 +25,5 @@
     <view>{{invite.privacyNotice}}</view>
   </view>
 
-  <button class="primary-btn" wx:if="{{invite}}" bindtap="accept">接受邀请</button>
+  <button class="primary-btn" wx:if="{{invite && invite.canAccept}}" bindtap="accept">接受邀请</button>
 </view>

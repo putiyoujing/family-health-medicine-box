@@ -1,0 +1,32 @@
+<view class="page low-stock-page">
+  <view class="page-title">
+    <text class="eyebrow">药箱提醒</text>
+    <view class="h1">低库存提醒</view>
+    <view class="muted">药品剩余量低于设定比例时，会在首页提示你及时补充。</view>
+  </view>
+
+  <view class="section threshold-card">
+    <view class="threshold-summary">
+      <view>
+        <view class="section-title">当前提醒比例</view>
+        <view class="threshold-hint">默认值为 25%，可按家庭备药习惯调整。</view>
+      </view>
+      <view class="threshold-value">{{threshold}}<text>%</text></view>
+    </view>
+
+    <view class="threshold-options">
+      <button wx:for="{{options}}" wx:key="value" class="threshold-option {{item.value === threshold ? 'is-selected' : ''}}" data-value="{{item.value}}" bindtap="selectThreshold">
+        {{item.label}}
+      </button>
+    </view>
+  </view>
+
+  <view class="setting-note">
+    <view class="setting-note-mark">i</view>
+    <view>例如：一盒药共 20 片，设置 25% 后，剩余 5 片及以下会提示低库存。</view>
+  </view>
+
+  <button class="primary-btn save-btn" bindtap="save" loading="{{saving}}">
+    {{saving ? '保存中' : '保存提醒设置'}}
+  </button>
+</view>

@@ -1,8 +1,8 @@
 page {
   min-height: 100vh;
-  color: #1d2722;
-  background: #f5f7f2;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: #18322d;
+  background: #f4fbf8;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 28rpx;
   line-height: 1.55;
 }
@@ -23,7 +23,9 @@ button {
   margin: 0;
   padding: 0;
   line-height: 1;
-  border-radius: 12rpx;
+  border-radius: 999rpx;
+  max-width: 100%;
+  white-space: normal;
 }
 
 button::after {
@@ -31,45 +33,59 @@ button::after {
 }
 
 .page {
-  padding: 28rpx;
+  min-height: 100vh;
+  padding: 28rpx 32rpx 132rpx;
+  background: #f4fbf8;
+}
+
+.page view,
+.page text,
+.page button,
+.page input,
+.page textarea,
+.page picker {
+  min-width: 0;
 }
 
 .page-title {
-  margin-bottom: 24rpx;
+  margin: 16rpx 0 24rpx;
 }
 
 .eyebrow {
-  color: #66726c;
-  font-size: 22rpx;
+  color: #5f746f;
+  font-size: 24rpx;
   font-weight: 700;
 }
 
 .h1 {
-  margin-top: 6rpx;
-  color: #102018;
-  font-size: 42rpx;
-  font-weight: 800;
+  margin-top: 4rpx;
+  color: #18322d;
+  font-size: 40rpx;
+  font-weight: 900;
+  line-height: 1.2;
 }
 
 .section {
   margin-bottom: 24rpx;
-  padding: 24rpx;
+  padding: 28rpx;
   background: #ffffff;
-  border: 1rpx solid #dce4dd;
-  border-radius: 16rpx;
+  border: 1rpx solid #ddeee8;
+  border-radius: 28rpx;
+  box-shadow: 0 16rpx 44rpx rgba(10, 36, 28, 0.04);
 }
 
 .section-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18rpx;
-  font-size: 32rpx;
-  font-weight: 800;
+  margin-bottom: 20rpx;
+  color: #18322d;
+  font-size: 30rpx;
+  font-weight: 900;
 }
 
 .muted {
-  color: #66726c;
+  color: #5f746f;
   font-size: 24rpx;
 }
 
@@ -85,31 +101,35 @@ button::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 84rpx;
+  height: 92rpx;
   color: #ffffff;
-  background: #2f7d57;
+  background: #259f8e;
   font-size: 28rpx;
-  font-weight: 700;
+  font-weight: 900;
+  border-radius: 999rpx;
+  box-shadow: 0 16rpx 36rpx rgba(10, 36, 28, 0.16);
 }
 
 .ghost-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 76rpx;
-  color: #1d2722;
-  background: #eef4ef;
+  height: 72rpx;
+  color: #174f46;
+  background: #ddf7f0;
+  border: 1rpx solid #a5e4d8;
+  border-radius: 999rpx;
   font-size: 26rpx;
 }
 
 .field {
-  margin-bottom: 18rpx;
+  margin-bottom: 16rpx;
 }
 
 .field-label {
   display: block;
   margin-bottom: 8rpx;
-  color: #66726c;
+  color: #5f746f;
   font-size: 24rpx;
   font-weight: 700;
 }
@@ -118,26 +138,31 @@ button::after {
 .textarea,
 .picker-value {
   width: 100%;
-  min-height: 78rpx;
-  padding: 18rpx 20rpx;
-  color: #1d2722;
+  max-width: 100%;
+  min-height: 88rpx;
+  padding: 20rpx 28rpx;
+  color: #18322d;
   background: #ffffff;
-  border: 1rpx solid #dce4dd;
-  border-radius: 12rpx;
+  border: 1rpx solid #cfe7e1;
+  border-radius: 28rpx;
 }
 
 .textarea {
-  min-height: 160rpx;
+  min-height: 176rpx;
 }
 
 .pill {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8rpx 14rpx;
-  color: #195b3a;
-  background: #dff0e7;
+  color: #174f46;
+  background: #ddf7f0;
+  border: 1rpx solid #a5e4d8;
   border-radius: 999rpx;
   font-size: 22rpx;
   font-weight: 700;
+  line-height: 1;
 }
 
 .warn-pill {
@@ -153,14 +178,15 @@ button::after {
 .card-list {
   display: flex;
   flex-direction: column;
-  gap: 18rpx;
+  gap: 24rpx;
 }
 
 .record-card {
-  padding: 22rpx;
-  background: #fbfdfb;
-  border: 1rpx solid #dce4dd;
-  border-radius: 14rpx;
+  padding: 30rpx 34rpx;
+  background: #ffffff;
+  border: 1rpx solid #ddeee8;
+  border-radius: 28rpx;
+  box-shadow: 0 16rpx 44rpx rgba(10, 36, 28, 0.04);
 }
 
 .record-head {
@@ -170,9 +196,20 @@ button::after {
   margin-bottom: 10rpx;
 }
 
+.record-head > view,
+.row > view,
+.section-title > view {
+  min-width: 0;
+}
+
+.record-head .pill {
+  flex: 0 0 auto;
+}
+
 .record-title {
-  font-size: 30rpx;
-  font-weight: 800;
+  color: #18322d;
+  font-size: 28rpx;
+  font-weight: 900;
 }
 
 .row {
@@ -184,14 +221,19 @@ button::after {
 
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18rpx;
+}
+
+.grid-2 > view {
+  min-width: 0;
 }
 
 .empty {
   padding: 48rpx 24rpx;
-  color: #66726c;
+  color: #5f746f;
   text-align: center;
-  background: #eef4ef;
-  border-radius: 14rpx;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1rpx solid #ddeee8;
+  border-radius: 28rpx;
 }

@@ -1,39 +1,89 @@
 <view class="page">
   <view class="page-title">
-    <text class="eyebrow">提醒管理</text>
-    <view class="h1">别漏掉重要事项</view>
+    <text class="eyebrow">健康待办</text>
+    <view class="h1">安排家人的下一步照护</view>
+  </view>
+
+  <view class="notice-card {{subscriptionConfigured ? 'notice-ready' : ''}}">
+    <view class="notice-title">{{subscriptionConfigured ? '微信提醒已接入' : '微信提醒待配置'}}</view>
+    <view class="muted" wx:if="{{subscriptionConfigured}}">保存时可申请一次微信订阅授权；每条待办需要单独授权，拒绝后仍会保存到小程序。</view>
+    <view class="muted" wx:else>当前环境尚未填写订阅消息模板 ID，待办可以保存，但暂时不会发送微信通知。</view>
   </view>
 
   <view class="section">
-    <view class="section-title">新增提醒</view>
+    <view class="section-title">{{form._id ? '编辑健康待办' : '新增健康待办'}}</view>
     <view class="field">
-      <text class="field-label">提醒类型</text>
-      <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">
-        <view class="picker-value">{{typeOptions[typeIndex].label}}</view>
+      <text class="field-label">家庭成员</text>
+      <picker mode="selector" range="{{members}}" range-key="name" value="{{memberIndex}}" bindchange="onMemberChange">
+        <view class="picker-value">{{members[memberIndex].name || '请选择成员'}}</view>
       </picker>
     </view>
     <view class="field">
-      <text class="field-label">提醒标题</text>
-      <input class="input" data-field="title" value="{{form.title}}" bindinput="onInput" placeholder="例如：晚饭后记录用药" />
+      <text class="field-label">关联病程（可选）</text>
+      <picker mode="selector" range="{{illnessOptions}}" range-key="label" value="{{illnessIndex}}" bindchange="onIllnessChange">
+        <view class="picker-value">{{illnessOptions[illnessIndex].label}}</view>
+      </picker>
     </view>
     <view class="field">
-      <text class="field-label">提醒时间</text>
-      <input class="input" data-field="remindAt" value="{{form.remindAt}}" bindinput="onInput" placeholder="2026-05-12 20:30" />
+      <text class="field-label">待办类型</text>
+      <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">
+        <view class="picker-value">{{typeOptions[typeIndex].label}}</view>
+      </picker>
+      <view class="field-help">无法归类的内容可选择“其他”</view>
+    </view>
+    <view class="field">
+      <text class="field-label">待办标题</text>
+      <input class="input" data-field="title" value="{{form.title}}" bindinput="onInput" maxlength="50" placeholder="例如：晚饭后按医嘱用药" />
+    </view>
+    <view class="field">
+      <text class="field-label">计划时间</text>
+      <view class="plan-time-grid">
+        <picker mode="date" value="{{form.remindDate}}" start="{{minPlanDate}}" bindchange="onRemindDateChange">
+          <view class="picker-value">{{form.remindDate}}</view>
+        </picker>
+        <picker mode="time" value="{{form.remindTime}}" bindchange="onRemindTimeChange">
+          <view class="picker-value">{{form.remindTime}}</view>
+        </picker>
+      </view>
+      <view class="field-help">请选择未来时间，默认安排在 30 分钟后</view>
     </view>
     <view class="field">
       <text class="field-label">备注</text>
-      <textarea class="textarea" data-field="note" value="{{form.note}}" bindinput="onInput"></textarea>
+      <textarea class="textarea" data-field="note" value="{{form.note}}" bindinput="onInput" maxlength="200" placeholder="可填写医嘱原话、携带资料等"></textarea>
     </view>
-    <button class="primary-btn" bindtap="save">保存提醒</button>
+    <view class="notify-row">
+      <view>
+        <view class="notify-title">微信提醒</view>
+        <view class="field-help">保存时由你主动授权；关闭后仅保存在小程序</view>
+      </view>
+      <switch checked="{{form.notifyEnabled}}" color="#259f8e" bindchange="onNotifyChange" />
+    </view>
+    <view class="form-actions {{form._id ? 'is-editing' : ''}}">
+      <button class="primary-btn" bindtap="save">{{form._id ? '保存修改' : '保存健康待办'}}</button>
+      <button wx:if="{{form._id}}" class="cancel-edit-btn" bindtap="cancelEdit">取消编辑</button>
+    </view>
   </view>
 
   <view class="section">
-    <view class="section-title">提醒列表</view>
-    <view wx:if="{{!reminders.length}}" class="empty">还没有提醒，可以先添加一个用药或复诊提醒</view>
-    <view class="record-card" wx:for="{{reminders}}" wx:key="_id">
-      <view class="record-title">{{item.title}}</view>
-      <view class="muted">{{item.typeLabel}} · {{item.remindAt || '未设置时间'}}</view>
-      <view class="muted">{{item.note || '暂无备注'}}</view>
+    <view class="section-title">健康待办列表</view>
+    <view wx:if="{{!reminders.length}}" class="empty">还没有待办，可以先为家人安排用药、复诊或药箱检查</view>
+    <view class="record-card {{item.status === 'completed' ? 'todo-completed' : ''}}" wx:for="{{reminders}}" wx:key="_id">
+      <view class="record-head">
+        <view class="record-title">{{item.title}}</view>
+        <text class="todo-status">{{item.deliveryLabel}}</text>
+      </view>
+      <view class="muted">{{item.memberName}} · {{item.typeLabel}} · {{item.remindAtText}}</view>
+      <view class="illness-link" wx:if="{{item.illnessLabel}}">关联病程：{{item.illnessLabel}}</view>
+      <view wx:if="{{item.note}}" class="todo-note {{item.hasLongNote && !item.expanded ? 'todo-note-collapsed' : ''}}">{{item.note}}</view>
+      <view wx:else class="muted">暂无备注</view>
+      <view wx:if="{{item.hasLongNote}}" class="expand-toggle" data-id="{{item._id}}" bindtap="toggleReminder">
+        {{item.expanded ? '收起事项' : '展开事项'}}
+      </view>
+      <view class="todo-actions">
+        <button wx:if="{{item.status !== 'completed'}}" class="todo-action edit-action" data-id="{{item._id}}" catchtap="editReminder">编辑</button>
+        <button wx:if="{{item.status !== 'completed'}}" class="todo-action complete-action" data-id="{{item._id}}" catchtap="completeReminder">完成</button>
+        <button class="todo-action delete-action" data-id="{{item._id}}" catchtap="deleteReminder">删除</button>
+      </view>
     </view>
   </view>
 </view>

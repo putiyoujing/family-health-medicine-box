@@ -7,10 +7,13 @@
 - `miniprogram/`：微信原生小程序前端
 - `cloudfunctions/login`：用户登录、openid 获取、首次家庭初始化
 - `cloudfunctions/healthApi`：统一业务后台接口
+- `cloudfunctions/reminderDispatcher`：每分钟派发到期的微信订阅消息
 - `cloudfunctions/paymentApi`：会员、订单、优惠券和支付确认接口
 - `cloudfunctions/adminApi`：管理后台统计接口
 - `docs/`：数据库与发布说明
 - `src/`：产品管理者使用的独立 Web 管理后台
+
+完整文档地图见 [docs/README.md](docs/README.md)。
 
 ## 已实现
 
@@ -24,8 +27,8 @@
 - 检查单 / 处方 / 外包装 / 说明书图片上传到云存储，并生成附件记录
 - 图片整理确认页：图片解析结果必须经用户确认后保存
 - AI 查询助手安全版，先基于数据库检索，不做诊断或处方
-- 家庭数据导出与就医沟通记录导出
-- 提醒管理：用药提醒、复诊提醒、药箱检查提醒
+- 病程复诊摘要导出
+- 健康待办：关联家庭成员和病程，支持用药、复诊、药箱检查及微信订阅提醒
 - 按家庭 `familyId` 做数据隔离
 - 会员中心：套餐选择、优惠券选择、订单创建、支付确认开通
 - 管理后台：用户、家庭、订单、会员家庭、优惠券、AI 用量、药品、记录、附件统计与列表
@@ -37,8 +40,9 @@
 2. 在 `project.config.json` 中替换正式 `appid`。
 3. 在 `miniprogram/app.js` 中填写云开发环境 `ENV_ID`。
 4. 在云开发控制台创建数据库集合，见 [docs/wechat-cloud-database.md](docs/wechat-cloud-database.md)。
-5. 上传并部署 `cloudfunctions/login`、`cloudfunctions/healthApi`、`cloudfunctions/paymentApi` 和 `cloudfunctions/adminApi`。
-6. 编译运行小程序。
+5. 上传并部署 `cloudfunctions/login`、`cloudfunctions/healthApi`、`cloudfunctions/paymentApi`、`cloudfunctions/adminApi` 和 `cloudfunctions/reminderDispatcher`，并上传定时触发器。
+6. 按 [docs/wechat-cloud-database.md](docs/wechat-cloud-database.md) 配置健康待办订阅模板和云函数环境变量。
+7. 编译运行小程序。
 
 ## 管理后台
 
@@ -78,7 +82,7 @@ npm run dev
 - 微信云开发环境、数据库集合、云存储权限。
 - DeepSeek 或 OCR 图片识别服务密钥。当前已完成图片上传、AI 任务、额度记录和确认保存闭环。
 - 微信支付或虚拟支付商户配置。当前已完成订单、优惠券、支付确认和会员开通闭环。
-- 微信订阅消息模板 ID。当前已完成提醒记录管理。
+- 微信订阅消息模板 ID、模板字段映射和 `reminderDispatcher` 定时触发器。代码闭环已完成，未配置前页面会明确显示“微信提醒待配置”。
 
 ## 医疗安全边界
 

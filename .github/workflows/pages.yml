@@ -29,10 +29,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Build
-        run: npm run build
+      - name: Build, lint, validate config/actions, test, and run security gates
+        run: npm run check:ci
 
       - name: Setup Pages
         uses: actions/configure-pages@v6

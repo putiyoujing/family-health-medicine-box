@@ -1,191 +1,131 @@
 const api = require('../../services/api')
-const { formatDateTime, memberName, nowDateTimeInput } = require('../../utils/format')
-
-const emptyForm = {
-  memberId: '',
-  startedAt: '',
-  endedAt: '',
-  symptomsText: '',
-  symptomDescription: '',
-  temperatureMax: '',
-  hospitalName: '',
-  doctorDiagnosis: '',
-  doctorAdvice: '',
-  examinationResult: '',
-  status: '观察中',
-  summary: '',
-}
+const { formatDateTime, memberName } = require('../../utils/format')
+const { ensureHasMembers, ensureLoginReady } = require('../../utils/operation-guards')
 
 Page({
   data: {
     loading: true,
+    family: null,
     members: [],
     records: [],
-    showForm: false,
-    pendingAttachment: null,
-    form: { ...emptyForm, startedAt: nowDateTimeInput() },
   },
 
   onShow() {
-    this.load()
+    const app = getApp()
+    if (app.globalData && app.globalData.openQuickIllness) {
+      app.globalData.openQuickIllness = false
+      this.shouldOpenQuickIllness = true
+    }
+    if (this.homeLoaded && api.isHomeCacheFresh()) {
+      this.openQuickIllness()
+      return
+    }
+    this.load({ silent: this.homeLoaded })
   },
 
-  async load() {
-    this.setData({ loading: true })
+  async load(options = {}) {
+    if (!options.silent) {
+      this.setData({ loading: true })
+    }
     try {
+      const loggedIn = await ensureLoginReady()
+      if (!loggedIn) {
+        this.setData({ loading: false })
+        return
+      }
       const home = await api.getHome()
-      const records = home.illnessRecords.map((item) => ({
+      const records = [...home.illnessRecords].sort(compareIllnessRecords).map((item) => ({
         ...item,
+        completed: isCompleted(item),
+        statusText: isCompleted(item) ? '已关闭' : item.status,
         memberName: memberName(home.members, item.memberId),
         timeText: formatDateTime(item.startedAt),
         symptomText: (item.symptoms || []).join('、') || '未填症状',
+        temperatureText: hasValue(item.temperatureMax) ? `${item.temperatureMax}℃` : '未记录',
       }))
       this.setData({
         loading: false,
+        family: home.family,
         members: home.members,
         records,
-        'form.memberId': this.data.form.memberId || getFirstId(home.members),
       })
+      this.homeLoaded = true
+      this.openQuickIllness(home)
     } catch (error) {
+      if (options.silent) {
+        console.warn('illness refresh failed', error)
+        return
+      }
       this.setData({ loading: false })
       wx.showToast({ title: error.message || '加载失败', icon: 'none' })
     }
   },
 
-  toggleForm() {
-    this.setData({ showForm: !this.data.showForm })
-  },
-
-  onInput(event) {
-    const field = event.currentTarget.dataset.field
-    this.setData({ [`form.${field}`]: event.detail.value })
-  },
-
-  onMemberChange(event) {
-    const index = Number(event.detail.value)
-    this.setData({ 'form.memberId': this.data.members[index]._id })
-  },
-
-  onStatusChange(event) {
-    const options = ['观察中', '已就医', '已恢复']
-    this.setData({ 'form.status': options[Number(event.detail.value)] })
-  },
-
-  async save() {
-    const form = this.data.form
-    if (!form.memberId || !form.startedAt) {
-      wx.showToast({ title: '请选择成员并填写时间', icon: 'none' })
+  openQuickIllness(home = getHomeSnapshot(this.data)) {
+    if (!this.shouldOpenQuickIllness) {
       return
     }
-    wx.showLoading({ title: '保存中' })
-    try {
-      const saved = await api.saveIllness({
-        memberId: form.memberId,
-        startedAt: form.startedAt,
-        endedAt: form.endedAt,
-        symptoms: String(form.symptomsText || '')
-          .split(/[、,，\s]+/)
-          .map((item) => item.trim())
-          .filter(Boolean),
-        symptomDescription: form.symptomDescription,
-        temperatureMax: form.temperatureMax ? Number(form.temperatureMax) : null,
-        hospitalName: form.hospitalName,
-        doctorDiagnosis: form.doctorDiagnosis,
-        doctorAdvice: form.doctorAdvice,
-        examinationResult: form.examinationResult,
-        status: form.status,
-        summary: form.summary,
-      })
-      if (this.data.pendingAttachment) {
-        await api.saveAttachment({
-          relatedType: 'illness',
-          relatedId: saved.id,
-          fileType: 'image',
-          fileId: this.data.pendingAttachment.fileID,
-          ocrText: '',
-          aiSummary: 'OCR 待处理：已保存图片，后续可接入微信 OCR 或腾讯云 OCR。',
-        })
-      }
-      wx.hideLoading()
-      wx.showToast({ title: '已保存' })
-      this.setData({
-        showForm: false,
-        pendingAttachment: null,
-        form: {
-          ...emptyForm,
-          memberId: getFirstId(this.data.members),
-          startedAt: nowDateTimeInput(),
-        },
-      })
-      this.load()
-    } catch (error) {
-      wx.hideLoading()
-      wx.showToast({ title: error.message || '保存失败', icon: 'none' })
+    this.shouldOpenQuickIllness = false
+    if (ensureHasMembers(home)) {
+      wx.navigateTo({ url: '/pages/illness/form' })
     }
   },
 
-  async remove(event) {
+  createRecord() {
+    if (!ensureHasMembers(getHomeSnapshot(this.data))) {
+      return
+    }
+    wx.navigateTo({ url: '/pages/illness/form' })
+  },
+
+  editRecord(event) {
     const id = event.currentTarget.dataset.id
-    const confirmed = await confirm('确认删除这条健康记录？')
-    if (!confirmed) {
-      return
-    }
-    await api.deleteIllness(id)
-    wx.showToast({ title: '已删除' })
-    this.load()
+    wx.navigateTo({ url: `/pages/illness/form?id=${id}` })
   },
 
-  async chooseAttachment() {
-    try {
-      const chooseResult = await wx.chooseMedia({
-        count: 1,
-        mediaType: ['image'],
-        sourceType: ['album', 'camera'],
-      })
-      const filePath = chooseResult.tempFiles[0].tempFilePath
-      wx.showLoading({ title: '上传中' })
-      const uploadResult = await uploadImageOrDemo(`illness/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`, filePath)
-      wx.hideLoading()
-      this.setData({
-        pendingAttachment: uploadResult,
-      })
-      wx.showToast({ title: '图片已暂存' })
-    } catch (error) {
-      wx.hideLoading()
-      if (error.errMsg && error.errMsg.includes('cancel')) {
-        return
-      }
-      wx.showToast({ title: '上传失败', icon: 'none' })
-    }
+  appendRecord(event) {
+    const id = event.currentTarget.dataset.id
+    wx.navigateTo({ url: `/pages/illness/detail?id=${id}&action=add` })
+  },
+
+  openDetail(event) {
+    const id = event.currentTarget.dataset.id
+    wx.navigateTo({ url: `/pages/illness/detail?id=${id}` })
+  },
+
+  quickSimilar(event) {
+    const id = event.currentTarget.dataset.id
+    wx.navigateTo({ url: `/pages/illness/form?similarId=${id}` })
   },
 })
 
-function confirm(content) {
-  return new Promise((resolve) => {
-    wx.showModal({
-      title: '确认操作',
-      content,
-      success: (result) => resolve(result.confirm),
-      fail: () => resolve(false),
-    })
-  })
-}
-
-function getFirstId(list) {
-  return list && list.length ? list[0]._id : ''
-}
-
-async function uploadImageOrDemo(cloudPath, filePath) {
-  const app = getApp()
-  if (app.globalData && app.globalData.useDemoData) {
-    return {
-      fileID: filePath,
-      tempFilePath: filePath,
-      demoLocal: true,
-    }
+function getHomeSnapshot(data) {
+  return {
+    currentFamilyId: data.family && data.family._id,
+    family: data.family,
+    members: data.members || [],
   }
-  return wx.cloud.uploadFile({
-    cloudPath,
-    filePath,
-  })
+}
+
+function hasValue(value) {
+  return value !== null && value !== undefined && value !== ''
+}
+
+function compareIllnessRecords(left, right) {
+  const completionDifference = Number(isCompleted(left)) - Number(isCompleted(right))
+  if (completionDifference) {
+    return completionDifference
+  }
+  const leftTime = isCompleted(left) ? left.endedAt || left.startedAt : left.startedAt
+  const rightTime = isCompleted(right) ? right.endedAt || right.startedAt : right.startedAt
+  return toTime(rightTime) - toTime(leftTime)
+}
+
+function isCompleted(record) {
+  return !!(record && (record.status === '已恢复' || record.status === '已关闭' || record.endedAt))
+}
+
+function toTime(value) {
+  const time = new Date(String(value || '').replace(' ', 'T')).getTime()
+  return Number.isNaN(time) ? 0 : time
 }

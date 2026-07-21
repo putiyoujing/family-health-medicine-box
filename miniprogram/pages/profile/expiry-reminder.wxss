@@ -1,0 +1,143 @@
+.expiry-reminder-page {
+  padding-top: 28rpx;
+}
+
+.reminder-card {
+  padding: 30rpx 28rpx;
+}
+
+.reminder-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding-bottom: 28rpx;
+  border-bottom: 1rpx solid #e5efec;
+}
+
+.reminder-summary .section-title {
+  margin-bottom: 8rpx;
+}
+
+.reminder-hint {
+  color: #71837e;
+  font-size: 23rpx;
+  line-height: 1.5;
+}
+
+.reminder-value {
+  flex: 0 0 auto;
+  color: #be7b20;
+  font-family: "STSong", "Songti SC", serif;
+  font-size: 62rpx;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.reminder-value text {
+  margin-left: 2rpx;
+  font-size: 28rpx;
+}
+
+.reminder-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14rpx;
+  margin-top: 28rpx;
+}
+
+.reminder-option {
+  height: 72rpx;
+  margin: 0;
+  padding: 0;
+  color: #6d674f;
+  background: #fff9ec;
+  border: 1rpx solid #f0dfb6;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 72rpx;
+}
+
+.reminder-option::after {
+  border: 0;
+}
+
+.reminder-option.is-selected {
+  color: #ffffff;
+  background: #d29841;
+  border-color: #d29841;
+  box-shadow: 0 8rpx 18rpx rgba(210, 152, 65, 0.2);
+}
+
+.custom-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-top: 26rpx;
+}
+
+.custom-label {
+  flex: 0 0 auto;
+  color: #314b44;
+  font-size: 25rpx;
+  font-weight: 800;
+}
+
+.custom-input {
+  flex: 1;
+  min-width: 0;
+  height: 72rpx;
+  padding: 0 20rpx;
+  color: #314b44;
+  background: #f8fbfa;
+  border: 1rpx solid #dceae5;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+}
+
+.custom-input.has-error {
+  border-color: #e78270;
+}
+
+.custom-unit {
+  flex: 0 0 auto;
+  color: #71837e;
+  font-size: 24rpx;
+}
+
+.field-error {
+  margin: 10rpx 0 0 94rpx;
+  color: #ce5f4d;
+  font-size: 21rpx;
+}
+
+.setting-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+  margin: 26rpx 10rpx 34rpx;
+  color: #6d817c;
+  font-size: 23rpx;
+  line-height: 1.6;
+}
+
+.setting-note-mark {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34rpx;
+  height: 34rpx;
+  margin-top: 2rpx;
+  color: #176f61;
+  background: #daf1e9;
+  border-radius: 50%;
+  font-family: Georgia, serif;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.save-btn {
+  margin-top: 0;
+}

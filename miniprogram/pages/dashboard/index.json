@@ -1,3 +1,7 @@
 {
-  "navigationBarTitleText": "家人健康记"
+  "navigationBarTitleText": "家人健康记",
+  "navigationBarBackgroundColor": "#f4fbf8",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#f4fbf8",
+  "backgroundTextStyle": "dark"
 }

@@ -1,0 +1,313 @@
+<svg width="1800" height="2850" viewBox="0 0 1800 2850" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .title { font: 700 34px Arial, sans-serif; fill: #111827; }
+    .subtitle { font: 400 18px Arial, sans-serif; fill: #4B5563; }
+    .screen-title { font: 700 24px Arial, sans-serif; fill: #111827; }
+    .h { font: 700 18px Arial, sans-serif; fill: #111827; }
+    .b { font: 400 16px Arial, sans-serif; fill: #374151; }
+    .s { font: 400 14px Arial, sans-serif; fill: #6B7280; }
+    .phone { fill: white; stroke: #9CA3AF; stroke-width: 2; }
+    .card { fill: #F9FAFB; stroke: #D1D5DB; stroke-width: 1.5; }
+    .soft { fill: #F3F4F6; stroke: #D1D5DB; stroke-width: 1.5; }
+    .cta { fill: #E5E7EB; stroke: #9CA3AF; stroke-width: 1.5; }
+    .line { stroke: #D1D5DB; stroke-width: 1.5; }
+    .chip { fill: #F3F4F6; stroke: #D1D5DB; stroke-width: 1.2; }
+  </style>
+
+  <rect width="1800" height="2850" fill="#FFFFFF"/>
+  <text x="70" y="70" class="title">家庭健康记录与药箱管理系统｜可评审低保真线框</text>
+  <text x="70" y="108" class="subtitle">核心闭环：记一次生病 → 连续追加记录 → 查看病程时间线 → 生成复诊摘要</text>
+
+  <!-- Row 1 -->
+  <!-- 1 Home -->
+  <g transform="translate(70 150)">
+    <text x="0" y="-18" class="screen-title">01 首页</text>
+    <rect x="0" y="0" rx="28" ry="28" width="500" height="760" class="phone"/>
+    <text x="28" y="42" class="h">宝宝家庭 · 今天</text>
+    <rect x="28" y="62" width="444" height="56" rx="16" class="cta"/>
+    <text x="52" y="97" class="h">＋ 记一次生病</text>
+
+    <rect x="28" y="140" width="444" height="118" rx="16" class="card"/>
+    <text x="48" y="172" class="h">进行中病程</text>
+    <text x="48" y="202" class="b">宝宝｜发烧 + 咳嗽</text>
+    <text x="48" y="228" class="b">已持续 2 天｜最高 39.1℃</text>
+    <text x="48" y="248" class="s">继续记录  →</text>
+
+    <rect x="28" y="278" width="444" height="92" rx="16" class="card"/>
+    <text x="48" y="310" class="h">最近一次复诊摘要</text>
+    <text x="48" y="340" class="b">5 月 15 日｜可复制给医生</text>
+
+    <rect x="28" y="390" width="444" height="114" rx="16" class="card"/>
+    <text x="48" y="422" class="h">最近记录</text>
+    <text x="48" y="452" class="b">08:20　38.6℃</text>
+    <text x="48" y="478" class="b">12:10　布洛芬 5ml</text>
+
+    <rect x="28" y="524" width="444" height="88" rx="16" class="card"/>
+    <text x="48" y="556" class="h">轻提醒</text>
+    <text x="48" y="586" class="b">2 个药品临期｜查看药箱</text>
+
+    <line x1="28" y1="668" x2="472" y2="668" class="line"/>
+    <text x="48" y="706" class="b">首页</text>
+    <text x="136" y="706" class="b">病程</text>
+    <text x="224" y="706" class="b">药箱</text>
+    <text x="312" y="706" class="b">用药</text>
+    <text x="400" y="706" class="b">我的</text>
+  </g>
+
+  <!-- 2 Quick record -->
+  <g transform="translate(640 150)">
+    <text x="0" y="-18" class="screen-title">02 新建病程 / 快速记录</text>
+    <rect x="0" y="0" rx="28" ry="28" width="500" height="760" class="phone"/>
+    <text x="28" y="42" class="h">20 秒快速记录</text>
+    <text x="28" y="70" class="s">先记关键变化，详细信息稍后再补</text>
+
+    <rect x="28" y="92" width="444" height="68" rx="16" class="card"/>
+    <text x="48" y="123" class="h">成员</text>
+    <text x="360" y="123" class="b">宝宝 ▼</text>
+
+    <rect x="28" y="180" width="444" height="98" rx="16" class="card"/>
+    <text x="48" y="212" class="h">症状标签</text>
+    <rect x="48" y="228" width="68" height="28" rx="14" class="chip"/>
+    <text x="67" y="247" class="s">发烧</text>
+    <rect x="126" y="228" width="68" height="28" rx="14" class="chip"/>
+    <text x="145" y="247" class="s">咳嗽</text>
+    <rect x="204" y="228" width="68" height="28" rx="14" class="chip"/>
+    <text x="223" y="247" class="s">流涕</text>
+
+    <rect x="28" y="298" width="444" height="68" rx="16" class="card"/>
+    <text x="48" y="329" class="h">体温</text>
+    <text x="362" y="329" class="b">38.5 ℃</text>
+
+    <rect x="28" y="386" width="444" height="92" rx="16" class="card"/>
+    <text x="48" y="418" class="h">备注</text>
+    <text x="48" y="448" class="b">精神一般，夜里咳嗽明显</text>
+
+    <rect x="28" y="498" width="444" height="68" rx="16" class="card"/>
+    <text x="48" y="529" class="h">图片</text>
+    <text x="312" y="529" class="b">＋ 上传照片</text>
+
+    <rect x="28" y="586" width="444" height="56" rx="16" class="soft"/>
+    <text x="48" y="620" class="b">补充就诊信息（折叠）</text>
+
+    <rect x="28" y="662" width="444" height="56" rx="16" class="cta"/>
+    <text x="160" y="697" class="h">保存并开始病程</text>
+  </g>
+
+  <!-- 3 Episode detail -->
+  <g transform="translate(1210 150)">
+    <text x="0" y="-18" class="screen-title">03 病程详情</text>
+    <rect x="0" y="0" rx="28" ry="28" width="500" height="760" class="phone"/>
+    <text x="28" y="42" class="h">宝宝｜本次病程</text>
+
+    <rect x="28" y="62" width="444" height="102" rx="16" class="card"/>
+    <text x="48" y="94" class="h">病程概要</text>
+    <text x="48" y="122" class="b">5 月 15 日开始｜发烧、咳嗽</text>
+    <text x="48" y="148" class="b">最高体温 39.1℃｜进行中</text>
+
+    <rect x="28" y="184" width="444" height="56" rx="16" class="cta"/>
+    <text x="160" y="219" class="h">＋ 快速追加记录</text>
+
+    <rect x="28" y="260" width="444" height="236" rx="16" class="card"/>
+    <text x="48" y="292" class="h">时间线</text>
+    <text x="48" y="324" class="b">08:20　38.6℃</text>
+    <text x="48" y="354" class="b">12:10　用药：布洛芬 5ml</text>
+    <text x="48" y="384" class="b">15:40　咳嗽加重</text>
+    <text x="48" y="414" class="b">19:30　就诊：上呼吸道感染</text>
+    <text x="48" y="444" class="b">20:10　上传检查单</text>
+
+    <rect x="28" y="516" width="444" height="74" rx="16" class="card"/>
+    <text x="48" y="548" class="h">关联用药</text>
+    <text x="48" y="574" class="b">布洛芬｜氨溴索</text>
+
+    <rect x="28" y="610" width="444" height="56" rx="16" class="cta"/>
+    <text x="160" y="645" class="h">生成复诊摘要</text>
+  </g>
+
+  <!-- Row 2 -->
+  <!-- 4 Episode list -->
+  <g transform="translate(70 980)">
+    <text x="0" y="-18" class="screen-title">04 病程列表</text>
+    <rect x="0" y="0" rx="28" ry="28" width="500" height="760" class="phone"/>
+    <text x="28" y="42" class="h">病程</text>
+    <rect x="28" y="62" width="444" height="52" rx="14" class="soft"/>
+    <text x="48" y="94" class="b">宝宝 ▼　｜　进行中 ▼</text>
+
+    <rect x="28" y="136" width="444" height="116" rx="16" class="card"/>
+    <text x="48" y="168" class="h">进行中</text>
+    <text x="48" y="198" class="b">宝宝｜发烧 + 咳嗽</text>
+    <text x="48" y="224" class="s">5 月 15 日开始｜最近更新 20:10</text>
+
+    <rect x="28" y="272" width="444" height="116" rx="16" class="card"/>
+    <text x="48" y="304" class="h">已恢复</text>
+    <text x="48" y="334" class="b">宝宝｜腹泻</text>
+    <text x="48" y="360" class="s">4 月 28 日｜持续 2 天</text>
+
+    <rect x="28" y="408" width="444" height="116" rx="16" class="card"/>
+    <text x="48" y="440" class="h">已恢复</text>
+    <text x="48" y="470" class="b">妈妈｜偏头痛</text>
+    <text x="48" y="496" class="s">4 月 11 日｜持续 1 天</text>
+
+    <rect x="28" y="636" width="444" height="56" rx="16" class="cta"/>
+    <text x="172" y="671" class="h">＋ 新建病程</text>
+  </g>
+
+  <!-- 5 Follow-up summary -->
+  <g transform="translate(640 980)">
+    <text x="0" y="-18" class="screen-title">05 复诊摘要</text>
+    <rect x="0" y="0" rx="28" ry="28" width="500" height="760" class="phone"/>
+    <text x="28" y="42" class="h">本次复诊摘要</text>
+    <text x="28" y="70" class="s">结构医生友好，适合截图 / 复制</text>
+
+    <rect x="28" y="92" width="444" height="76" rx="16" class="card"/>
+    <text x="48" y="124" class="h">基础信息</text>
+    <text x="48" y="150" class="b">宝宝｜3 岁｜无已知过敏</text>
+
+    <rect x="28" y="188" width="444" height="86" rx="16" class="card"/>
+    <text x="48" y="220" class="h">病程概览</text>
+    <text x="48" y="246" class="b">5 月 15 日起｜发烧、咳嗽｜最高 39.1℃</text>
+
+    <rect x="28" y="294" width="444" height="132" rx="16" class="card"/>
+    <text x="48" y="326" class="h">症状时间线</text>
+    <text x="48" y="356" class="b">08:20 38.6℃ → 15:40 咳嗽加重</text>
+    <text x="48" y="384" class="b">19:30 已就诊，医生诊断已记录</text>
+
+    <rect x="28" y="446" width="444" height="86" rx="16" class="card"/>
+    <text x="48" y="478" class="h">用药记录</text>
+    <text x="48" y="504" class="b">布洛芬 5ml｜12:10</text>
+
+    <rect x="28" y="552" width="444" height="86" rx="16" class="card"/>
+    <text x="48" y="584" class="h">想问医生的问题</text>
+    <text x="48" y="610" class="b">夜里咳嗽频繁，是否需要复查？</text>
+
+    <rect x="28" y="658" width="212" height="56" rx="16" class="cta"/>
+    <text x="87" y="693" class="h">复制文本</text>
+    <rect x="260" y="658" width="212" height="56" rx="16" class="cta"/>
+    <text x="320" y="693" class="h">截图友好版</text>
+  </g>
+
+  <!-- 6 Month view -->
+  <g transform="translate(1210 980)">
+    <text x="0" y="-18" class="screen-title">06 月视图 / 复盘</text>
+    <rect x="0" y="0" rx="28" ry="28" width="500" height="760" class="phone"/>
+    <text x="28" y="42" class="h">2026 年 5 月</text>
+    <text x="356" y="42" class="b">宝宝 ▼</text>
+
+    <rect x="28" y="62" width="444" height="56" rx="14" class="soft"/>
+    <text x="48" y="96" class="b">月历　｜　时间轴</text>
+
+    <rect x="28" y="138" width="444" height="246" rx="16" class="card"/>
+    <text x="48" y="170" class="h">月历热力</text>
+    <text x="48" y="206" class="b">周一　周二　周三　周四　周五　周六　周日</text>
+    <text x="48" y="246" class="b">12　13　14　15●　16●　17　18</text>
+    <text x="48" y="286" class="b">19　20　21　22　23　24　25</text>
+    <text x="48" y="326" class="s">● 代表有记录，不表达医疗判断</text>
+
+    <rect x="28" y="404" width="444" height="120" rx="16" class="card"/>
+    <text x="48" y="436" class="h">5 月 15 日</text>
+    <text x="48" y="466" class="b">08:20　38.6℃</text>
+    <text x="48" y="492" class="b">12:10　布洛芬 5ml</text>
+
+    <rect x="28" y="544" width="444" height="110" rx="16" class="card"/>
+    <text x="48" y="576" class="h">最近病程摘要</text>
+    <text x="48" y="606" class="b">本月共 2 次病程｜最近一次仍在进行</text>
+  </g>
+
+  <!-- Row 3 -->
+  <!-- 7 Medicine box -->
+  <g transform="translate(70 1810)">
+    <text x="0" y="-18" class="screen-title">07 药箱</text>
+    <rect x="0" y="0" rx="28" ry="28" width="500" height="760" class="phone"/>
+    <text x="28" y="42" class="h">药箱</text>
+    <rect x="28" y="62" width="444" height="52" rx="14" class="soft"/>
+    <text x="48" y="94" class="b">搜索药品</text>
+
+    <rect x="28" y="134" width="444" height="76" rx="16" class="card"/>
+    <text x="48" y="166" class="h">提醒</text>
+    <text x="48" y="192" class="b">2 个临期｜1 个低库存</text>
+
+    <rect x="28" y="230" width="444" height="112" rx="16" class="card"/>
+    <text x="48" y="262" class="h">布洛芬混悬液</text>
+    <text x="48" y="290" class="b">剩余 60ml｜客厅药箱</text>
+    <text x="48" y="316" class="s">有效期 2026-11-20</text>
+
+    <rect x="28" y="362" width="444" height="112" rx="16" class="card"/>
+    <text x="48" y="394" class="h">对乙酰氨基酚滴剂</text>
+    <text x="48" y="422" class="b">剩余 20ml｜卧室抽屉</text>
+    <text x="48" y="448" class="s">有效期 2026-07-01</text>
+
+    <rect x="28" y="622" width="444" height="56" rx="16" class="cta"/>
+    <text x="174" y="657" class="h">＋ 添加药品</text>
+  </g>
+
+  <!-- 8 Medication -->
+  <g transform="translate(640 1810)">
+    <text x="0" y="-18" class="screen-title">08 用药</text>
+    <rect x="0" y="0" rx="28" ry="28" width="500" height="760" class="phone"/>
+    <text x="28" y="42" class="h">记录一次用药</text>
+
+    <rect x="28" y="62" width="444" height="68" rx="16" class="card"/>
+    <text x="48" y="94" class="h">成员</text>
+    <text x="362" y="94" class="b">宝宝 ▼</text>
+
+    <rect x="28" y="150" width="444" height="68" rx="16" class="card"/>
+    <text x="48" y="182" class="h">所属病程</text>
+    <text x="260" y="182" class="b">当前发烧病程 ▼</text>
+
+    <rect x="28" y="238" width="444" height="68" rx="16" class="card"/>
+    <text x="48" y="270" class="h">药品</text>
+    <text x="286" y="270" class="b">布洛芬混悬液 ▼</text>
+
+    <rect x="28" y="326" width="444" height="68" rx="16" class="card"/>
+    <text x="48" y="358" class="h">剂量</text>
+    <text x="386" y="358" class="b">5 ml</text>
+
+    <rect x="28" y="414" width="444" height="68" rx="16" class="card"/>
+    <text x="48" y="446" class="h">时间</text>
+    <text x="352" y="446" class="b">12:10</text>
+
+    <rect x="28" y="502" width="444" height="92" rx="16" class="card"/>
+    <text x="48" y="534" class="h">用药后反应</text>
+    <text x="48" y="564" class="b">体温 1 小时后降至 37.8℃</text>
+
+    <rect x="28" y="622" width="444" height="56" rx="16" class="cta"/>
+    <text x="182" y="657" class="h">保存用药</text>
+  </g>
+
+  <!-- 9 Profile -->
+  <g transform="translate(1210 1810)">
+    <text x="0" y="-18" class="screen-title">09 我的 / 家庭</text>
+    <rect x="0" y="0" rx="28" ry="28" width="500" height="760" class="phone"/>
+    <text x="28" y="42" class="h">我的</text>
+
+    <rect x="28" y="62" width="444" height="92" rx="16" class="card"/>
+    <text x="48" y="94" class="h">家庭成员</text>
+    <text x="48" y="124" class="b">宝宝｜妈妈｜爸爸</text>
+
+    <rect x="28" y="174" width="444" height="76" rx="16" class="card"/>
+    <text x="48" y="206" class="h">家庭共享</text>
+    <text x="48" y="232" class="b">邀请成员 / 权限管理</text>
+
+    <rect x="28" y="270" width="444" height="76" rx="16" class="card"/>
+    <text x="48" y="302" class="h">提醒</text>
+    <text x="48" y="328" class="b">复诊 / 用药 / 临期</text>
+
+    <rect x="28" y="366" width="444" height="76" rx="16" class="card"/>
+    <text x="48" y="398" class="h">数据导出</text>
+    <text x="48" y="424" class="b">导出自己的记录</text>
+
+    <rect x="28" y="462" width="444" height="76" rx="16" class="card"/>
+    <text x="48" y="494" class="h">隐私与安全</text>
+    <text x="48" y="520" class="b">AI 只整理，不诊断</text>
+
+    <rect x="28" y="558" width="444" height="76" rx="16" class="card"/>
+    <text x="48" y="590" class="h">会员</text>
+    <text x="48" y="616" class="b">长期档案 / 导出 / 家庭协作</text>
+  </g>
+
+  <!-- Footer notes -->
+  <text x="70" y="2700" class="h">评审时最该先看 4 件事</text>
+  <text x="70" y="2740" class="b">1. 首页有没有把人立刻送回“记一次生病”这条主线</text>
+  <text x="70" y="2770" class="b">2. 快速记录是否真的足够轻，能不能 20 秒内完成</text>
+  <text x="70" y="2800" class="b">3. 病程详情和复诊摘要是否构成明显差异化</text>
+  <text x="70" y="2830" class="b">4. 药箱、用药、我的是否都退到“支撑层”，没有抢走第一价值</text>
+</svg>

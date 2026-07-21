@@ -1,0 +1,39 @@
+<view class="page expiry-reminder-page">
+  <view class="page-title">
+    <text class="eyebrow">药箱提醒</text>
+    <view class="h1">保质期提醒</view>
+    <view class="muted">药品即将到期或已过期时，会在首页和药箱中提示你及时处理。</view>
+  </view>
+
+  <view class="section reminder-card">
+    <view class="reminder-summary">
+      <view>
+        <view class="section-title">提前提醒天数</view>
+        <view class="reminder-hint">选择常用时间，或按家里的备药习惯自定义。</view>
+      </view>
+      <view class="reminder-value">{{isCustom ? (customDays || '—') : reminderDays}}<text>天</text></view>
+    </view>
+
+    <view class="reminder-options">
+      <button wx:for="{{options}}" wx:key="value" class="reminder-option {{!isCustom && item.value === reminderDays ? 'is-selected' : ''}}" data-value="{{item.value}}" bindtap="selectReminderDays">
+        {{item.label}}
+      </button>
+    </view>
+
+    <view class="custom-row">
+      <view class="custom-label">自定义</view>
+      <input class="custom-input {{customError ? 'has-error' : ''}}" type="number" value="{{customDays}}" placeholder="输入 1-365" bindinput="onCustomDaysInput" />
+      <text class="custom-unit">天</text>
+    </view>
+    <view wx:if="{{customError}}" class="field-error">{{customError}}</view>
+  </view>
+
+  <view class="setting-note">
+    <view class="setting-note-mark">i</view>
+    <view>例如设置提前 30 天：有效期在未来 30 天内的药品会提醒；已经过期的药品始终会提示。</view>
+  </view>
+
+  <button class="primary-btn save-btn" bindtap="save" loading="{{saving}}">
+    {{saving ? '保存中' : '保存提醒设置'}}
+  </button>
+</view>

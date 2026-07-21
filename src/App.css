@@ -255,6 +255,99 @@
   color: #d8f2de;
 }
 
+.batch-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.batch-form label {
+  display: grid;
+  gap: 6px;
+  color: #66726c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.batch-form input,
+.batch-form select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  color: #24352e;
+  background: #fbfdfb;
+  border: 1px solid #dce4dd;
+  border-radius: 7px;
+}
+
+.batch-form button {
+  align-self: end;
+  min-height: 40px;
+  color: #fff;
+  background: #2f7d57;
+  border: 0;
+  border-radius: 7px;
+}
+
+.batch-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.batch-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.batch-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-presets span,
+.batch-state,
+.batch-helper {
+  color: #66726c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.batch-presets button {
+  min-height: 34px;
+  padding: 0 12px;
+  color: #1d2722;
+  background: #eef4ef;
+  border: 1px solid #dce4dd;
+  border-radius: 7px;
+}
+
+.batch-presets button:hover,
+.batch-presets button.active {
+  color: #fff;
+  background: #2f7d57;
+  border-color: #2f7d57;
+}
+
+.batch-helper {
+  padding: 10px 12px;
+  margin: 0;
+  background: #f7faf7;
+  border: 1px dashed #cfdad2;
+  border-radius: 7px;
+}
+
+.batch-message {
+  padding: 12px 14px;
+  color: #195b3a;
+  background: #e7f4eb;
+  border-radius: 7px;
+  font-weight: 800;
+}
+
 .panel-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -462,6 +555,31 @@
   text-align: center;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  color: #66726c;
+  font-size: 13px;
+}
+
+.pagination button {
+  min-height: 36px;
+  padding: 0 14px;
+  color: #1d2722;
+  background: #eef4ef;
+  border: 1px solid #dce4dd;
+  border-radius: 7px;
+}
+
+.pagination button:disabled {
+  color: #9aa59f;
+  cursor: not-allowed;
+  background: #f4f6f4;
+}
+
 .compact-list {
   display: grid;
   gap: 10px;
@@ -479,7 +597,8 @@
 @media (max-width: 1180px) {
   .stat-grid,
   .commerce-grid,
-  .trend-grid {
+  .trend-grid,
+  .batch-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -496,15 +615,69 @@
   }
 
   .admin-sidebar {
-    position: static;
+    position: sticky;
+    z-index: 20;
+    top: 0;
+    gap: 14px;
     height: auto;
+    padding: 14px 16px 12px;
+    box-shadow: 0 10px 30px rgba(20, 36, 28, 0.22);
+  }
+
+  .brand-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .brand h1 {
+    font-size: 19px;
+  }
+
+  .side-nav {
+    display: flex;
+    gap: 8px;
+    padding-bottom: 4px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .side-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-group-label,
+  .security-box {
+    display: none;
+  }
+
+  .side-nav button {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 13px;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .admin-main {
+    padding: 18px 16px 32px;
+  }
+
+  .pagination {
+    justify-content: space-between;
   }
 
   .stat-grid,
   .commerce-grid,
   .trend-grid,
-  .health-grid {
+  .health-grid,
+  .batch-form {
     grid-template-columns: 1fr;
+  }
+
+  .batch-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .summary-head {

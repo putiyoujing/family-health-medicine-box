@@ -1,12 +1,9 @@
-const api = require('../../services/api')
-
 Page({
   data: {
     orderId: '',
     orderNo: '',
     amount: 0,
     amountText: '0',
-    paying: false,
   },
 
   onLoad(options) {
@@ -19,25 +16,18 @@ Page({
     })
   },
 
-  async pay() {
-    if (!this.data.orderId) {
-      wx.showToast({ title: '订单不存在', icon: 'none' })
+  goToMembership() {
+    const app = getApp()
+    if (app.globalData) {
+      app.globalData.focusMembershipRedeem = true
+    }
+    const pages = getCurrentPages()
+    const previousPage = pages.length > 1 ? pages[pages.length - 2] : null
+    if (previousPage && previousPage.route === 'pages/membership/index') {
+      wx.navigateBack()
       return
     }
-    this.setData({ paying: true })
-    wx.showLoading({ title: '开通中' })
-    try {
-      await api.mockPaymentSuccess({ orderId: this.data.orderId })
-      wx.hideLoading()
-      wx.showToast({ title: '会员已开通' })
-      setTimeout(() => {
-        wx.navigateBack({ delta: 2 })
-      }, 600)
-    } catch (error) {
-      wx.hideLoading()
-      this.setData({ paying: false })
-      wx.showToast({ title: error.message || '开通失败', icon: 'none' })
-    }
+    wx.redirectTo({ url: '/pages/membership/index?focus=redeem' })
   },
 })
 

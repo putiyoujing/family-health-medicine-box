@@ -1,4 +1,7 @@
 const api = require('../../services/api')
+const { ensureLoginReady } = require('../../utils/operation-guards')
+
+const PLAN_DISPLAY_ORDER = { monthly_pro: 0, yearly_pro: 1 }
 
 const DEFAULT_PLANS = [
   {
@@ -8,7 +11,6 @@ const DEFAULT_PLANS = [
     durationDays: 365,
     badge: '推荐',
     sort: 0,
-    benefitsText: '10 位家庭成员、6 位共享成员、长期健康记录、AI 问答与数据导出',
   },
   {
     planId: 'monthly_pro',
@@ -17,52 +19,64 @@ const DEFAULT_PLANS = [
     durationDays: 30,
     badge: '灵活体验',
     sort: 1,
-    benefitsText: '适合先体验完整家庭共享、用药记录和药箱管理能力',
   },
 ]
 
 const DEFAULT_ENTITLEMENT = {
   planName: '免费版',
   limits: {
+    maxOwnedFamilies: 1,
     maxMembers: 3,
-    maxSharedUsers: 1,
-    maxMedicines: 50,
-    maxHealthRecords: 200,
-    maxMedicationLogs: 500,
-    maxAttachments: 20,
-    aiAssistantMonthly: 20,
-    aiImageParseMonthly: 0,
+    maxSharedUsers: 2,
+    maxAttachments: 10,
+    aiAssistantMonthly: 10,
+    aiImageParseMonthly: 3,
   },
+}
+
+const DEFAULT_FAMILY_POLICY = {
+  ownedFamilyCount: 1,
+  maxOwnedFamilies: 1,
 }
 
 Page({
   data: {
     loading: true,
-    paying: false,
     family: {},
     entitlement: DEFAULT_ENTITLEMENT,
     usage: {},
+    familyPolicy: DEFAULT_FAMILY_POLICY,
     plans: [],
-    coupons: [],
-    benefitRows: [],
-    selectedPlanId: 'yearly_pro',
-    couponCode: '',
-    preview: null,
-    latestOrder: null,
+    benefitRows: buildBenefitRows(DEFAULT_ENTITLEMENT.limits, {}, DEFAULT_FAMILY_POLICY),
+    comparisonRows: buildComparisonRows(),
+    isFreeMembership: true,
+    expireText: '',
+    redeemCode: '',
+    redeemInputFocused: false,
+    redeeming: false,
+    redeemResult: null,
+  },
+
+  onLoad(options) {
+    this.shouldFocusRedeem = options.focus === 'redeem'
   },
 
   onShow() {
     const app = getApp()
-    if (app.globalData && app.globalData.selectedCouponCode) {
-      this.setData({ couponCode: app.globalData.selectedCouponCode })
-      app.globalData.selectedCouponCode = ''
-      this.refreshPreview()
+    if (app.globalData && app.globalData.focusMembershipRedeem) {
+      app.globalData.focusMembershipRedeem = false
+      this.shouldFocusRedeem = true
     }
     this.load()
   },
 
   async load() {
     this.setData({ loading: true })
+    const loggedIn = await ensureLoginReady()
+    if (!loggedIn) {
+      this.setData({ loading: false })
+      return
+    }
     let membership = {
       family: {},
       entitlement: this.data.entitlement,
@@ -70,6 +84,7 @@ Page({
       plans: [],
     }
     let planData = { plans: [] }
+    let familyPolicy = this.data.familyPolicy
 
     try {
       membership = await api.getMembershipStatus()
@@ -88,11 +103,14 @@ Page({
       planData = { plans: [] }
     }
 
+    try {
+      familyPolicy = await api.listMyFamilies()
+    } catch (error) {
+      familyPolicy = this.data.familyPolicy
+    }
+
     const planSource = pickPlans(planData.plans, membership.plans)
-    const selectedPlanId = planSource.some((plan) => plan.planId === this.data.selectedPlanId)
-      ? this.data.selectedPlanId
-      : planSource[0].planId
-    const plans = decoratePlans(planSource, selectedPlanId)
+    const plans = decoratePlans(planSource)
     const entitlement = membership.entitlement || this.data.entitlement
     const usage = membership.usage || {}
 
@@ -101,121 +119,60 @@ Page({
       family: membership.family || {},
       entitlement,
       usage,
+      familyPolicy,
       plans,
-      selectedPlanId,
-      benefitRows: buildBenefitRows(entitlement.limits || {}, usage),
+      benefitRows: buildBenefitRows(entitlement.limits || {}, usage, familyPolicy),
+      isFreeMembership: isFreePlan(entitlement),
+      expireText: formatExpireAt(entitlement.proExpireAt || entitlement.expireAt),
     })
-    await this.loadCoupons()
-    await this.refreshPreview()
-  },
-
-  async loadCoupons() {
-    try {
-      const data = await api.listCouponsForUser({
-        planId: this.data.selectedPlanId,
-      })
-      this.setData({
-        coupons: data.coupons || [],
-      })
-    } catch (error) {
-      this.setData({ coupons: [] })
+    if (this.shouldFocusRedeem) {
+      this.shouldFocusRedeem = false
+      this.focusRedeem()
     }
   },
 
-  async choosePlan(event) {
-    const planId = event.currentTarget.dataset.id
+  onRedeemInput(event) {
     this.setData({
-      selectedPlanId: planId,
-      plans: decoratePlans(this.data.plans, planId),
-      preview: null,
-    })
-    await this.loadCoupons()
-    await this.refreshPreview()
-  },
-
-  onCouponInput(event) {
-    this.setData({
-      couponCode: String(event.detail.value || '').trim().toUpperCase(),
+      redeemCode: String(event.detail.value || '').trim().toUpperCase(),
     })
   },
 
-  chooseCoupon(event) {
-    const code = event.currentTarget.dataset.code
-    this.setData({ couponCode: code || '' })
-    this.refreshPreview()
-  },
-
-  async applyCoupon() {
-    if (!this.data.couponCode) {
-      wx.showToast({ title: '请输入优惠码', icon: 'none' })
+  async redeemMembershipCode() {
+    const loggedIn = await ensureLoginReady()
+    if (!loggedIn) {
       return
     }
-    await this.refreshPreview(true)
-  },
-
-  async clearCoupon() {
-    this.setData({ couponCode: '' })
-    await this.refreshPreview()
-  },
-
-  async refreshPreview(showToast = false) {
-    if (!this.data.selectedPlanId) {
+    if (!this.data.redeemCode) {
+      wx.showToast({ title: '请输入会员兑换码', icon: 'none' })
       return
     }
-    const selectedPlan = this.data.plans.find((plan) => plan.planId === this.data.selectedPlanId)
+    this.setData({ redeeming: true, redeemResult: null })
+    wx.showLoading({ title: '兑换中' })
     try {
-      const preview = await api.previewOrder({
-        planId: this.data.selectedPlanId,
-        couponCode: this.data.couponCode,
-      })
-      this.setData({ preview })
-      if (showToast) {
-        wx.showToast({ title: preview.discountAmount ? '优惠已生效' : '已更新价格' })
-      }
-    } catch (error) {
-      if (showToast) {
-        wx.showToast({ title: error.message || '优惠不可用', icon: 'none' })
-      }
-      if (this.data.couponCode) {
-        this.setData({ preview: null })
-      } else if (selectedPlan) {
-        this.setData({ preview: buildLocalPreview(selectedPlan) })
-      }
-    }
-  },
-
-  async createOrder() {
-    if (!this.data.selectedPlanId) {
-      wx.showToast({ title: '请选择套餐', icon: 'none' })
-      return
-    }
-    this.setData({ paying: true })
-    wx.showLoading({ title: '生成订单' })
-    try {
-      const order = await api.createOrder({
-        planId: this.data.selectedPlanId,
-        couponCode: this.data.couponCode,
+      const result = await api.redeemMembershipCode({
+        code: this.data.redeemCode,
       })
       wx.hideLoading()
       this.setData({
-        paying: false,
-        latestOrder: order,
-        preview: order,
+        redeeming: false,
+        redeemCode: '',
+        redeemResult: result,
       })
-      wx.navigateTo({
-        url: `/pages/payment/checkout?orderId=${order.orderId}&orderNo=${order.orderNo}&amount=${order.payableAmount}`,
-      })
+      wx.showToast({ title: '会员已激活' })
+      await this.load()
     } catch (error) {
       wx.hideLoading()
-      this.setData({ paying: false })
-      wx.showToast({ title: error.message || '下单失败', icon: 'none' })
+      this.setData({ redeeming: false })
+      wx.showToast({ title: error.message || '兑换失败', icon: 'none' })
     }
   },
 
-  openCoupons() {
-    wx.navigateTo({
-      url: `/pages/coupon/index?planId=${this.data.selectedPlanId}&code=${this.data.couponCode || ''}`,
-    })
+  focusRedeem() {
+    this.setData({ redeemInputFocused: false })
+    wx.pageScrollTo({ selector: '#redeem-section', duration: 300 })
+    setTimeout(() => {
+      this.setData({ redeemInputFocused: true })
+    }, 320)
   },
 
 })
@@ -225,47 +182,75 @@ function pickPlans(primaryPlans, fallbackPlans) {
   return plans && plans.length ? plans : DEFAULT_PLANS
 }
 
-function decoratePlans(plans, selectedPlanId) {
+function decoratePlans(plans) {
   return (plans || [])
     .slice()
-    .sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0))
+    .sort((a, b) => (
+      (PLAN_DISPLAY_ORDER[a.planId] ?? 10 + Number(a.sort || 0))
+      - (PLAN_DISPLAY_ORDER[b.planId] ?? 10 + Number(b.sort || 0))
+    ))
     .map((plan) => ({
       ...plan,
-      active: plan.planId === selectedPlanId,
       priceText: formatMoney(plan.price),
-      benefitsText: plan.benefitsText || buildPlanBenefitsText(plan),
+      audienceText: buildPlanAudienceText(plan),
     }))
 }
 
-function buildPlanBenefitsText(plan) {
-  if (plan.benefitsText) {
-    return plan.benefitsText
+function buildPlanAudienceText(plan) {
+  const durationDays = Number(plan.durationDays || 0)
+  if (plan.planId === 'monthly_pro' || (durationDays > 0 && durationDays <= 31)) {
+    return '适合初次体验会员服务的家庭'
   }
-  if (plan.durationDays >= 365) {
-    return '适合长期记录家庭健康、药箱信息、用药记录和共享协作'
+  if (plan.planId === 'yearly_pro' || durationDays >= 365) {
+    return '适合长期管理家人健康的家庭'
   }
-  return '适合先体验会员权益与家庭共享能力'
+  return '适合需要持续管理家人健康的家庭'
 }
 
-function buildBenefitRows(limits, usage) {
+function buildBenefitRows(limits, usage, familyPolicy) {
   return [
+    {
+      label: '创建家庭',
+      used: familyPolicy.ownedFamilyCount || 0,
+      limit: familyPolicy.maxOwnedFamilies || limits.maxOwnedFamilies || 1,
+    },
     { label: '家庭成员', used: usage.members || 0, limit: limits.maxMembers || 3 },
-    { label: '共享成员', used: usage.sharedUsers || 0, limit: limits.maxSharedUsers || 1 },
-    { label: '药品数量', used: usage.medicines || 0, limit: limits.maxMedicines || 50 },
-    { label: '健康记录', used: usage.healthRecords || 0, limit: limits.maxHealthRecords || 200 },
-    { label: '用药记录', used: usage.medicationLogs || 0, limit: limits.maxMedicationLogs || 500 },
-    { label: '附件上传', used: usage.attachments || 0, limit: limits.maxAttachments || 20 },
-    { label: 'AI 问答', used: usage.aiAssistantMonthly || 0, limit: limits.aiAssistantMonthly || 20 },
+    { label: '额外关联账号', used: usage.sharedUsers || 0, limit: limits.maxSharedUsers || 2 },
+    { label: '附件上传', used: usage.attachments || 0, limit: limits.maxAttachments || 10 },
+    { label: '记录查询', used: usage.aiAssistantMonthly || 0, limit: limits.aiAssistantMonthly || 10 },
     { label: 'AI 图片解析', used: usage.aiImageParseMonthly || 0, limit: limits.aiImageParseMonthly || 0 },
+  ].map((item) => ({
+    ...item,
+    progress: item.limit ? Math.min(100, Math.round((item.used / item.limit) * 100)) : 0,
+  }))
+}
+
+function buildComparisonRows() {
+  return [
+    { label: '可创建家庭', free: '1 个', pro: '3 个' },
+    { label: '家庭成员', free: '3 位', pro: '10 位' },
+    { label: '成员账号关联', free: '3 位成员均可管理或编辑', pro: '除创建者外 6 位多角色' },
+    { label: '附件上传', free: '10 个', pro: '100 个' },
+    { label: '记录查询', free: '10 次/月', pro: '300 次/月' },
   ]
 }
 
-function buildLocalPreview(plan) {
-  return {
-    originalAmount: plan.price || 0,
-    discountAmount: 0,
-    payableAmount: plan.price || 0,
+function isFreePlan(entitlement = {}) {
+  return entitlement.plan === 'free' || String(entitlement.planName || '').includes('免费')
+}
+
+function formatExpireAt(value) {
+  if (!value) {
+    return ''
   }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return String(value).slice(0, 10)
+  }
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function formatMoney(amount) {

@@ -1,0 +1,10 @@
+.feedback-text {
+  min-height: 260rpx;
+}
+
+.tip-list {
+  display: grid;
+  gap: 14rpx;
+  color: #3f5147;
+  font-size: 26rpx;
+}

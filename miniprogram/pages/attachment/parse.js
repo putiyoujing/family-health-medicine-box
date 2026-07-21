@@ -1,4 +1,5 @@
 const api = require('../../services/api')
+const { ensureLoginReady } = require('../../utils/operation-guards')
 
 const kindOptions = [
   { label: '外包装 / 药瓶', value: 'medicine_box' },
@@ -41,6 +42,7 @@ Page({
     kindLabel: kindOptions[0].label,
     task: null,
     fields: [],
+    featureEnabled: false,
   },
 
   onLoad(options) {
@@ -54,6 +56,7 @@ Page({
       kindIndex,
       kindLabel: kindOptions[kindIndex].label,
       fields: buildFields(imageKind, {}),
+      featureEnabled: !!(app.globalData && app.globalData.imageParsingEnabled),
     })
   },
 
@@ -76,6 +79,18 @@ Page({
   },
 
   async startParse() {
+    if (!this.data.featureEnabled) {
+      wx.showModal({
+        title: '图片整理暂未开放',
+        content: '当前版本未连接真实图片识别服务。请返回后手动填写，并保留原图供核对。',
+        showCancel: false,
+      })
+      return
+    }
+    const loggedIn = await ensureLoginReady()
+    if (!loggedIn) {
+      return
+    }
     if (!this.data.attachment || !this.data.attachment.fileId) {
       wx.showToast({ title: '请先上传图片', icon: 'none' })
       return
@@ -108,6 +123,10 @@ Page({
   },
 
   async confirmResult() {
+    const loggedIn = await ensureLoginReady()
+    if (!loggedIn) {
+      return
+    }
     if (!this.data.task || !this.data.task._id) {
       wx.showToast({ title: '请先整理图片', icon: 'none' })
       return

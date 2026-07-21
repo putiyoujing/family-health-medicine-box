@@ -1,22 +1,22 @@
 const cloud = require('wx-server-sdk')
+const crypto = require('crypto')
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
 })
 
-const db = cloud.database()
+const db = cloud.database({
+  throwOnNotFound: false,
+})
 const _ = db.command
 
 const PRO_LIMITS = {
+  maxOwnedFamilies: 3,
   maxMembers: 10,
   maxSharedUsers: 6,
-  maxMedicines: 300,
-  maxHealthRecords: 3000,
-  maxMedicationLogs: 10000,
-  maxAttachments: 1000,
+  maxAttachments: 100,
   aiImageParseMonthly: 100,
   aiAssistantMonthly: 300,
-  exportData: true,
   familyMonthlyReport: true,
 }
 
@@ -58,6 +58,8 @@ exports.main = async (event = {}) => {
         return ok(await createOrder(openid, payload))
       case 'applyCoupon':
         return ok(await applyCoupon(openid, payload))
+      case 'redeemMembershipCode':
+        return ok(await redeemMembershipCode(openid, payload))
       case 'listCouponsForUser':
         return ok(await listCouponsForUser(openid, payload))
       case 'mockPaymentSuccess':
@@ -155,6 +157,112 @@ async function applyCoupon(openid, payload) {
   }
 }
 
+async function redeemMembershipCode(openid, payload) {
+  const familyId = await resolveFamilyId(openid, payload.familyId)
+  const managerRole = await assertFamilyManager(openid, familyId)
+  const code = normalizeRedeemCode(payload.code || payload.couponCode || payload.redeemCode)
+  if (!code) {
+    throw new Error('请输入会员兑换码')
+  }
+
+  const initialCodeRecord = await findMembershipCode(code)
+  const [initialCoupon, initialBatch] = await Promise.all([
+    safeGetDoc('coupons', initialCodeRecord.couponId),
+    safeGetDoc('coupon_code_batches', initialCodeRecord.batchId),
+  ])
+  const initialPlanConfig = resolveMembershipCodePlan(initialCodeRecord, initialCoupon, initialBatch)
+  const plan = {
+    ...(await getPlan(initialPlanConfig.planId)),
+    durationDays: initialPlanConfig.durationDays,
+  }
+  const now = db.serverDate()
+  const subscriptionId = createDeterministicDocumentId('mcodesub', initialCodeRecord._id)
+  const redemptionId = createDeterministicDocumentId('mcoderedemption', initialCodeRecord._id)
+
+  const subscriptionResult = await db.collection('subscriptions').add({
+    data: {
+      familyId,
+      orderId: '',
+      externalOrderId,
+      source: 'membership_code',
+      sourceCodeId: codeRecord._id,
+      code,
+      planId: plan.planId,
+      planName: plan.name,
+      payerOpenid: openid,
+      status: 'active',
+      startedAt: now,
+      expireAt,
+      createdAt: now,
+      updatedAt: now,
+    },
+  })
+
+  await db.collection('coupon_codes').doc(codeRecord._id).update({
+    data: {
+      status: 'used',
+      issueStatus: 'issued',
+      issuedChannel: codeRecord.issuedChannel || payload.issuedChannel || 'xiaohongshu',
+      issuedToNote: codeRecord.issuedToNote || payload.issuedToNote || '',
+      externalOrderId,
+      redeemedByOpenid: openid,
+      redeemedFamilyId: familyId,
+      activatedSubscriptionId: subscriptionResult._id,
+      redeemedAt: now,
+      updatedAt: now,
+    },
+  })
+
+  await db.collection('coupon_redemptions').add({
+    data: {
+      couponId: codeRecord.couponId || '',
+      codeId: codeRecord._id,
+      batchId: codeRecord.batchId || '',
+      code,
+      userOpenid: openid,
+      familyId,
+      orderId: '',
+      externalOrderId,
+      planId: plan.planId,
+      redemptionType: 'membership_redeem',
+      discountAmount: 0,
+      membershipDays: redeemDurationDays,
+      usedAt: now,
+      status: 'used',
+      createdAt: now,
+      updatedAt: now,
+    },
+  })
+
+  if (codeRecord.couponId) {
+    await db.collection('coupons').doc(codeRecord.couponId).update({
+      data: {
+        usedQuantity: _.inc(1),
+        updatedAt: db.serverDate(),
+      },
+    })
+  }
+  if (codeRecord.batchId) {
+    await db.collection('coupon_code_batches').doc(codeRecord.batchId).update({
+      data: {
+        usedQuantity: _.inc(1),
+        updatedAt: db.serverDate(),
+      },
+    })
+  }
+
+  await activateFamilyPlan(familyId, plan, expireAt, 'membership_code')
+
+  return {
+    subscriptionId: subscriptionResult._id,
+    familyId,
+    status: 'active',
+    plan,
+    expireAt,
+    code,
+  }
+}
+
 async function listCouponsForUser(openid, payload) {
   const familyId = await resolveFamilyId(openid, payload.familyId)
   await assertFamilyAccess(openid, familyId)
@@ -188,6 +296,7 @@ async function listCouponsForUser(openid, payload) {
 }
 
 async function mockPaymentSuccess(openid, payload) {
+  assertMockPaymentEnabled()
   const orderId = payload.orderId
   if (!orderId) {
     throw new Error('orderId is required')
@@ -252,6 +361,16 @@ async function mockPaymentSuccess(openid, payload) {
     expireAt,
     familyId: order.familyId,
     plan,
+  }
+}
+
+function assertMockPaymentEnabled() {
+  const allowedEnvironments = ['development', 'test', 'staging', 'local']
+  const runtimeEnvironment = String(process.env.NODE_ENV || '').trim().toLowerCase()
+  if (process.env.ALLOW_MOCK_PAYMENT !== 'true' || !allowedEnvironments.includes(runtimeEnvironment)) {
+    throw new Error(
+      'mock payment is disabled; it requires ALLOW_MOCK_PAYMENT=true and NODE_ENV=development|test|staging|local',
+    )
   }
 }
 
@@ -363,6 +482,75 @@ async function findCouponForOrder(code, openid, familyId, plan) {
     throw new Error(validation.message)
   }
   return coupon
+}
+
+async function findMembershipCode(code) {
+  const result = await db
+    .collection('coupon_codes')
+    .where({
+      code,
+      deletedAt: _.exists(false),
+    })
+    .limit(1)
+    .get()
+  if (!result.data.length) {
+    throw new Error('会员兑换码不存在')
+  }
+  return result.data[0]
+}
+
+function validateMembershipCode(codeRecord) {
+  if (codeRecord.status === 'used') {
+    throw new Error('这个会员兑换码已被使用')
+  }
+  if (codeRecord.status === 'disabled') {
+    throw new Error('这个会员兑换码已被禁用')
+  }
+  if (codeRecord.status === 'expired') {
+    throw new Error('这个会员兑换码已过期')
+  }
+  if (codeRecord.status && codeRecord.status !== 'active') {
+    throw new Error('这个会员兑换码当前不可用')
+  }
+  const expiresAt = codeRecord.expiresAt || codeRecord.endAt
+  if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+    throw new Error('这个会员兑换码已过期')
+  }
+}
+
+function validateMembershipCodeRule(coupon, batch) {
+  if (batch && batch.status && batch.status !== 'active') {
+    throw new Error('这个兑换码批次已停用')
+  }
+  if (coupon && coupon.status && coupon.status !== 'active') {
+    throw new Error('这个会员兑换规则已停用')
+  }
+  const now = Date.now()
+  const startAt = (coupon && coupon.startAt) || (batch && batch.startAt)
+  const endAt = (coupon && coupon.endAt) || (batch && batch.endAt)
+  if (startAt && new Date(startAt).getTime() > now) {
+    throw new Error('这个会员兑换码尚未开始使用')
+  }
+  if (endAt && new Date(endAt).getTime() < now) {
+    throw new Error('这个会员兑换码已过期')
+  }
+}
+
+async function safeGetDoc(collection, id) {
+  if (!id) {
+    return null
+  }
+  try {
+    const result = await db.collection(collection).doc(id).get()
+    return result.data || null
+  } catch (error) {
+    console.warn(`safeGetDoc ${collection}`, error.message)
+    return null
+  }
+}
+
+function normalizeRedeemCode(value) {
+  return String(value || '').trim().toUpperCase()
 }
 
 async function validateCoupon(coupon, context) {

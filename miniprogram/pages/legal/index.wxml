@@ -1,0 +1,83 @@
+<view class="page legal-page">
+  <view class="page-title">
+    <text class="eyebrow">家人健康记</text>
+    <view class="h1">{{title}}</view>
+    <view class="muted">生效日期：{{effectiveDate}}</view>
+  </view>
+
+  <block wx:if="{{type === 'privacy'}}">
+    <view class="notice">健康记录、用药记录和处方/检查图片属于敏感信息。请只记录你有权管理的本人或家人信息，并谨慎邀请家庭协作者。</view>
+
+    <view class="section legal-section">
+      <view class="section-title">我们处理哪些信息</view>
+      <view class="legal-list">
+        <view><text class="item-title">微信身份标识</text><text>用于登录、识别账号和隔离不同家庭的数据。</text></view>
+        <view><text class="item-title">个人与家庭资料</text><text>包括你主动填写的昵称、家庭成员称呼、生日、过敏史、既往史和健康备注。</text></view>
+        <view><text class="item-title">健康与药箱记录</text><text>包括病程、体温、症状、就诊、用药、药品库存、提醒事项和复诊摘要。</text></view>
+        <view><text class="item-title">图片与附件</text><text>包括你主动上传的药盒、说明书、处方或检查资料。上传前请遮挡与记录无关的姓名、证件号、地址等信息。</text></view>
+        <view><text class="item-title">反馈信息</text><text>包括你主动提交的问题描述和可选联系方式。</text></view>
+      </view>
+    </view>
+
+    <view class="section legal-section">
+      <view class="section-title">如何使用和保护</view>
+      <view class="paragraph">这些信息仅用于保存和展示家庭健康记录、形成时间线与复诊摘要、完成家庭协作及你主动使用的相关功能。数据按家庭空间隔离，家庭成员只能按其角色访问。</view>
+      <view class="paragraph">数据存储在本小程序配置的微信云开发环境。图片整理或 AI 功能如需接入外部服务，会在启用前补充服务商、处理范围和单独提示；未经启用不会把图片发送给外部识别服务。</view>
+      <view class="paragraph">我们不会把健康记录用于广告画像，也不会出售你的个人信息。发生法律要求或保护人身安全等必要情形时，依法处理。</view>
+    </view>
+
+    <view class="section legal-section">
+      <view class="section-title">你的选择</view>
+      <view class="paragraph">你可以在相应页面查看、修改或删除记录，可以拒绝上传图片或加入家庭。退出共享家庭前，请先确认仍需保留的资料。</view>
+      <view class="paragraph">如需注销账号、删除无法自行删除的数据，或对信息处理有疑问，请通过“用户反馈”提交请求。为防止他人冒用，我们可能需要先核验账号身份和家庭所有权。</view>
+      <button class="ghost-btn contact-btn" bindtap="openFeedback">联系与数据请求</button>
+    </view>
+
+    <view class="section legal-section">
+      <view class="section-title">未成年人信息</view>
+      <view class="paragraph">为未成年人创建成员档案或记录健康信息时，应由其监护人操作或事先取得监护人同意。请只填写实现记录目的所必需的信息。</view>
+    </view>
+  </block>
+
+  <block wx:elif="{{type === 'terms'}}">
+    <view class="section legal-section">
+      <view class="section-title">服务范围</view>
+      <view class="paragraph">家人健康记提供家庭病程、用药、药箱和复诊沟通信息的记录、整理与查询工具。服务输出来自用户已填写的内容，不是医疗诊断、处方或治疗方案。</view>
+    </view>
+    <view class="section legal-section">
+      <view class="section-title">账号与家庭协作</view>
+      <view class="paragraph">你应妥善管理家庭邀请码和协作者权限，只邀请可信任的人。你需要确保对所录入的本人或家人信息具有合法的管理和分享权限。</view>
+      <view class="paragraph">不得冒用他人身份、上传无权处理的信息、尝试访问其他家庭数据，或利用本服务从事违法、有害和侵犯他人权益的活动。</view>
+    </view>
+    <view class="section legal-section">
+      <view class="section-title">数据与设备</view>
+      <view class="paragraph">请在稳定网络下完成重要记录，并在页面提示保存成功后再离开。涉及就医的关键信息应同时保留医院原始资料，不应只依赖本小程序作为唯一副本。</view>
+    </view>
+    <view class="section legal-section">
+      <view class="section-title">付费说明</view>
+      <view class="paragraph">首发版本只支持通过合法渠道获得的会员兑换码，不在小程序内模拟或代替真实支付。兑换前请核对套餐、期限和适用家庭；具体权益以兑换页面显示为准。</view>
+    </view>
+    <view class="section legal-section">
+      <view class="section-title">联系</view>
+      <view class="paragraph">运营主体以小程序主体信息页展示为准。对服务、协议或账号数据有疑问，可通过用户反馈联系。</view>
+      <button class="ghost-btn contact-btn" bindtap="openFeedback">提交反馈</button>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="safety safety-strong">本产品只整理你已经记录的历史信息，不判断疾病，不推荐药物，不提供剂量、停药、换药或是否就医的结论。</view>
+    <view class="section legal-section">
+      <view class="section-title">什么时候应直接求助</view>
+      <view class="paragraph">如出现呼吸困难、意识异常、持续抽搐、严重过敏、胸痛、无法止血等紧急情况，或你对病情有明显担忧，请立即联系当地急救服务或前往正规医疗机构，不要等待小程序回复。</view>
+    </view>
+    <view class="section legal-section">
+      <view class="section-title">用药安全</view>
+      <view class="paragraph">药名、剂量、频次、疗程、停药和联合用药应遵医嘱或咨询医生/药师。儿童、老人、孕妇、哺乳期人群、慢病患者及过敏人群需特别谨慎。</view>
+      <view class="paragraph">药箱库存是用户记录值，不能替代实物核对；服药前请检查包装、有效期、说明书和药品实际状态。</view>
+    </view>
+    <view class="section legal-section">
+      <view class="section-title">AI 与图片整理</view>
+      <view class="paragraph">自动识别可能出错。任何识别结果都必须由用户核对确认后才能作为正式记录；请始终以医院原件、药品包装和医生医嘱为准。</view>
+    </view>
+  </block>
+</view>

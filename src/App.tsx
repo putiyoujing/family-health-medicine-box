@@ -7,6 +7,7 @@ import {
   HeartPulse,
   Home,
   Lock,
+  MessageSquareText,
   Paperclip,
   Pill,
   ReceiptText,
@@ -25,11 +26,14 @@ type ListType =
   | 'orders'
   | 'subscriptions'
   | 'coupons'
+  | 'couponBatches'
+  | 'couponCodes'
   | 'aiUsage'
   | 'medicines'
   | 'illness'
   | 'medication'
   | 'attachments'
+  | 'feedback'
 
 type PageId = 'overview' | 'commerce' | 'risk' | 'trend' | 'dataOverview' | ListType
 
@@ -41,12 +45,15 @@ interface AdminStats {
   illnessRecords: number
   medicationLogs: number
   attachments: number
+  feedback: number
   reminders: number
   orders: number
   paidOrders: number
   subscriptions: number
   activeSubscriptions: number
   coupons: number
+  couponCodeBatches: number
+  couponCodes: number
   couponRedemptions: number
   aiUsageLogs: number
 }
@@ -108,6 +115,8 @@ interface AdminDashboardData {
   recentOrders: Record<string, unknown>[]
   recentSubscriptions: Record<string, unknown>[]
   recentCoupons: Record<string, unknown>[]
+  recentCouponBatches: Record<string, unknown>[]
+  recentCouponCodes: Record<string, unknown>[]
   recentAiUsage: Record<string, unknown>[]
   expiringMedicines: Record<string, unknown>[]
   lowStockMedicines: Record<string, unknown>[]
@@ -141,8 +150,20 @@ interface TableColumn {
   render?: (row: Record<string, unknown>) => string
 }
 
-const API_BASE = import.meta.env.VITE_ADMIN_API_BASE || ''
-const API_TOKEN = import.meta.env.VITE_ADMIN_API_TOKEN || ''
+interface CouponBatchForm {
+  name: string
+  prefix: string
+  quantity: string
+  codeLength: string
+  redeemPlanId: string
+  redeemDurationDays: string
+  channel: string
+}
+
+const DEV_ADMIN_API_BASE = import.meta.env.DEV ? '/api/admin' : ''
+const DEV_ADMIN_API_TOKEN = import.meta.env.DEV ? 'local-dev-token' : ''
+const API_BASE = import.meta.env.VITE_ADMIN_API_BASE || DEV_ADMIN_API_BASE
+const TABLE_PAGE_SIZE = 50
 
 const dataTables: Array<{
   id: ListType
@@ -156,11 +177,14 @@ const dataTables: Array<{
   { id: 'orders', label: '订单表', icon: ReceiptText, description: '订单金额、套餐、优惠和支付状态', statKey: 'orders' },
   { id: 'subscriptions', label: '会员家庭表', icon: WalletCards, description: '订阅状态、到期时间和所属家庭', statKey: 'subscriptions' },
   { id: 'coupons', label: '优惠券表', icon: TicketPercent, description: '券码、使用量、有效期和状态', statKey: 'coupons' },
+  { id: 'couponBatches', label: '兑换码批次表', icon: TicketPercent, description: '小红书发码批次、套餐和生成数量', statKey: 'couponCodeBatches' },
+  { id: 'couponCodes', label: '会员兑换码表', icon: TicketPercent, description: '单个兑换码、发放状态和兑换家庭', statKey: 'couponCodes' },
   { id: 'aiUsage', label: 'AI 用量表', icon: Brain, description: '问答、图片解析和家庭维度额度消耗', statKey: 'aiUsageLogs' },
   { id: 'medicines', label: '药箱记录表', icon: Pill, description: '家庭药箱药品、分类、位置和有效期', statKey: 'medicines' },
   { id: 'illness', label: '健康记录表', icon: HeartPulse, description: '家庭健康记录、状态和摘要', statKey: 'illnessRecords' },
   { id: 'medication', label: '用药记录表', icon: Syringe, description: '用药时间、剂量和关联药品', statKey: 'medicationLogs' },
   { id: 'attachments', label: '附件表', icon: Paperclip, description: '检查单、处方、外包装和说明书附件', statKey: 'attachments' },
+  { id: 'feedback', label: '用户反馈表', icon: MessageSquareText, description: '使用问题、数据请求和可选联系方式', statKey: 'feedback' },
 ]
 
 const pageMenu: Array<{ id: PageId; label: string; icon: typeof Home; group: 'dashboard' | 'data' }> = [
@@ -182,23 +206,41 @@ function App() {
   const [activePage, setActivePage] = useState<PageId>('overview')
   const [tableData, setTableData] = useState<Record<ListType, Record<string, unknown>[]>>(() => createInitialTableData())
   const [tableTotals, setTableTotals] = useState<Record<ListType, number>>(() => createInitialTableTotals(mockDashboard()))
+  const [tableOffsets, setTableOffsets] = useState<Record<ListType, number>>(() => createInitialTableOffsets())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const isConfigured = Boolean(API_BASE && API_TOKEN)
+  const [couponBatchForm, setCouponBatchForm] = useState<CouponBatchForm>({
+    name: '小红书年度会员兑换码',
+    prefix: 'XHSVIP',
+    quantity: '50',
+    codeLength: '8',
+    redeemPlanId: 'yearly_pro',
+    redeemDurationDays: '365',
+    channel: 'xiaohongshu',
+  })
+  const [generatingCodes, setGeneratingCodes] = useState(false)
+  const [batchMessage, setBatchMessage] = useState('')
+  const isConfigured = Boolean(API_BASE)
 
   const trendCards = useMemo(() => buildTrendCards(dashboard.trend), [dashboard.trend])
   const activeTable = isListPage(activePage) ? activePage : null
 
   const loadTable = useCallback(
-    async (type: ListType) => {
+    async (type: ListType, skip = 0) => {
       if (!isConfigured) {
+        const rows = mockList(type)
         setTableData((current) => ({
           ...current,
-          [type]: mockList(type),
+          [type]: rows,
         }))
+        setTableTotals((current) => ({ ...current, [type]: rows.length }))
+        setTableOffsets((current) => ({ ...current, [type]: 0 }))
         return
       }
-      const listData = await callAdminApi<AdminListResponse>(listAction(type), { limit: 100 })
+      const listData = await callAdminApi<AdminListResponse>(listAction(type), {
+        limit: TABLE_PAGE_SIZE,
+        skip,
+      })
       setTableData((current) => ({
         ...current,
         [type]: listData.list || [],
@@ -207,13 +249,17 @@ function App() {
         ...current,
         [type]: listData.total || 0,
       }))
+      setTableOffsets((current) => ({
+        ...current,
+        [type]: listData.skip || 0,
+      }))
     },
     [isConfigured],
   )
 
   const loadDataOverview = useCallback(async () => {
     if (!isConfigured) {
-      setTableTotals(createInitialTableTotals(dashboard))
+      setTableTotals(createInitialTableTotals(mockDashboard()))
       return
     }
     const data = await callAdminApi<DataOverviewResponse>('getDataOverview')
@@ -228,7 +274,7 @@ function App() {
       ...current,
       ...totals,
     }))
-  }, [dashboard, isConfigured])
+  }, [isConfigured])
 
   const refreshDashboard = useCallback(async () => {
     setLoading(true)
@@ -243,7 +289,9 @@ function App() {
         }
         await loadTable(activeTable || 'orders')
       } else {
-        setDashboard(mockDashboard())
+        const demoDashboard = mockDashboard()
+        setDashboard(demoDashboard)
+        setTableTotals(createInitialTableTotals(demoDashboard))
         if (activeTable) {
           await loadTable(activeTable)
         }
@@ -281,6 +329,51 @@ function App() {
     }
   }
 
+  async function changeTablePage(type: ListType, skip: number) {
+    setLoading(true)
+    setError('')
+    try {
+      await loadTable(type, Math.max(skip, 0))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '列表翻页失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function updateCouponBatchForm(key: keyof CouponBatchForm, value: string) {
+    setCouponBatchForm((current) => ({
+      ...current,
+      [key]: value,
+    }))
+  }
+
+  async function generateCouponCodes() {
+    setBatchMessage('')
+    if (!isConfigured) {
+      setBatchMessage('当前是演示数据模式，配置真实管理接口后可以批量生成兑换码。')
+      return
+    }
+    setGeneratingCodes(true)
+    setError('')
+    try {
+      const result = await callAdminApi<{ batchId: string; generatedCount: number }>('adminBatchGenerateCouponCodes', {
+        ...couponBatchForm,
+        quantity: Number(couponBatchForm.quantity || 0),
+        codeLength: Number(couponBatchForm.codeLength || 8),
+        redeemDurationDays: Number(couponBatchForm.redeemDurationDays || 365),
+        purpose: 'membership_redeem',
+      })
+      setBatchMessage(`已生成 ${result.generatedCount || 0} 个会员兑换码，批次 ${result.batchId}`)
+      await refreshDashboard()
+      await Promise.all([loadTable('couponBatches'), loadTable('couponCodes')])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '兑换码生成失败')
+    } finally {
+      setGeneratingCodes(false)
+    }
+  }
+
   return (
     <main className="admin-shell">
       <aside className="admin-sidebar">
@@ -298,7 +391,7 @@ function App() {
 
         <div className="security-box">
           <ShieldCheck size={18} />
-          <p>后台接口必须配置管理 token，不建议直接暴露云数据库权限。</p>
+          <p>真实数据仅允许经管理员登录会话访问，浏览器不保存共享密钥。</p>
         </div>
       </aside>
 
@@ -320,8 +413,8 @@ function App() {
             <div>
               <strong>当前显示演示数据</strong>
               <p>
-                配置 `VITE_ADMIN_API_BASE` 和 `VITE_ADMIN_API_TOKEN` 后，后台会读取真实
-                `adminApi` 数据。
+                生产环境只能连接带管理员登录会话的可信网关。配置 `VITE_ADMIN_API_BASE`
+                后，后台会通过 HttpOnly 会话读取真实数据；浏览器包不会保存管理密钥。
               </p>
             </div>
           </section>
@@ -330,7 +423,17 @@ function App() {
         {error && <section className="error-box">{error}</section>}
 
         {activePage === 'overview' && <OverviewPage dashboard={dashboard} />}
-        {activePage === 'commerce' && <CommercePage dashboard={dashboard} />}
+        {activePage === 'commerce' && (
+          <CommercePage
+            batchForm={couponBatchForm}
+            batchMessage={batchMessage}
+            dashboard={dashboard}
+            generatingCodes={generatingCodes}
+            isConfigured={isConfigured}
+            onBatchFormChange={updateCouponBatchForm}
+            onGenerateCodes={() => void generateCouponCodes()}
+          />
+        )}
         {activePage === 'risk' && <RiskPage dashboard={dashboard} />}
         {activePage === 'trend' && <TrendPage trendCards={trendCards} />}
         {activePage === 'dataOverview' && (
@@ -341,7 +444,21 @@ function App() {
             onOpenPage={(pageId) => void openPage(pageId)}
           />
         )}
-        {activeTable && <DetailTablePage dashboard={dashboard} rows={tableData[activeTable] || []} type={activeTable} />}
+        {activeTable && (
+          <DetailTablePage
+            batchForm={couponBatchForm}
+            batchMessage={batchMessage}
+            generatingCodes={generatingCodes}
+            isConfigured={isConfigured}
+            offset={tableOffsets[activeTable] || 0}
+            rows={tableData[activeTable] || []}
+            total={tableTotals[activeTable] || 0}
+            type={activeTable}
+            onBatchFormChange={updateCouponBatchForm}
+            onGenerateCodes={() => void generateCouponCodes()}
+            onPageChange={(skip) => void changeTablePage(activeTable, skip)}
+          />
+        )}
       </section>
     </main>
   )
@@ -423,7 +540,23 @@ function OverviewPage({ dashboard }: { dashboard: AdminDashboardData }) {
   )
 }
 
-function CommercePage({ dashboard }: { dashboard: AdminDashboardData }) {
+function CommercePage({
+  batchForm,
+  batchMessage,
+  dashboard,
+  generatingCodes,
+  isConfigured,
+  onBatchFormChange,
+  onGenerateCodes,
+}: {
+  batchForm: CouponBatchForm
+  batchMessage: string
+  dashboard: AdminDashboardData
+  generatingCodes: boolean
+  isConfigured: boolean
+  onBatchFormChange: (key: keyof CouponBatchForm, value: string) => void
+  onGenerateCodes: () => void
+}) {
   return (
     <>
       <section className="commerce-grid">
@@ -453,6 +586,14 @@ function CommercePage({ dashboard }: { dashboard: AdminDashboardData }) {
           </div>
           <strong>{dashboard.stats.couponRedemptions || 0}</strong>
           <p>已核销，当前券池 {dashboard.stats.coupons || 0} 张</p>
+        </article>
+        <article className="commerce-card">
+          <div className="commerce-head">
+            <TicketPercent size={22} />
+            <span>会员兑换码</span>
+          </div>
+          <strong>{dashboard.stats.couponCodes || 0}</strong>
+          <p>批次 {dashboard.stats.couponCodeBatches || 0}，用于小红书成交后发码</p>
         </article>
         <article className="commerce-card">
           <div className="commerce-head">
@@ -488,7 +629,112 @@ function CommercePage({ dashboard }: { dashboard: AdminDashboardData }) {
           />
         </article>
       </section>
+
+      <CouponBatchGenerator
+        batchForm={batchForm}
+        batchMessage={batchMessage}
+        generatingCodes={generatingCodes}
+        isConfigured={isConfigured}
+        onBatchFormChange={onBatchFormChange}
+        onGenerateCodes={onGenerateCodes}
+      />
     </>
+  )
+}
+
+function CouponBatchGenerator({
+  batchForm,
+  batchMessage,
+  generatingCodes,
+  isConfigured,
+  onBatchFormChange,
+  onGenerateCodes,
+}: {
+  batchForm: CouponBatchForm
+  batchMessage: string
+  generatingCodes: boolean
+  isConfigured: boolean
+  onBatchFormChange: (key: keyof CouponBatchForm, value: string) => void
+  onGenerateCodes: () => void
+}) {
+  const parsedQuantity = Number(batchForm.quantity || 0)
+  const quantityValue = Number.isFinite(parsedQuantity) ? parsedQuantity : 0
+  return (
+    <section className="panel coupon-generator-panel">
+      <PanelTitle title="人工批量生成兑换码" subtitle="后台人工生成 50 或 100 个会员兑换码，用于小红书订单逐个发码" />
+      <div className="batch-toolbar">
+        <div className="batch-presets">
+          <span>常用数量</span>
+          {[50, 100].map((quantity) => (
+            <button
+              aria-pressed={quantityValue === quantity}
+              className={quantityValue === quantity ? 'active' : ''}
+              key={quantity}
+              onClick={() => onBatchFormChange('quantity', String(quantity))}
+              type="button"
+            >
+              {quantity} 个
+            </button>
+          ))}
+        </div>
+        {!isConfigured && <span className="batch-state">演示模式不会写入真实券码</span>}
+      </div>
+      <div className="batch-form">
+        <label>
+          <span>批次名称</span>
+          <input value={batchForm.name} onChange={(event) => onBatchFormChange('name', event.target.value)} />
+        </label>
+        <label>
+          <span>券码前缀</span>
+          <input value={batchForm.prefix} onChange={(event) => onBatchFormChange('prefix', event.target.value)} />
+        </label>
+        <label>
+          <span>生成数量</span>
+          <input
+            max="1000"
+            min="1"
+            type="number"
+            value={batchForm.quantity}
+            onChange={(event) => onBatchFormChange('quantity', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>码长</span>
+          <input
+            max="16"
+            min="6"
+            type="number"
+            value={batchForm.codeLength}
+            onChange={(event) => onBatchFormChange('codeLength', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>兑换套餐</span>
+          <select value={batchForm.redeemPlanId} onChange={(event) => onBatchFormChange('redeemPlanId', event.target.value)}>
+            <option value="yearly_pro">年度会员</option>
+            <option value="monthly_pro">月度会员</option>
+          </select>
+        </label>
+        <label>
+          <span>会员天数</span>
+          <input
+            min="1"
+            type="number"
+            value={batchForm.redeemDurationDays}
+            onChange={(event) => onBatchFormChange('redeemDurationDays', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>发放渠道</span>
+          <input value={batchForm.channel} onChange={(event) => onBatchFormChange('channel', event.target.value)} />
+        </label>
+        <button disabled={generatingCodes || quantityValue < 1} onClick={onGenerateCodes} type="button">
+          {generatingCodes ? '生成中' : `生成 ${quantityValue || ''} 个`}
+        </button>
+      </div>
+      {!isConfigured && <p className="batch-helper">连接带管理员登录会话的可信网关后，才会写入优惠券规则、兑换码批次和单个兑换码。</p>}
+      {batchMessage && <div className="batch-message">{batchMessage}</div>}
+    </section>
   )
 }
 
@@ -586,24 +832,70 @@ function DataOverviewPage({
 }
 
 function DetailTablePage({
-  dashboard,
+  batchForm,
+  batchMessage,
+  generatingCodes,
+  isConfigured,
+  offset,
   rows,
+  total,
   type,
+  onBatchFormChange,
+  onGenerateCodes,
+  onPageChange,
 }: {
-  dashboard: AdminDashboardData
+  batchForm: CouponBatchForm
+  batchMessage: string
+  generatingCodes: boolean
+  isConfigured: boolean
+  offset: number
   rows: Record<string, unknown>[]
+  total: number
   type: ListType
+  onBatchFormChange: (key: keyof CouponBatchForm, value: string) => void
+  onGenerateCodes: () => void
+  onPageChange: (skip: number) => void
 }) {
   const meta = dataTables.find((table) => table.id === type)
   const columns = tableColumns(type)
+  const showCouponGenerator = type === 'coupons' || type === 'couponBatches' || type === 'couponCodes'
   return (
-    <section className="panel">
-      <PanelTitle
-        title={meta ? meta.label : '数据分表'}
-        subtitle={`${meta?.description || '详细数据列表'}，总量 ${meta ? dashboard.stats[meta.statKey] || 0 : rows.length}`}
-      />
-      <DataTable columns={columns} rows={rows} />
-    </section>
+    <>
+      {showCouponGenerator && (
+        <CouponBatchGenerator
+          batchForm={batchForm}
+          batchMessage={batchMessage}
+          generatingCodes={generatingCodes}
+          isConfigured={isConfigured}
+          onBatchFormChange={onBatchFormChange}
+          onGenerateCodes={onGenerateCodes}
+        />
+      )}
+      <section className="panel">
+        <PanelTitle
+          title={meta ? meta.label : '数据分表'}
+          subtitle={`${meta?.description || '详细数据列表'}，共 ${total} 条`}
+        />
+        <DataTable columns={columns} rows={rows} />
+        {total > TABLE_PAGE_SIZE && (
+          <div className="pagination" aria-label="列表分页">
+            <button disabled={offset <= 0} onClick={() => onPageChange(offset - TABLE_PAGE_SIZE)} type="button">
+              上一页
+            </button>
+            <span>
+              第 {Math.floor(offset / TABLE_PAGE_SIZE) + 1} / {Math.ceil(total / TABLE_PAGE_SIZE)} 页
+            </span>
+            <button
+              disabled={offset + rows.length >= total}
+              onClick={() => onPageChange(offset + TABLE_PAGE_SIZE)}
+              type="button"
+            >
+              下一页
+            </button>
+          </div>
+        )}
+      </section>
+    </>
   )
 }
 
@@ -729,16 +1021,20 @@ function CompactList({ rows }: { rows: Record<string, unknown>[] }) {
 }
 
 async function callAdminApi<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (DEV_ADMIN_API_TOKEN) {
+    headers['X-Admin-Token'] = DEV_ADMIN_API_TOKEN
+  }
   const response = await fetch(API_BASE, {
     body: JSON.stringify({
       action,
-      adminToken: API_TOKEN,
+      ...(DEV_ADMIN_API_TOKEN ? { adminToken: DEV_ADMIN_API_TOKEN } : {}),
       payload,
     }),
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Admin-Token': API_TOKEN,
-    },
+    credentials: 'include',
+    headers,
     method: 'POST',
   })
   if (!response.ok) {
@@ -756,8 +1052,11 @@ function listAction(type: ListType) {
   return {
     aiUsage: 'listAiUsage',
     attachments: 'listAttachments',
+    couponBatches: 'listCouponCodeBatches',
+    couponCodes: 'listCouponCodes',
     coupons: 'listCoupons',
     families: 'listFamilies',
+    feedback: 'listFeedback',
     illness: 'listIllness',
     medication: 'listMedication',
     medicines: 'listMedicines',
@@ -790,11 +1089,32 @@ function tableColumns(type: ListType): TableColumn[] {
       ...common,
       { key: 'code', label: '券码' },
       { key: 'name', label: '名称' },
+      { key: 'codePurpose', label: '用途' },
       { key: 'type', label: '类型' },
       { key: 'value', label: '面值', render: (row) => formatCouponValue(row) },
       { key: 'usedQuantity', label: '已用' },
       { key: 'totalQuantity', label: '总量' },
       { key: 'status', label: '状态' },
+    ],
+    couponBatches: [
+      ...common,
+      { key: 'name', label: '批次名称' },
+      { key: 'prefix', label: '前缀' },
+      { key: 'channel', label: '渠道' },
+      { key: 'redeemPlanId', label: '套餐' },
+      { key: 'generatedCount', label: '生成' },
+      { key: 'usedQuantity', label: '已兑换' },
+      { key: 'status', label: '状态' },
+    ],
+    couponCodes: [
+      ...common,
+      { key: 'code', label: '兑换码' },
+      { key: 'issueStatus', label: '发放' },
+      { key: 'status', label: '状态' },
+      { key: 'issuedChannel', label: '渠道' },
+      { key: 'externalOrderId', label: '外部订单' },
+      { key: 'redeemedFamilyId', label: '兑换家庭', render: (row) => shortId(row.redeemedFamilyId) },
+      { key: 'redeemedAt', label: '兑换时间', render: (row) => formatValue(row.redeemedAt) },
     ],
     families: [
       ...common,
@@ -803,6 +1123,14 @@ function tableColumns(type: ListType): TableColumn[] {
       { key: 'ownerOpenid', label: '创建者' },
       { key: 'proExpireAt', label: '会员到期', render: (row) => formatValue(row.proExpireAt) },
       { key: 'createdAt', label: '创建时间', render: (row) => formatValue(row.createdAt) },
+    ],
+    feedback: [
+      ...common,
+      { key: 'type', label: '类型' },
+      { key: 'content', label: '内容' },
+      { key: 'contact', label: '联系方式' },
+      { key: 'status', label: '状态' },
+      { key: 'createdAt', label: '提交时间', render: (row) => formatValue(row.createdAt) },
     ],
     illness: [
       ...common,
@@ -897,6 +1225,16 @@ function createInitialTableTotals(dashboard: AdminDashboardData): Record<ListTyp
   )
 }
 
+function createInitialTableOffsets(): Record<ListType, number> {
+  return dataTables.reduce(
+    (acc, table) => ({
+      ...acc,
+      [table.id]: 0,
+    }),
+    {} as Record<ListType, number>,
+  )
+}
+
 function isListPage(pageId: PageId): pageId is ListType {
   return dataTables.some((table) => table.id === pageId)
 }
@@ -952,133 +1290,89 @@ function joinArray(value: unknown) {
 }
 
 function mockDashboard(): AdminDashboardData {
+  const zeroStats: AdminStats = {
+    activeSubscriptions: 0,
+    aiUsageLogs: 0,
+    attachments: 0,
+    feedback: 0,
+    couponCodeBatches: 0,
+    couponCodes: 0,
+    couponRedemptions: 0,
+    coupons: 0,
+    families: 0,
+    illnessRecords: 0,
+    medicationLogs: 0,
+    medicines: 0,
+    members: 0,
+    orders: 0,
+    paidOrders: 0,
+    reminders: 0,
+    subscriptions: 0,
+    users: 0,
+  }
+
   return {
     aiUsage: {
-      assistantQuery: 42,
-      imageParse: 9,
-      total: 51,
+      assistantQuery: 0,
+      imageParse: 0,
+      total: 0,
     },
-    expiringMedicines: [
-      { _id: 'med2', category: '鼻炎', expireDate: '2026-06-18', name: '生理盐水鼻喷', remainingQuantity: 18, unit: 'ml' },
-    ],
+    expiringMedicines: [],
     generatedAt: new Date().toISOString(),
     health: {
-      attachmentCoverageRate: 0.42,
-      averageIllnessPerFamily: 2.8,
-      averageMedicationPerIllness: 1.6,
-      averageMedicinesPerFamily: 8.3,
-      averageMembersPerFamily: 3.1,
+      attachmentCoverageRate: 0,
+      averageIllnessPerFamily: 0,
+      averageMedicationPerIllness: 0,
+      averageMedicinesPerFamily: 0,
+      averageMembersPerFamily: 0,
     },
-    lowStockMedicines: [
-      { _id: 'med3', category: '补液', expireDate: '2027-01-10', name: '口服补液盐', remainingQuantity: 1, unit: '袋' },
-    ],
+    lowStockMedicines: [],
     membership: {
-      activeSubscriptions: 11,
-      conversionRate: 0.18,
-      memberFamilyRate: 0.35,
-      paidOrders: 15,
-      pendingOrders: 4,
-      subscriptions: 16,
+      activeSubscriptions: 0,
+      conversionRate: 0,
+      memberFamilyRate: 0,
+      paidOrders: 0,
+      pendingOrders: 0,
+      subscriptions: 0,
     },
-    recentAiUsage: [
-      { _id: 'ai1', count: 1, createdAt: '2026-05-12T09:18:00.000Z', familyId: 'f1', usageType: 'assistant_query', userOpenid: 'ouser-demo-a' },
-      { _id: 'ai2', count: 1, createdAt: '2026-05-12T09:30:00.000Z', familyId: 'f1', usageType: 'image_parse', userOpenid: 'ouser-demo-b' },
-    ],
-    recentCoupons: [
-      { _id: 'c1', code: 'NEWUSER20', name: '新用户年费立减', status: 'active', totalQuantity: 500, type: 'fixed_amount', usedQuantity: 21, value: 2000 },
-      { _id: 'c2', code: 'MONTH90', name: '月度会员九折', status: 'active', totalQuantity: 300, type: 'percent_off', usedQuantity: 8, value: 90 },
-    ],
-    recentIllness: [
-      { _id: 'h1', familyId: 'f1', startedAt: '2026-05-11T20:00:00.000Z', status: '观察中', summary: '儿童发热观察记录', symptoms: ['发热', '咽痛'], temperatureMax: 38.5 },
-      { _id: 'h2', familyId: 'f2', startedAt: '2026-05-10T08:00:00.000Z', status: '已恢复', summary: '鼻塞咳嗽恢复记录', symptoms: ['鼻塞', '咳嗽'] },
-    ],
-    recentMedication: [
-      { _id: 'm1', doseQuantity: 5, doseUnit: 'ml', familyId: 'f1', medicineNameSnapshot: '对乙酰氨基酚混悬液', takenAt: '2026-05-12T08:20:00.000Z' },
-    ],
-    recentOrders: [
-      { _id: 'o1', createdAt: '2026-05-12T08:30:00.000Z', discountAmount: 2000, orderNo: 'FH20260512A1', payableAmount: 7900, planName: '年度会员', status: 'paid' },
-      { _id: 'o2', createdAt: '2026-05-12T10:10:00.000Z', discountAmount: 0, orderNo: 'FH20260512B2', payableAmount: 990, planName: '月度会员', status: 'pending' },
-    ],
-    recentSubscriptions: [
-      { _id: 's1', expireAt: '2027-05-12T08:30:00.000Z', familyId: 'f1', planName: '年度会员', startedAt: '2026-05-12T08:30:00.000Z', status: 'active' },
-    ],
-    recentUsers: [
-      { _id: 'u1', createdAt: '2026-05-12T08:00:00.000Z', currentFamilyId: 'f1', lastLoginAt: '2026-05-12T10:20:00.000Z', nickname: '测试用户 A', openid: 'ouser-demo-a' },
-      { _id: 'u2', createdAt: '2026-05-11T21:00:00.000Z', currentFamilyId: 'f2', lastLoginAt: '2026-05-12T08:40:00.000Z', nickname: '测试用户 B', openid: 'ouser-demo-b' },
-    ],
+    recentAiUsage: [],
+    recentCoupons: [],
+    recentCouponBatches: [],
+    recentCouponCodes: [],
+    recentIllness: [],
+    recentMedication: [],
+    recentOrders: [],
+    recentSubscriptions: [],
+    recentUsers: [],
     revenue: {
-      averageOrderAmount: 5280,
-      discountAmount: 2000,
-      monthlyOrders: 5,
-      revenueAmount: 79200,
-      yearlyOrders: 10,
+      averageOrderAmount: 0,
+      discountAmount: 0,
+      monthlyOrders: 0,
+      revenueAmount: 0,
+      yearlyOrders: 0,
     },
     risk: {
-      expiringMedicines: 4,
-      lowStockMedicines: 2,
-      missingProfileMembers: 3,
-      pendingOcrAttachments: 5,
+      expiringMedicines: 0,
+      lowStockMedicines: 0,
+      missingProfileMembers: 0,
+      pendingOcrAttachments: 0,
     },
-    stats: {
-      activeSubscriptions: 11,
-      aiUsageLogs: 51,
-      attachments: 18,
-      couponRedemptions: 21,
-      coupons: 3,
-      families: 31,
-      illnessRecords: 86,
-      medicationLogs: 132,
-      medicines: 257,
-      members: 96,
-      orders: 19,
-      paidOrders: 15,
-      reminders: 12,
-      subscriptions: 16,
-      users: 48,
-    },
+    stats: zeroStats,
     trend: {
-      aiUsage: mockTrend([4, 8, 6, 7, 12, 9, 11]),
-      illnessRecords: mockTrend([2, 5, 4, 7, 8, 6, 9]),
-      medicationLogs: mockTrend([3, 8, 6, 9, 11, 10, 14]),
-      medicines: mockTrend([5, 2, 6, 8, 4, 7, 9]),
-      orders: mockTrend([0, 1, 2, 1, 4, 3, 5]),
-      paidOrders: mockTrend([0, 1, 1, 1, 3, 2, 4]),
-      users: mockTrend([1, 3, 2, 5, 6, 4, 7]),
+      aiUsage: [],
+      illnessRecords: [],
+      medicationLogs: [],
+      medicines: [],
+      orders: [],
+      paidOrders: [],
+      users: [],
     },
   }
 }
 
 function mockList(type: ListType) {
-  const data = mockDashboard()
-  if (type === 'users') return data.recentUsers
-  if (type === 'orders') return data.recentOrders
-  if (type === 'subscriptions') return data.recentSubscriptions
-  if (type === 'coupons') return data.recentCoupons
-  if (type === 'aiUsage') return data.recentAiUsage
-  if (type === 'illness') return data.recentIllness
-  if (type === 'medication') return data.recentMedication
-  if (type === 'medicines') {
-    return [
-      { _id: 'med1', category: '退烧', expireDate: '2026-08-20', location: '客厅药箱上层', name: '对乙酰氨基酚混悬液', remainingQuantity: 62, unit: 'ml' },
-      { _id: 'med2', category: '鼻炎', expireDate: '2026-06-18', location: '儿童护理抽屉', name: '生理盐水鼻喷', remainingQuantity: 18, unit: 'ml' },
-    ]
-  }
-  if (type === 'families') {
-    return [
-      { _id: 'f1', createdAt: '2026-05-12', name: '测试家庭 A', ownerOpenid: 'ouser-demo-a', plan: 'pro', proExpireAt: '2027-05-12T08:30:00.000Z' },
-      { _id: 'f2', createdAt: '2026-05-11', name: '测试家庭 B', ownerOpenid: 'ouser-demo-b', plan: 'free' },
-    ]
-  }
-  return [
-    { _id: 'a1', aiSummary: 'OCR 待处理', createdAt: '2026-05-12T09:00:00.000Z', familyId: 'f1', fileType: 'image', relatedType: 'health' },
-  ]
-}
-
-function mockTrend(values: number[]): TrendPoint[] {
-  return values.map((count, index) => ({
-    count,
-    date: `05-${String(6 + index).padStart(2, '0')}`,
-  }))
+  void type
+  return []
 }
 
 export default App

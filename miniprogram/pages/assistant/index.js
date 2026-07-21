@@ -1,9 +1,10 @@
 const api = require('../../services/api')
 const { SAFETY_NOTICE } = require('../../utils/constants')
+const { ensureLoginReady } = require('../../utils/operation-guards')
 
 Page({
   data: {
-    question: '药箱里哪些药快到期了？',
+    question: '',
     result: {
       intent: '等待问题',
       answer: '输入问题后，我会只基于当前家庭记录做检索和整理。',
@@ -23,6 +24,10 @@ Page({
   },
 
   async ask(event) {
+    const loggedIn = await ensureLoginReady()
+    if (!loggedIn) {
+      return
+    }
     const question = event.currentTarget.dataset.question || this.data.question
     if (!question) {
       wx.showToast({ title: '请输入问题', icon: 'none' })

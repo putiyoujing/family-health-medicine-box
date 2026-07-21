@@ -1,7 +1,42 @@
 const demo = require('./demo-data')
 
+const HOME_CACHE_TTL_MS = 15 * 1000
+const HOME_MUTATION_ACTIONS = new Set([
+  'acceptFamilyInvite',
+  'completeIllness',
+  'completeReminder',
+  'confirmAiParseResult',
+  'createFamily',
+  'deleteIllness',
+  'deleteMedication',
+  'deleteMedicine',
+  'deleteMember',
+  'deleteReminder',
+  'deleteAttachment',
+  'removeFamilyUser',
+  'parseAttachment',
+  'saveAttachment',
+  'saveCourseEvent',
+  'saveIllness',
+  'saveMedication',
+  'saveMedicine',
+  'saveMember',
+  'saveReminder',
+  'switchFamily',
+  'updateFamilyRole',
+  'updateUserProfile',
+])
+const HOME_PAYMENT_MUTATION_ACTIONS = new Set(['redeemMembershipCode'])
+
+let homeCache = null
+let homeCacheFamilyId = ''
+let homeCacheTime = 0
+let homeCacheGeneration = 0
+let homeRequest = null
+
 async function callHealthApi(action, payload = {}) {
   const app = getApp()
+  await ensureCloudLogin(app)
   const currentFamilyId = app.globalData && app.globalData.currentFamilyId
   let result
   try {
@@ -34,6 +69,7 @@ async function callHealthApi(action, payload = {}) {
 
 async function callPaymentApi(action, payload = {}) {
   const app = getApp()
+  await ensureCloudLogin(app)
   const currentFamilyId = app.globalData && app.globalData.currentFamilyId
   let result
   try {
@@ -75,48 +111,96 @@ function normalizeCloudError(error, fallback) {
   return message
 }
 
+async function ensureCloudLogin(app) {
+  if (app && typeof app.ensureLogin === 'function') {
+    await app.ensureLogin()
+  }
+}
+
 function shouldUseDemoData() {
   const app = getApp()
   return !!(app.globalData && app.globalData.useDemoData)
 }
 
 async function callHealthOrDemo(action, payload = {}, demoHandler) {
+  const app = getApp()
+  await ensureCloudLogin(app)
+  let data
   if (shouldUseDemoData() && demoHandler) {
-    return demoHandler(payload)
+    data = await demoHandler(payload)
+  } else {
+    data = await callHealthApi(action, payload)
   }
-  try {
-    return await callHealthApi(action, payload)
-  } catch (error) {
-    if (demoHandler && isDemoFallbackError(error)) {
-      console.warn(`use demo data for ${action}`, error)
-      return demoHandler(payload)
-    }
-    throw error
+  if (HOME_MUTATION_ACTIONS.has(action)) {
+    invalidateHomeCache()
   }
+  return data
 }
 
 async function callPaymentOrDemo(action, payload = {}, demoHandler) {
+  const app = getApp()
+  await ensureCloudLogin(app)
+  let data
   if (shouldUseDemoData() && demoHandler) {
-    return demoHandler(payload)
+    data = await demoHandler(payload)
+  } else {
+    data = await callPaymentApi(action, payload)
   }
-  try {
-    return await callPaymentApi(action, payload)
-  } catch (error) {
-    if (demoHandler && isDemoFallbackError(error)) {
-      console.warn(`use demo payment data for ${action}`, error)
-      return demoHandler(payload)
-    }
-    throw error
+  if (HOME_PAYMENT_MUTATION_ACTIONS.has(action)) {
+    invalidateHomeCache()
   }
+  return data
 }
 
-function isDemoFallbackError(error) {
-  const message = (error && error.message) || ''
-  return message === '云服务暂不可用' || message === '支付服务暂不可用'
+async function getHome(options = {}) {
+  const familyId = getCurrentFamilyId()
+  if (!options.force && isHomeCacheFresh(familyId)) {
+    return homeCache
+  }
+  if (!options.force && homeRequest && homeRequest.familyId === familyId) {
+    return homeRequest.promise
+  }
+
+  const generation = homeCacheGeneration
+  const promise = callHealthOrDemo('getHome', {}, demo.getHome)
+    .then((data) => {
+      if (generation === homeCacheGeneration && familyId === getCurrentFamilyId()) {
+        homeCache = data
+        homeCacheFamilyId = familyId
+        homeCacheTime = Date.now()
+      }
+      return data
+    })
+    .finally(() => {
+      if (homeRequest && homeRequest.promise === promise) {
+        homeRequest = null
+      }
+    })
+  homeRequest = { familyId, promise }
+  return promise
 }
 
-async function getHome() {
-  return callHealthOrDemo('getHome', {}, demo.getHome)
+function isHomeCacheFresh(familyId = getCurrentFamilyId()) {
+  return !!homeCache
+    && homeCacheFamilyId === familyId
+    && Date.now() - homeCacheTime < HOME_CACHE_TTL_MS
+}
+
+function invalidateHomeCache() {
+  homeCache = null
+  homeCacheFamilyId = ''
+  homeCacheTime = 0
+  homeCacheGeneration += 1
+  homeRequest = null
+}
+
+function getCurrentFamilyId() {
+  const app = getApp()
+  return (app.globalData && app.globalData.currentFamilyId) || ''
+}
+
+async function updateUserProfile(payload) {
+  return callHealthOrDemo('updateUserProfile', payload, demo.updateUserProfile)
 }
 
 async function listMyFamilies() {
@@ -124,7 +208,11 @@ async function listMyFamilies() {
 }
 
 async function switchFamily(familyId) {
-  return callHealthOrDemo('switchFamily', { familyId }, demo.listMyFamilies)
+  return callHealthOrDemo('switchFamily', { familyId }, demo.switchFamily)
+}
+
+async function createFamily(payload) {
+  return callHealthOrDemo('createFamily', payload, demo.createFamily)
 }
 
 async function getMembershipStatus() {
@@ -175,12 +263,24 @@ async function saveIllness(payload) {
   return callHealthOrDemo('saveIllness', payload, demo.saveIllness)
 }
 
+async function completeIllness(payload) {
+  return callHealthOrDemo('completeIllness', payload, demo.completeIllness)
+}
+
+async function saveCourseEvent(payload) {
+  return callHealthOrDemo('saveCourseEvent', payload, demo.saveCourseEvent)
+}
+
 async function deleteIllness(id) {
   return callHealthOrDemo('deleteIllness', { id }, () => demo.deleteIllness(id))
 }
 
 async function saveMedication(payload) {
   return callHealthOrDemo('saveMedication', payload, demo.saveMedication)
+}
+
+async function listMedicationHistory() {
+  return callHealthOrDemo('listMedicationHistory', {}, demo.listMedicationHistory)
 }
 
 async function deleteMedication(id) {
@@ -191,8 +291,24 @@ async function saveAttachment(payload) {
   return callHealthOrDemo('saveAttachment', payload, demo.saveAttachment)
 }
 
+async function deleteAttachment(id) {
+  return callHealthOrDemo('deleteAttachment', { id }, () => demo.deleteAttachment(id))
+}
+
 async function saveReminder(payload) {
   return callHealthOrDemo('saveReminder', payload, demo.saveReminder)
+}
+
+async function completeReminder(id) {
+  return callHealthOrDemo('completeReminder', { id }, () => demo.completeReminder(id))
+}
+
+async function deleteReminder(id) {
+  return callHealthOrDemo('deleteReminder', { id }, () => demo.deleteReminder(id))
+}
+
+async function saveFeedback(payload) {
+  return callHealthOrDemo('saveFeedback', payload, demo.saveFeedback)
 }
 
 async function parseAttachment(payload) {
@@ -209,10 +325,6 @@ async function confirmAiParseResult(payload) {
 
 async function assistantQuery(question) {
   return callHealthOrDemo('assistantQuery', { question }, () => demo.assistantQuery(question))
-}
-
-async function exportData() {
-  return callHealthOrDemo('exportData', {}, demo.exportData)
 }
 
 async function exportReport(payload = {}) {
@@ -239,35 +351,44 @@ async function applyCoupon(payload) {
   return callPaymentOrDemo('applyCoupon', payload, demo.applyCoupon)
 }
 
-async function mockPaymentSuccess(payload) {
-  return callPaymentOrDemo('mockPaymentSuccess', payload, demo.mockPaymentSuccess)
+async function redeemMembershipCode(payload) {
+  return callPaymentOrDemo('redeemMembershipCode', payload, demo.redeemMembershipCode)
 }
 
 module.exports = {
   assistantQuery,
   acceptFamilyInvite,
   applyCoupon,
+  completeIllness,
+  completeReminder,
   createOrder,
   createFamilyInvite,
+  createFamily,
   deleteIllness,
   deleteMedication,
   deleteMedicine,
   deleteMember,
-  exportData,
+  deleteReminder,
+  deleteAttachment,
   getFamilyInvite,
   getHome,
+  invalidateHomeCache,
+  isHomeCacheFresh,
   getAiTask,
   getMembershipStatus,
   getPlans,
   listFamilyRoles,
+  listMedicationHistory,
   listCouponsForUser,
   listMyFamilies,
-  mockPaymentSuccess,
   previewOrder,
   parseAttachment,
+  redeemMembershipCode,
   removeFamilyUser,
   confirmAiParseResult,
   saveAttachment,
+  saveCourseEvent,
+  saveFeedback,
   saveIllness,
   saveMedication,
   saveMedicine,
@@ -275,5 +396,6 @@ module.exports = {
   saveReminder,
   switchFamily,
   updateFamilyRole,
+  updateUserProfile,
   exportReport,
 }

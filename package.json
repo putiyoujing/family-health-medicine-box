@@ -7,6 +7,15 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "check:js": "node scripts/check-js-syntax.cjs",
+    "check:miniprogram": "node scripts/check-miniprogram-config.cjs",
+    "check:actions": "node scripts/check-action-coverage.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "check:security": "node scripts/check-security-readiness.cjs",
+    "check:release": "node scripts/check-release-readiness.cjs",
+    "check:release:production": "node scripts/check-release-readiness.cjs --production",
+    "check": "npm run build && npm run lint && npm run check:js && npm run check:miniprogram && npm run check:actions && npm test && npm run check:release",
+    "check:ci": "npm run check",
     "preview": "vite preview"
   },
   "dependencies": {
