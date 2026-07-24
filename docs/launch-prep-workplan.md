@@ -2,7 +2,7 @@
 
 更新时间：2026-07-24
 
-本文基于 `README.md`、`docs/release-checklist.md`、`docs/wechat-cloud-database.md`、`docs/web-admin.md` 和 `docs/role-review-and-gap-plan.md` 整理。代码与生产云资源已形成 1.0.13 审核候选基线；正式公开上线前，重点是补齐可审计的合规、双账号、真机与提醒触达证据。
+本文基于 `README.md`、`docs/release-checklist.md`、`docs/wechat-cloud-database.md`、`docs/web-admin.md` 和 `docs/role-review-and-gap-plan.md` 整理。代码与生产云资源已形成 1.0.13 审核候选基线；隐私、双账号、双端真机与提醒触达已由项目负责人确认通过，正式公开上线前重点是等待并保存微信审核结果。
 
 ## 0. 当前状态与阻塞项
 
@@ -13,7 +13,7 @@
 - `login`、`healthApi`、`paymentApi`、`adminApi`、`reminderDispatcher` 均为 Active，部署入口文件与本地一致。
 - 24 个生产集合均已逐项核验为 `ADMINONLY`；生产管理后台 `/admin/` 可访问；提醒定时触发器已启用。
 - `npm run check` 与本机 `npm run check:release:production` 通过。
-- 本机声明显示管理员 E2E、隐私、双账号、真机和提醒触达已完成，但仓库尚无对应截图、日志或测试记录，因此只记为“已声明，待留证”。
+- 管理后台验收已完成；隐私、双账号、iOS/Android 真机和真实提醒触达已由项目负责人于 2026-07-24 确认通过。原始截图、日志和设备记录未纳入仓库。
 - 1.0.13 审核修订 PR 已合并，CloudBase Web 静态托管已于 2026-07-24 更新并完成公网与浏览器核验；小程序已提交微信审核、结果待定。GitHub Release 仍以 1.0.12 为最新正式发布记录。
 - 图片识别与真实支付不在 1.0.13 审核候选范围；首发商业化采用兑换码。
 - Git 全历史扫描未发现 AppSecret 泄漏；项目负责人决定延期轮换，且密钥不得写入仓库或文档。

@@ -10,7 +10,7 @@
 4. [上线准备工作清单](launch-prep-workplan.md)：上线前从账号、云开发、云函数、外部服务、审核材料到监控的工作拆解。
 5. [发布检查清单](release-checklist.md)：发布前可逐项勾选的工程、隐私、医疗安全、测试、后台和 GitHub 检查。
 6. [P0 发布证据记录（2026-07-24）](p0-release-evidence-2026-07-24.md)：1.0.12 发布证据、1.0.13 管理后台部署跟进和剩余阻塞项。
-7. [P0 人工验收执行单](p0-manual-acceptance-runbook.md)：用最短路径完成隐私、双账号、iOS/Android 真机和真实提醒留证。
+7. [P0 人工验收执行单](p0-manual-acceptance-runbook.md)：保留隐私、双账号、iOS/Android 真机、真实提醒的验收步骤与当前判定。
 8. [微信云开发数据库设计](wechat-cloud-database.md)：集合、权限、云函数、管理员配置、发布前配置和外部服务接入。
 9. [Web 管理后台](web-admin.md)：本地打开、后台能力、后端接口和部署建议。
 
