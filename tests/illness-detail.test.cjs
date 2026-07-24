@@ -268,7 +268,7 @@ test('visit event caches its draft and only links medicines added from that visi
 
 test('cloud visit event saves the timeline and visited status in one transaction', () => {
   const cloudSource = fs.readFileSync(path.join(root, 'cloudfunctions/healthApi/index.js'), 'utf8')
-  const saveCourseEventSource = cloudSource.match(/async function saveCourseEvent[\s\S]*?\n}\n\nasync function saveFeedback/)[0]
+  const saveCourseEventSource = cloudSource.match(/async function saveCourseEvent[\s\S]*?\r?\n}\r?\n\r?\nasync function saveFeedback/)[0]
 
   assert.match(saveCourseEventSource, /db\.runTransaction/)
   assert.match(saveCourseEventSource, /data\.eventType === 'visit'/)
