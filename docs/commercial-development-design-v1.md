@@ -10,7 +10,7 @@ source: family_health_commercial_product_plan_v1.md
 
 > 来源方案：[[家庭健康记录工具小程序-收费版产品与开发优化方案-v1]]
 > 当前代码仓库：`F:\Project\xiaochengxu\family-health-medicine-box`
-> 线上后台：<https://putiyoujing.github.io/family-health-medicine-box/>
+> 生产后台：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>；GitHub Pages 仅保留为历史演示入口。
 
 ## 1. 开发判断
 

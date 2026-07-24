@@ -2,20 +2,20 @@
 
 更新时间：2026-07-24
 
-本文基于 `README.md`、`docs/release-checklist.md`、`docs/wechat-cloud-database.md`、`docs/web-admin.md` 和 `docs/role-review-and-gap-plan.md` 整理。当前项目适合进入微信开发者工具联调和封闭测试；正式公开上线前，需要先补齐真实微信环境、云数据库、外部服务、合规材料和真机验收。
+本文基于 `README.md`、`docs/release-checklist.md`、`docs/wechat-cloud-database.md`、`docs/web-admin.md` 和 `docs/role-review-and-gap-plan.md` 整理。代码与生产云资源已形成 1.0.12 候选基线；正式公开上线前，重点是补齐可审计的合规、双账号、真机与提醒触达证据。
 
 ## 0. 当前状态与阻塞项
 
 仓库已确认：正式 AppID 已配置，`ENV_ID` 已配置，`globalData.useDemoData=false`。这些不再是当前阻塞项。
 
-正式上线仍为 NO-GO：
+当前结论：**代码和云资源 PASS，公开发布证据仍为 BLOCKED。**
 
-- `login`、`healthApi`、`paymentApi`、`adminApi` 已于 2026-07-24 更新到正式环境并验证为 `Active/Available`，`reminderDispatcher` 当前代码一致。
-- `healthApi` 已改为使用内部 `roleId` 管理家庭角色，并在成功响应出口剔除 OpenID 和内部审计身份字段；代码级安全回归已通过，正式上线前仍需完成真实双账号回归留证。
-- CloudBase Web Auth Owner 登录、非管理员拒绝和真实 Event Function 数据访问尚未完成 E2E 留证。
-- 微信隐私保护指引、双账号家庭共享/跨家庭隔离、iOS/Android 真机矩阵、订阅消息真机触达尚未留证。
-- 数据库集合、索引和 `ADMINONLY` 权限仍需在正式环境逐项复核。
-- 图片识别、正式支付路线或兑换码运营流程、订阅消息模板仍需按首发范围确认。
+- `login`、`healthApi`、`paymentApi`、`adminApi`、`reminderDispatcher` 均为 Active，部署入口文件与本地一致。
+- 24 个生产集合均已逐项核验为 `ADMINONLY`；生产管理后台 `/admin/` 可访问；提醒定时触发器已启用。
+- `npm run check` 与本机 `npm run check:release:production` 通过。
+- 本机声明显示管理员 E2E、隐私、双账号、真机和提醒触达已完成，但仓库尚无对应截图、日志或测试记录，因此只记为“已声明，待留证”。
+- 图片识别与真实支付不在 1.0.12 首发范围；首发商业化采用兑换码。
+- 生产 WeChat AppSecret 需要轮换，且不得写入仓库或文档。
 
 ## 1. 账号与平台准备
 
@@ -142,7 +142,8 @@
 
 当前 Web 管理后台地址：
 
-- `https://putiyoujing.github.io/family-health-medicine-box/`
+- 生产：`https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/`
+- 历史演示：`https://putiyoujing.github.io/family-health-medicine-box/`，不作为生产或鉴权证据
 
 上线前必须配置：
 

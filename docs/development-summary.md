@@ -16,7 +16,9 @@
 
 - 本地项目目录：`F:\Project\xiaochengxu\family-health-medicine-box`
 - GitHub 仓库：<https://github.com/putiyoujing/family-health-medicine-box>
-- Web 管理后台线上地址：<https://putiyoujing.github.io/family-health-medicine-box/>
+- 当前版本：`1.0.12`
+- 生产 Web 管理后台：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
+- GitHub Pages：历史演示入口，不是生产后台
 - 微信开发者工具导入目录：`F:\Project\xiaochengxu\family-health-medicine-box`
 
 ## 3. 小程序功能完成情况
@@ -112,23 +114,18 @@ Web 后台位于项目 `src/` 目录，使用 React + Vite 实现。
 - 用户列表和家庭详情不返回 OpenID；家庭成员敏感健康字段仅 Owner 二次确认后临时查看。
 - 管理操作审计可定位用户、反馈、家庭、兑换码批次和订单目标，并标记敏感查看。
 
-线上后台当前已通过 GitHub Pages 发布：
+生产后台已通过 CloudBase 静态托管发布；`/admin/` 返回 200，根路径不承载后台页面。
 
-<https://putiyoujing.github.io/family-health-medicine-box/>
+## 6. 发布与版本管理
 
-## 6. GitHub Pages 发布情况
+仓库为公开 GitHub 仓库，当前开发分支通过 Pull Request 合并到 `master`。版本号同时用于 `package.json` 和小程序上传脚本，发布标签采用 `v1.0.12`。
 
-仓库已从 Private 改为 Public，并启用 GitHub Pages。
+已添加工作流：
 
-已添加发布工作流：
+- `.github/workflows/ci.yml`：Pull Request 和主分支持续集成。
+- `.github/workflows/pages.yml`：部署历史演示后台。
 
-- `.github/workflows/pages.yml`
-
-发布方式：
-
-- 推送到 `master` 后自动构建 Web 管理后台。
-- 构建产物来自 `dist/`。
-- Pages 地址为：<https://putiyoujing.github.io/family-health-medicine-box/>
+生产后台由 CloudBase 承载。GitHub Pages 仅用于演示，不连接真实生产数据，也不作为鉴权验收证据。
 
 ## 7. 微信开发者工具使用说明
 
@@ -150,40 +147,34 @@ Web 后台位于项目 `src/` 目录，使用 React + Vite 实现。
 
 已通过检查：
 
-- 云函数 JS 语法检查
-- 小程序 JS 语法检查
-- `npm run build`
-- `npm run lint`
-- 运行代码旧口径扫描：未再命中非「健康记录」表达
-- GitHub Pages 发布成功
-- 线上后台访问返回 200
+- `npm run check`：构建、Lint、87 个 JavaScript 文件语法、25 个页面、5 个 Tab、31 个页面 JSON、62 个云函数动作、154 条自动化测试和静态发布保护。
+- `npm run check:release:production`：本机生产声明门禁通过。
+- 生产 CloudBase：5 个云函数均为 Active，部署代码与本地入口文件一致。
+- 数据库：24 个集合存在并逐项确认为 `ADMINONLY`。
+- 提醒：`reminderDispatcher` 每分钟触发器已启用。
+- 托管：生产 `/admin/` 返回 200，当前构建资源与本地构建一致。
 
-最后确认的线上后台地址：
+生产后台地址：
 
-<https://putiyoujing.github.io/family-health-medicine-box/>
+<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
 
-## 9. 上线前仍需配置
+## 9. 未满足需求与待补证据
 
-正式上线前需要补齐这些真实环境配置：
-
-- 微信小程序正式 AppID
-- 微信云开发正式环境 ID
-- 云数据库集合权限与索引
-- CloudBase Auth 管理员 UID 以 `authUid` 写入 `admins` 集合，并设置 `role=owner`、`status=active`
-- Web 管理后台配置 `VITE_CLOUDBASE_ENV_ID`、`VITE_CLOUDBASE_REGION` 和 `VITE_CLOUDBASE_PUBLISHABLE_KEY`
-- 完成 Owner 登录、非管理员拒绝和 `adminApi` Event Function 真实数据访问验收
-- 上传并部署 `paymentApi` 云函数
-- 在云数据库创建 `orders`、`subscriptions`、`coupons`、`coupon_redemptions`、`ai_usage_logs`
-- 微信小程序隐私协议、用户协议、医疗安全免责声明
-- 小程序审核所需截图、类目、服务说明
+- 隐私保护指引、双账号家庭共享与跨家庭隔离、iOS/Android 真机、真实订阅消息触达尚缺仓库内可审计证据；本机布尔声明不能代替测试记录。
+- 图片识别默认关闭；若后续开放，需要接入服务、成本控制、失败降级和用户确认验收。
+- 1.0.12 首发采用兑换码，真实微信支付或虚拟支付未开放。
+- 生产 WeChat AppSecret 需轮换；密钥值不得进入仓库、日志或知识库。
+- Web 管理后台首包约 976 KB，需按路由或模块拆包。
+- 部分列表查询存在 `.limit(100)`，用户量增长前需要分页或游标化。
+- 云函数仍使用 Node.js 16.13 运行时，需安排升级和回归。
 
 ## 10. 当前结论
 
-当前项目已经具备一个可演示、可继续上线配置的完整 MVP：
+当前项目已形成可发布候选版本：
 
 - 对用户端来说，小程序已覆盖家庭药箱记录、健康记录、用药记录和基础 AI 检索整理。
 - 对商业化来说，已具备家庭共享、会员权益、订单、优惠券和支付确认闭环。
 - 对产品管理者来说，已有独立 Web 管理后台，可查看用户、家庭、订单、会员、优惠券和 AI 用量。
-- 对工程交付来说，代码已上传 GitHub，Web 后台已发布到 GitHub Pages。
+- 对工程交付来说，代码、自动化门禁、生产云资源和 CloudBase 管理后台均已形成明确基线。
 
-后续重点不是继续补页面，而是接入真实微信云开发环境、配置数据库权限、接入真实图片识别、真实支付和订阅消息模板，并进行真实设备测试。
+下一步优先级是：轮换生产 AppSecret；保存隐私、双账号、真机和提醒触达证据；完成微信发布审核；随后再做性能、运行时和外部服务扩展。

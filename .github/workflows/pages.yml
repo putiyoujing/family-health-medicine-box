@@ -1,4 +1,4 @@
-name: Deploy web admin to GitHub Pages
+name: Deploy legacy demo admin to GitHub Pages
 
 on:
   push:
@@ -49,6 +49,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy legacy demo to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

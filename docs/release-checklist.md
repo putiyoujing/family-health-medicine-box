@@ -1,5 +1,11 @@
 # 小程序发布检查清单
 
+## 使用说明
+
+- 代码门禁：执行 `npm run check`。
+- 生产声明门禁：在本机证据真实完成后执行 `npm run check:release:production`。
+- 生产部署、权限、隐私、双账号、真机与提醒触达必须分别记录为 `PASS / FAIL / BLOCKED`；环境变量为 `true` 不能替代截图、日志或测试记录。
+
 ## 代码配置
 
 - `project.config.json` 中替换正式 `appid`。
@@ -91,8 +97,8 @@ Web 管理后台上线前必须配置：
 推送前执行：
 
 ```bash
-npm run build
-npm run lint
+npm run check
+npm run check:release:production
 ```
 
 如仓库没有远程地址：
@@ -106,4 +112,4 @@ git push -u origin master
 
 完整评估见 `docs/role-review-and-gap-plan.md`。
 
-当前状态适合封闭测试和对外演示；大规模公开发布前，需要完成微信云环境联调、真机测试、真实支付、图片识别服务和订阅消息模板配置。
+截至 2026-07-24，代码门禁和本机生产声明门禁通过；CloudBase 环境、函数、集合权限、托管与定时触发器已核验。隐私、双账号、iOS/Android 真机和真实提醒触达仍需补充可审计证据。图片识别与真实支付不在 1.0.12 首发范围，商业化采用兑换码。

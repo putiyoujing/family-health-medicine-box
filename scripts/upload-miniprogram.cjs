@@ -1,5 +1,6 @@
 const path = require('node:path')
 const ci = require('miniprogram-ci')
+const { version: packageVersion } = require('../package.json')
 
 const appid = 'wxc3d708e7c51d5c87'
 const privateKeyPath = process.env.MINIPROGRAM_PRIVATE_KEY_PATH
@@ -27,7 +28,7 @@ ci.upload({
     minifyWXML: true,
     uploadWithSourceMap: true,
   },
-  version: process.env.MINIPROGRAM_VERSION || '1.0.0',
+  version: process.env.MINIPROGRAM_VERSION || packageVersion,
 }).then(
   () => console.log('Mini program upload completed.'),
   (error) => {

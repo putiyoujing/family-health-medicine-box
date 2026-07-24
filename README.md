@@ -2,6 +2,14 @@
 
 这是知识库项目“家人健康记”的微信小程序版本，定位为家庭健康管理与记录工具，目标是对外发布，而不是单独的 Web 页面。
 
+## 当前版本与入口
+
+- 当前版本：`1.0.12`
+- GitHub：<https://github.com/putiyoujing/family-health-medicine-box>
+- 生产管理后台：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
+- GitHub Pages：历史演示入口，不作为生产后台或真实数据入口。
+- 发布记录：[CHANGELOG.md](CHANGELOG.md)
+
 ## 当前架构
 
 - `miniprogram/`：微信原生小程序前端
@@ -61,7 +69,7 @@
 }
 ```
 
-## Web 原型验证
+## Web 管理后台本地验证
 
 如果需要查看上一版 Web 原型：
 
@@ -78,12 +86,13 @@ npm run dev
 
 三角色评估见 [docs/role-review-and-gap-plan.md](docs/role-review-and-gap-plan.md)。
 
-## 仍需真实环境配置
+## 当前未开放或待补证据
 
-- 微信云开发环境、数据库集合、云存储权限。
-- DeepSeek 或 OCR 图片识别服务密钥。当前已完成图片上传、AI 任务、额度记录和确认保存闭环。
-- 微信支付或虚拟支付商户配置。当前已完成订单、优惠券、支付确认和会员开通闭环。
-- 微信订阅消息模板 ID、模板字段映射和 `reminderDispatcher` 定时触发器。代码闭环已完成，未配置前页面会明确显示“微信提醒待配置”。
+- 图片识别默认关闭；当前保留图片上传、任务、额度记录和用户确认保存闭环。
+- 首发商业化采用兑换码；真实微信支付或虚拟支付尚未开放。
+- 生产环境、5 个云函数、24 个 `ADMINONLY` 集合、管理后台静态托管及提醒定时触发器已核验。
+- 隐私配置、双账号隔离、iOS/Android 真机和真实提醒触达目前只有本地发布门禁声明，仍需保存可审计的截图或测试记录。
+- 生产 WeChat AppSecret 需要在发布前轮换；仓库不保存其值。
 
 ## 医疗安全边界
 

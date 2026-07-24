@@ -22,7 +22,7 @@ if (!projectConfig.appid || projectConfig.appid === 'touristappid') {
 }
 
 const appSource = fs.readFileSync(path.join(root, 'miniprogram/app.js'), 'utf8')
-const envMatch = appSource.match(/const\s+ENV_ID\s*=\s*['"]([^'"]*)['"]/) 
+const envMatch = appSource.match(/const\s+ENV_ID\s*=\s*['"]([^'"]*)['"]/)
 if (productionMode && (!envMatch || !envMatch[1])) {
   failures.push('miniprogram/app.js ENV_ID is empty')
 }
@@ -33,7 +33,7 @@ if (/useDemoData:\s*true/.test(appSource)) {
 
 if (productionMode) {
   const constantsSource = fs.readFileSync(path.join(root, 'miniprogram/utils/constants.js'), 'utf8')
-  const templateMatch = constantsSource.match(/HEALTH_TODO_TEMPLATE_ID\s*=\s*['"]([^'"]*)['"]/) 
+  const templateMatch = constantsSource.match(/HEALTH_TODO_TEMPLATE_ID\s*=\s*['"]([^'"]*)['"]/)
   if (!templateMatch || !templateMatch[1]) {
     failures.push('miniprogram/utils/constants.js HEALTH_TODO_TEMPLATE_ID is empty')
   }

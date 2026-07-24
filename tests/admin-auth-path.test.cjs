@@ -15,6 +15,7 @@ test('production admin uses CloudBase Web Auth and Event Function without a gate
   assert.match(appSource, /const isConfigured = Boolean\(cloudbaseApp \|\| API_BASE\)/)
   assert.match(appSource, /if \(cloudbaseApp\) \{\s*return callAdminFunction<T>\(action, payload\)/)
   assert.match(authSource, /import\.meta\.env\.DEV && import\.meta\.env\.MODE === 'local-admin'/)
+  assert.match(authSource, /session\.user\?\.is_anonymous/)
   assert.equal(packageJson.scripts['dev:local'], 'vite --mode local-admin')
   assert.match(releaseSource, /VITE_CLOUDBASE_ENV_ID/)
   assert.doesNotMatch(fs.readFileSync(path.join(root, 'cloudfunctions/adminApi/index.js'), 'utf8'), /generatedByAdminId:\s*payload\.generatedByAdminId/)

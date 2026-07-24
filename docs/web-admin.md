@@ -4,6 +4,10 @@
 
 本项目包含面向产品运营人员的独立 Web 后台。生产环境使用 CloudBase Web Auth 用户名密码会话，并通过 CloudBase Event Function 调用 `adminApi`。真实健康数据不会由浏览器直接查询数据库。
 
+生产入口：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
+
+GitHub Pages 仅用于历史演示，不是生产后台，也不能作为真实数据与鉴权验收依据。
+
 ## 本地运行
 
 ```bash
@@ -36,7 +40,7 @@ VITE_CLOUDBASE_PUBLISHABLE_KEY=从云开发身份认证获取的-Publishable-Key
 生产调用链：
 
 1. 浏览器调用 `auth.signInWithPassword({ username, password })`。
-2. 页面使用 `auth.getSession()` 判断是否存在真实登录会话。
+2. 页面使用 `auth.getSession()` 判断是否存在真实、非匿名登录会话。
 3. 登录成功后使用 `cloudbaseApp.callFunction()` 调用 `adminApi` Event Function。
 4. `adminApi` 从调用上下文读取认证 UID，并查询 `admins` 集合。
 5. 仅 `status=active` 的管理员记录可以继续访问业务数据。

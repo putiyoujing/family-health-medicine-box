@@ -29,5 +29,7 @@ export async function getAdminSession() {
   if (!cloudbaseAuth) return null
   const { data, error } = await cloudbaseAuth.getSession()
   if (error) throw new Error(error.message)
-  return data?.session || null
+  const session = data?.session
+  if (!session || session.user?.is_anonymous) return null
+  return session
 }
