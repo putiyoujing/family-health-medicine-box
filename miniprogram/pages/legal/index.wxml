@@ -15,7 +15,7 @@
         <view><text class="item-title">个人与家庭资料</text><text>包括你主动填写的昵称、家庭成员称呼、生日、过敏史、既往史和健康备注。</text></view>
         <view><text class="item-title">健康与药箱记录</text><text>包括病程、体温、症状、就诊、用药、药品库存、提醒事项和复诊摘要。</text></view>
         <view><text class="item-title">图片与附件</text><text>包括你主动上传的药盒、说明书、处方或检查资料。上传前请遮挡与记录无关的姓名、证件号、地址等信息。</text></view>
-        <view><text class="item-title">反馈信息</text><text>包括你主动提交的问题描述和可选联系方式。</text></view>
+        <view><text class="item-title">反馈信息</text><text>包括你主动提交的问题描述和反馈类型。</text></view>
       </view>
     </view>
 
@@ -54,8 +54,8 @@
       <view class="paragraph">请在稳定网络下完成重要记录，并在页面提示保存成功后再离开。涉及就医的关键信息应同时保留医院原始资料，不应只依赖本小程序作为唯一副本。</view>
     </view>
     <view class="section legal-section">
-      <view class="section-title">付费说明</view>
-      <view class="paragraph">首发版本只支持通过合法渠道获得的会员兑换码，不在小程序内模拟或代替真实支付。兑换前请核对套餐、期限和适用家庭；具体权益以兑换页面显示为准。</view>
+      <view class="section-title">会员兑换说明</view>
+      <view class="paragraph">会员兑换码可用于激活对应会员权益。兑换前请核对有效期和适用家庭；具体权益以会员中心显示为准。</view>
     </view>
     <view class="section legal-section">
       <view class="section-title">联系</view>

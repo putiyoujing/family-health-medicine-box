@@ -87,7 +87,6 @@
   border: 2rpx solid rgba(23, 111, 97, 0.15);
 }
 
-.membership-action-title,
 .usage-title {
   align-items: flex-start;
 }
@@ -99,7 +98,6 @@
   font-weight: 400;
 }
 
-.recommend-badge,
 .plan-chip {
   flex: 0 0 auto;
   padding: 8rpx 13rpx;
@@ -162,60 +160,6 @@
   font-weight: 900;
 }
 
-.plan-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14rpx;
-}
-
-.plan-card {
-  min-width: 0;
-  min-height: 252rpx;
-  padding: 22rpx;
-  background: #f8fbfa;
-  border: 1rpx solid #dfece8;
-  border-radius: 22rpx;
-}
-
-.recommend-plan {
-  background: linear-gradient(110deg, #f6fbf8, #fff8e8);
-  border-color: #e8d8ad;
-}
-
-.plan-name-line {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-}
-
-.plan-badge {
-  padding: 4rpx 9rpx;
-  color: #8b641d;
-  background: #f8e6b9;
-  border-radius: 999rpx;
-  font-size: 17rpx;
-  font-weight: 900;
-}
-
-.plan-audience {
-  margin-top: 16rpx;
-  color: #667b75;
-  font-size: 20rpx;
-  line-height: 1.5;
-}
-
-.plan-price {
-  margin-top: 14rpx;
-  color: #176f61;
-  font-size: 39rpx;
-  font-weight: 900;
-}
-
-.plan-price text {
-  margin-right: 2rpx;
-  font-size: 21rpx;
-}
-
 .benefits-panel {
   margin-top: 26rpx;
   padding-top: 26rpx;
@@ -228,10 +172,32 @@
   font-weight: 900;
 }
 
+.benefits-note {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 16rpx;
+  padding: 15rpx 18rpx;
+  color: #687d77;
+  background: #f3f8f6;
+  border-radius: 16rpx;
+  font-size: 21rpx;
+  line-height: 1.55;
+}
+
+.benefits-note-mark {
+  flex: 0 0 auto;
+  padding: 3rpx 9rpx;
+  color: #176f61;
+  background: #dff2ec;
+  border-radius: 999rpx;
+  font-size: 17rpx;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
 .redeem-panel {
-  margin-top: 24rpx;
-  padding-top: 26rpx;
-  border-top: 1rpx solid #deece8;
+  margin-top: 0;
 }
 
 .redeem-heading {

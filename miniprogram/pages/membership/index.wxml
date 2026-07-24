@@ -12,22 +12,6 @@
   </view>
 
   <view class="section membership-action-card">
-    <view class="section-title membership-action-title">
-      <view>会员套餐</view>
-      <view class="recommend-badge">兑换开通</view>
-    </view>
-
-    <view class="plan-list">
-      <view class="plan-card {{item.badge ? 'recommend-plan' : ''}}" wx:for="{{plans}}" wx:key="planId">
-        <view class="plan-name-line">
-          <text class="record-title">{{item.name}}</text>
-          <text class="plan-badge" wx:if="{{item.badge}}">{{item.badge}}</text>
-        </view>
-        <view class="plan-price"><text>¥</text>{{item.priceText}}</view>
-        <view class="plan-audience">{{item.audienceText}}</view>
-      </view>
-    </view>
-
     <view class="redeem-panel" id="redeem-section">
       <view class="redeem-heading">
         <view>
@@ -58,6 +42,10 @@
           <text class="comparison-free">{{item.free}}</text>
           <text class="comparison-pro">{{item.pro}}</text>
         </view>
+      </view>
+      <view class="benefits-note">
+        <text class="benefits-note-mark">AI</text>
+        <text>AI 辅助功能将陆续上线，让健康记录与查询更便捷。</text>
       </view>
     </view>
   </view>

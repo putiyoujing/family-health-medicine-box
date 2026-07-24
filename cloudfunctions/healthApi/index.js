@@ -1275,7 +1275,6 @@ async function saveFeedback(openid, familyId, payload) {
       openid,
       type: payload.type || '建议',
       content,
-      contact: String(payload.contact || '').trim(),
       page: payload.page || '',
       status: 'new',
       createdAt: now,

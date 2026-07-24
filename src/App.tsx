@@ -210,7 +210,7 @@ interface MembershipSettings {
   membershipPurchaseGuide: string
 }
 
-const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
 const DEV_ADMIN_API_BASE = import.meta.env.DEV && !cloudbaseApp ? '/api/admin' : ''
 const DEV_ADMIN_API_TOKEN = DEV_ADMIN_API_BASE ? 'local-dev-token' : ''
 const API_BASE = DEV_ADMIN_API_BASE
@@ -388,7 +388,7 @@ function App() {
     void callAdminApi<MembershipSettings>('getMembershipSettings')
       .then(setMembershipSettings)
       .catch((err: unknown) => {
-        setMembershipSettingsMessage(err instanceof Error ? err.message : '会员购买提示加载失败')
+        setMembershipSettingsMessage(err instanceof Error ? err.message : '会员兑换提示加载失败')
       })
   }, [activePage, isConfigured])
 
@@ -509,11 +509,11 @@ function App() {
     const membershipPurchaseGuide = membershipSettings.membershipPurchaseGuide.trim()
     setMembershipSettingsMessage('')
     if (!membershipPurchaseGuide) {
-      setMembershipSettingsMessage('会员购买提示不能为空')
+      setMembershipSettingsMessage('会员兑换提示不能为空')
       return
     }
     if (membershipPurchaseGuide.length > 120) {
-      setMembershipSettingsMessage('会员购买提示不能超过 120 个字')
+      setMembershipSettingsMessage('会员兑换提示不能超过 120 个字')
       return
     }
     if (!isConfigured) {
@@ -528,7 +528,7 @@ function App() {
       setMembershipSettings(saved)
       setMembershipSettingsMessage('已保存，用户重新进入会员中心后生效。')
     } catch (err) {
-      setMembershipSettingsMessage(err instanceof Error ? err.message : '会员购买提示保存失败')
+      setMembershipSettingsMessage(err instanceof Error ? err.message : '会员兑换提示保存失败')
     } finally {
       setSavingMembershipSettings(false)
     }
@@ -951,13 +951,13 @@ function CommercePage({
       </section>
 
       <section className="panel membership-settings-panel">
-        <PanelTitle title="会员购买提示" subtitle="显示在小程序会员中心兑换码输入框上方" />
+        <PanelTitle title="会员兑换提示" subtitle="显示在小程序会员中心兑换码输入框上方" />
         <label>
           <textarea
             maxLength={120}
             value={membershipSettings.membershipPurchaseGuide}
             onChange={(event) => onMembershipSettingsChange(event.target.value)}
-            placeholder="填写用户获取会员兑换码的渠道说明"
+            placeholder="填写兑换码使用说明，不填写购买或外部渠道信息"
           />
           <span>{membershipSettings.membershipPurchaseGuide.length}/120</span>
         </label>

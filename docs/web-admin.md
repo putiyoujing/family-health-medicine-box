@@ -64,7 +64,7 @@ VITE_CLOUDBASE_PUBLISHABLE_KEY=从云开发身份认证获取的-Publishable-Key
 
 每次管理接口调用会向 `admin_operation_logs` 写入最小化审计信息，包括管理员、动作、目标 ID、家庭 ID、是否查看敏感健康字段和时间；用户、反馈、家庭、兑换码批次及订单动作都必须能定位目标。日志不得保存完整健康内容、兑换码明文或密钥。
 
-运营中心可编辑会员中心的购买提示文案。配置保存在 `app_configs/membership` 文档的 `membershipPurchaseGuide` 字段中，不能为空且最多 120 字；审计日志只记录配置目标和操作动作，不保存完整文案。
+运营中心可编辑会员中心的兑换提示文案。配置保存在 `app_configs/membership` 文档的 `membershipPurchaseGuide` 字段中，不能为空且最多 120 字；文案不得包含购买或外部渠道信息，审计日志只记录配置目标和操作动作，不保存完整文案。
 
 ## 当前模块
 

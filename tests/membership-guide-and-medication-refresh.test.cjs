@@ -76,7 +76,7 @@ test('medicine instructions textarea keeps its cursor above the keyboard and sav
   assert.match(instructions, /cursor-spacing="140"/)
 })
 
-test('membership purchase guide is editable in admin and rendered from payment config', () => {
+test('membership redemption guide is editable in admin and rendered from payment config', () => {
   const adminSource = fs.readFileSync(path.join(root, 'cloudfunctions/adminApi/index.js'), 'utf8')
   const paymentSource = fs.readFileSync(path.join(root, 'cloudfunctions/paymentApi/index.js'), 'utf8')
   const adminUi = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
@@ -94,7 +94,20 @@ test('membership purchase guide is editable in admin and rendered from payment c
   assert.match(membershipTemplate, /\{\{membershipPurchaseGuide\}\}/)
 })
 
-test('membership display config refreshes before slower membership data and restores the monthly badge', async () => {
+test('membership benefits show the upcoming AI assistance note below the comparison table', () => {
+  const membershipTemplate = fs.readFileSync(path.join(root, 'miniprogram/pages/membership/index.wxml'), 'utf8')
+  const membershipStyles = fs.readFileSync(path.join(root, 'miniprogram/pages/membership/index.wxss'), 'utf8')
+  const tableIndex = membershipTemplate.indexOf('class="comparison-table"')
+  const noteIndex = membershipTemplate.indexOf('class="benefits-note"')
+
+  assert.ok(tableIndex >= 0)
+  assert.ok(noteIndex > tableIndex)
+  assert.match(membershipTemplate, /AI 辅助功能将陆续上线，让健康记录与查询更便捷。/)
+  assert.match(membershipStyles, /\.benefits-note\s*\{/)
+  assert.match(membershipStyles, /\.benefits-note-mark\s*\{/)
+})
+
+test('membership guide refreshes before slower membership data without restoring plan prices', async () => {
   let pageDefinition
   let resolveMembership
   let resolveFamilies
@@ -111,7 +124,7 @@ test('membership display config refreshes before slower membership data and rest
       '../../services/api': {
         getMembershipStatus: () => membershipPromise,
         getPlans: async () => ({
-          membershipPurchaseGuide: '后台刚刚更新的购买提示',
+          membershipPurchaseGuide: '后台刚刚更新的兑换提示',
           plans: [{
             planId: 'monthly_pro',
             name: '月度会员',
@@ -131,7 +144,7 @@ test('membership display config refreshes before slower membership data and rest
       getApp: () => ({ globalData: {} }),
       wx: {
         getStorageSync: () => ({
-          membershipPurchaseGuide: '上次缓存的购买提示',
+          membershipPurchaseGuide: '上次缓存的兑换提示',
           plans: [],
         }),
         setStorageSync(key, value) {
@@ -143,14 +156,17 @@ test('membership display config refreshes before slower membership data and rest
 
   const page = createPageInstance(pageDefinition)
   page.onLoad({})
-  assert.equal(page.data.membershipPurchaseGuide, '上次缓存的购买提示')
+  assert.equal(page.data.membershipPurchaseGuide, '上次缓存的兑换提示')
 
   const loadPromise = page.load()
   await new Promise((resolve) => setImmediate(resolve))
 
-  assert.equal(page.data.membershipPurchaseGuide, '后台刚刚更新的购买提示')
-  assert.equal(page.data.plans[0].badge, '灵活体验')
-  assert.equal(storedValues[0].value.membershipPurchaseGuide, '后台刚刚更新的购买提示')
+  assert.equal(page.data.membershipPurchaseGuide, '后台刚刚更新的兑换提示')
+  assert.equal('plans' in page.data, false)
+  assert.equal(
+    JSON.stringify(storedValues[0].value),
+    JSON.stringify({ membershipPurchaseGuide: '后台刚刚更新的兑换提示' }),
+  )
 
   resolveMembership({
     entitlement: {

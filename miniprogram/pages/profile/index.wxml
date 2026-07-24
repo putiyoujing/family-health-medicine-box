@@ -31,9 +31,9 @@
         <view class="card-kicker">会员权益</view>
         <view class="membership-title">{{loggedIn ? (entitlement.planName || '免费版') : '登录后查看当前等级'}}</view>
       </view>
-      <view class="membership-action">{{isFreeMembership ? '升级会员' : '查看权益'}} <text>›</text></view>
+      <view class="membership-action">{{isFreeMembership ? '兑换会员' : '查看权益'}} <text>›</text></view>
     </view>
-    <view class="membership-message">升级获得更多成员、账号协作和长期记录能力</view>
+    <view class="membership-message">兑换会员后可获得更多成员、账号协作和长期记录能力</view>
     <view class="benefit-strip">
       <view class="benefit-item">
         <view class="benefit-icon">员</view>

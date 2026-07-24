@@ -17,3 +17,17 @@ test('dashboard quick actions keep all three buttons inside the content width', 
   assert.match(styles, /\.quick-grid \.ghost-btn\s*{[\s\S]*width:\s*100%/)
   assert.doesNotMatch(template, /ai-float|goAssistant|AI问记录/)
 })
+
+test('default dashboard starter actions have distinct icons without the redundant footnote', () => {
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/dashboard/index.wxml'), 'utf8')
+  const styles = fs.readFileSync(path.join(root, 'miniprogram/pages/dashboard/index.wxss'), 'utf8')
+
+  assert.match(template, /class="camera-icon"/)
+  assert.match(template, /class="note-icon"/)
+  assert.match(template, /class="box-icon"/)
+  assert.match(styles, /\.camera-icon\s*{/)
+  assert.match(styles, /\.note-icon\s*{/)
+  assert.match(styles, /\.box-icon\s*{/)
+  assert.doesNotMatch(template, /所有记录先保存在你自己的小程序空间/)
+  assert.doesNotMatch(styles, /\.default-footnote\s*{/)
+})

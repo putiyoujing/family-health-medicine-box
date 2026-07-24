@@ -15,7 +15,7 @@
       <text class="pill">{{multiFamilyPlan === 'free' ? '免费版' : '会员'}}</text>
     </view>
     <button class="primary-btn create-family-btn" wx:if="{{canCreateFamily && !showCreateForm}}" bindtap="openCreate">创建新家庭</button>
-    <button class="ghost-btn create-family-btn" wx:elif="{{multiFamilyPlan === 'free' && !showCreateForm}}" bindtap="goMembership">升级会员后创建多个家庭</button>
+    <button class="ghost-btn create-family-btn" wx:elif="{{multiFamilyPlan === 'free' && !showCreateForm}}" bindtap="goMembership">兑换会员后创建多个家庭</button>
     <view class="muted limit-tip" wx:elif="{{!showCreateForm}}">已达到会员家庭创建上限</view>
     <view class="create-form" wx:if="{{showCreateForm}}">
       <input class="input" maxlength="30" value="{{familyName}}" bindinput="onFamilyNameInput" placeholder="例如：爸妈健康记录" />

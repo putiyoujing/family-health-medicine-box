@@ -1,28 +1,8 @@
 const api = require('../../services/api')
 const { ensureLoginReady } = require('../../utils/operation-guards')
 
-const PLAN_DISPLAY_ORDER = { monthly_pro: 0, yearly_pro: 1 }
 const MEMBERSHIP_DISPLAY_CACHE_KEY = 'membership-display-cache'
-const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
-
-const DEFAULT_PLANS = [
-  {
-    planId: 'yearly_pro',
-    name: '年度会员',
-    price: 9900,
-    durationDays: 365,
-    badge: '推荐',
-    sort: 0,
-  },
-  {
-    planId: 'monthly_pro',
-    name: '月度会员',
-    price: 990,
-    durationDays: 30,
-    badge: '灵活体验',
-    sort: 1,
-  },
-]
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
 
 const DEFAULT_ENTITLEMENT = {
   planName: '免费版',
@@ -48,7 +28,6 @@ Page({
     entitlement: DEFAULT_ENTITLEMENT,
     usage: {},
     familyPolicy: DEFAULT_FAMILY_POLICY,
-    plans: decoratePlans(DEFAULT_PLANS),
     benefitRows: buildBenefitRows(DEFAULT_ENTITLEMENT.limits, {}, DEFAULT_FAMILY_POLICY),
     comparisonRows: buildComparisonRows(),
     isFreeMembership: true,
@@ -62,7 +41,7 @@ Page({
 
   onLoad(options) {
     this.shouldFocusRedeem = options.focus === 'redeem'
-    this.restoreCachedMembershipDisplay()
+    this.restoreCachedMembershipGuide()
   },
 
   onShow() {
@@ -76,7 +55,7 @@ Page({
 
   async load() {
     this.setData({ loading: true })
-    const planRequest = this.loadPlanDisplay()
+    const guideRequest = this.loadMembershipGuide()
     const loggedIn = await ensureLoginReady({ silent: true })
     if (!loggedIn) {
       this.setData({ loading: false })
@@ -86,28 +65,25 @@ Page({
       family: {},
       entitlement: this.data.entitlement,
       usage: {},
-      plans: [],
     }
-    let planData = { plans: [] }
+    let membershipGuide = this.data.membershipPurchaseGuide
     let familyPolicy = this.data.familyPolicy
 
-    const [membershipResult, familyPolicyResult, planResult] = await Promise.allSettled([
+    const [membershipResult, familyPolicyResult, guideResult] = await Promise.allSettled([
       api.getMembershipStatus(),
       api.listMyFamilies(),
-      planRequest,
+      guideRequest,
     ])
     if (membershipResult.status === 'fulfilled') {
       membership = membershipResult.value
     }
-    if (planResult.status === 'fulfilled') {
-      planData = planResult.value
+    if (guideResult.status === 'fulfilled') {
+      membershipGuide = guideResult.value
     }
     if (familyPolicyResult.status === 'fulfilled') {
       familyPolicy = familyPolicyResult.value
     }
 
-    const planSource = pickPlans(planData.plans, membership.plans)
-    const plans = decoratePlans(planSource)
     const entitlement = membership.entitlement || this.data.entitlement
     const usage = membership.usage || {}
 
@@ -117,13 +93,10 @@ Page({
       entitlement,
       usage,
       familyPolicy,
-      plans,
       benefitRows: buildBenefitRows(entitlement.limits || {}, usage, familyPolicy),
       isFreeMembership: isFreePlan(entitlement),
       expireText: formatExpireAt(entitlement.proExpireAt || entitlement.expireAt),
-      membershipPurchaseGuide: String(planData.membershipPurchaseGuide || '').trim()
-        || this.data.membershipPurchaseGuide
-        || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE,
+      membershipPurchaseGuide: membershipGuide,
     })
     if (this.shouldFocusRedeem) {
       this.shouldFocusRedeem = false
@@ -131,43 +104,34 @@ Page({
     }
   },
 
-  async loadPlanDisplay() {
+  async loadMembershipGuide() {
     try {
       const planData = await api.getPlans()
       const membershipPurchaseGuide = String(planData.membershipPurchaseGuide || '').trim()
         || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE
-      const plans = decoratePlans(pickPlans(planData.plans, this.data.plans))
-      this.setData({
-        membershipPurchaseGuide,
-        plans,
-      })
+      this.setData({ membershipPurchaseGuide })
       wx.setStorageSync(MEMBERSHIP_DISPLAY_CACHE_KEY, {
         membershipPurchaseGuide,
-        plans,
       })
-      return planData
+      return membershipPurchaseGuide
     } catch (error) {
-      console.warn('membership display config unavailable', error.message)
-      return { plans: [] }
+      console.warn('membership guide config unavailable', error.message)
+      return this.data.membershipPurchaseGuide || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE
     }
   },
 
-  restoreCachedMembershipDisplay() {
+  restoreCachedMembershipGuide() {
     try {
       const cached = wx.getStorageSync(MEMBERSHIP_DISPLAY_CACHE_KEY)
       if (!cached || typeof cached !== 'object') {
         return
       }
       const membershipPurchaseGuide = String(cached.membershipPurchaseGuide || '').trim()
-      const plans = Array.isArray(cached.plans) && cached.plans.length
-        ? decoratePlans(cached.plans)
-        : this.data.plans
-      this.setData({
-        ...(membershipPurchaseGuide ? { membershipPurchaseGuide } : {}),
-        plans,
-      })
+      if (membershipPurchaseGuide) {
+        this.setData({ membershipPurchaseGuide })
+      }
     } catch (error) {
-      console.warn('membership display cache unavailable', error.message)
+      console.warn('membership guide cache unavailable', error.message)
     }
   },
 
@@ -217,44 +181,6 @@ Page({
 
 })
 
-function pickPlans(primaryPlans, fallbackPlans) {
-  const plans = [primaryPlans, fallbackPlans].find((items) => Array.isArray(items) && items.length)
-  return plans && plans.length ? plans : DEFAULT_PLANS
-}
-
-function decoratePlans(plans) {
-  return (plans || [])
-    .slice()
-    .sort((a, b) => (
-      (PLAN_DISPLAY_ORDER[a.planId] ?? 10 + Number(a.sort || 0))
-      - (PLAN_DISPLAY_ORDER[b.planId] ?? 10 + Number(b.sort || 0))
-    ))
-    .map((plan) => {
-      const defaultPlan = DEFAULT_PLANS.find((item) => item.planId === plan.planId) || {}
-      const mergedPlan = {
-        ...defaultPlan,
-        ...plan,
-        badge: String(plan.badge || defaultPlan.badge || '').trim(),
-      }
-      return {
-        ...mergedPlan,
-        priceText: formatMoney(mergedPlan.price),
-        audienceText: buildPlanAudienceText(mergedPlan),
-      }
-    })
-}
-
-function buildPlanAudienceText(plan) {
-  const durationDays = Number(plan.durationDays || 0)
-  if (plan.planId === 'monthly_pro' || (durationDays > 0 && durationDays <= 31)) {
-    return '适合初次体验会员服务的家庭'
-  }
-  if (plan.planId === 'yearly_pro' || durationDays >= 365) {
-    return '适合长期管理家人健康的家庭'
-  }
-  return '适合需要持续管理家人健康的家庭'
-}
-
 function buildBenefitRows(limits, usage, familyPolicy) {
   return [
     {
@@ -299,8 +225,4 @@ function formatExpireAt(value) {
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
   const day = `${date.getDate()}`.padStart(2, '0')
   return `${year}-${month}-${day}`
-}
-
-function formatMoney(amount) {
-  return (Number(amount || 0) / 100).toFixed(2).replace(/\.00$/, '')
 }
