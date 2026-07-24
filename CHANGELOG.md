@@ -19,6 +19,7 @@ All notable changes are recorded here. Versions follow the mini-program upload v
 - Deploy the 1.0.13 Web admin to the existing CloudBase `/admin/` entry and verify the active asset, channel-neutral redemption copy, login page rendering, and browser console.
 - Pass the complete project gate with 160 automated tests and 22 static release safeguards.
 - Submit the 1.0.13 mini-program for WeChat review on 2026-07-24; review result remains pending.
+- Record the project owner's confirmation that privacy, two-account isolation, iOS/Android real-device, and real reminder-delivery acceptance passed; raw evidence artifacts remain outside the repository.
 - Align the package and mini-program upload version at `1.0.13`.
 
 ## [1.0.12] - 2026-07-24
