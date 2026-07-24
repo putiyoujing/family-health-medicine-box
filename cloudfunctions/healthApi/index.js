@@ -243,6 +243,7 @@ async function updateUserProfile(openid, payload) {
 function publicUser(user) {
   return {
     _id: user._id,
+    publicUserId: user.publicUserId || '',
     nickname: user.nickname || '',
     avatarUrl: user.avatarUrl || '',
     avatarPreset: user.avatarPreset || '',
@@ -309,15 +310,23 @@ async function getUser(openid) {
     .get()
 
   if (result.data.length) {
-    return result.data[0]
+    const user = result.data[0]
+    if (isPublicUserId(user.publicUserId)) {
+      return user
+    }
+    const publicUserId = await createUniquePublicUserId()
+    await db.collection('users').doc(user._id).update({ data: { publicUserId } })
+    return { ...user, publicUserId }
   }
 
   const now = db.serverDate()
+  const publicUserId = await createUniquePublicUserId()
   const userResult = await db.collection('users').add({
     data: {
       openid,
       nickname: '',
       avatarUrl: '',
+      publicUserId,
       lowStockThreshold: 25,
       expiryReminderDays: 60,
       currentFamilyId: '',
@@ -332,6 +341,7 @@ async function getUser(openid) {
     openid,
     nickname: '',
     avatarUrl: '',
+    publicUserId,
     lowStockThreshold: 25,
     expiryReminderDays: 60,
     currentFamilyId: '',
@@ -651,10 +661,11 @@ async function createFamily(openid, payload) {
   return {
     currentFamilyId: familyId,
     family: {
-      ...familyData,
-      _id: familyId,
-      role: 'owner',
-      roleId,
+      ...normalizeFamily({ ...familyData, _id: familyId }, {
+        _id: roleId,
+        familyId,
+        role: 'owner',
+      }),
       entitlement: await getFamilyEntitlement(familyId, familyData),
     },
     ownerMemberId: memberId,
@@ -2072,10 +2083,13 @@ async function listFamilyRoles(openid, familyId) {
     result.data.map(async (role) => {
       const user = await findUserByOpenid(role.openid)
       return {
-        ...role,
-        nickname: (user && user.nickname) || maskOpenid(role.openid),
+        roleId: role._id,
+        role: role.role,
+        memberId: role.memberId || '',
+        nickname: (user && user.nickname) || '已关联家人',
         avatarUrl: (user && user.avatarUrl) || '',
         isCurrentUser: role.openid === openid,
+        joinedAt: role.joinedAt || role.createdAt || '',
       }
     }),
   )
@@ -2088,17 +2102,25 @@ async function listFamilyRoles(openid, familyId) {
         invite.targetMemberId &&
         Number(invite.usedCount || 0) < Number(invite.maxUses || 1) &&
         (!invite.expiresAt || new Date(invite.expiresAt).getTime() > Date.now()),
-    ),
+    ).map((invite) => ({
+      inviteId: invite._id,
+      inviteCode: invite.inviteCode,
+      targetMemberId: invite.targetMemberId,
+      targetMemberNameSnapshot: invite.targetMemberNameSnapshot || '',
+      role: invite.role,
+      expiresAt: invite.expiresAt || '',
+      createdAt: invite.createdAt || '',
+    })),
   }
 }
 
 async function updateFamilyRole(openid, familyId, payload) {
   const family = await getCurrentFamily(openid, familyId)
   assertRole(family.role, MANAGE_ROLES)
-  const targetOpenid = payload.openid
+  const targetRoleId = String(payload.roleId || '')
   const role = payload.role
-  if (!targetOpenid || !role) {
-    throw new Error('openid and role are required')
+  if (!targetRoleId || !role) {
+    throw new Error('roleId and role are required')
   }
   if (!['admin', 'member', 'viewer'].includes(role)) {
     throw new Error('invalid role')
@@ -2107,7 +2129,7 @@ async function updateFamilyRole(openid, familyId, payload) {
   if (!entitlement.limits.sharedRoles.includes(role)) {
     throw new Error('当前家庭权益不支持该角色')
   }
-  const targetRole = await assertFamilyAccess(targetOpenid, family._id, VIEW_ROLES)
+  const targetRole = await assertFamilyRoleTarget(targetRoleId, family._id)
   if (targetRole.role === 'owner') {
     throw new Error('不能修改家庭创建者角色')
   }
@@ -2119,7 +2141,7 @@ async function updateFamilyRole(openid, familyId, payload) {
     },
   })
   return {
-    openid: targetOpenid,
+    roleId: targetRole._id,
     role,
   }
 }
@@ -2127,14 +2149,15 @@ async function updateFamilyRole(openid, familyId, payload) {
 async function removeFamilyUser(openid, familyId, payload) {
   const family = await getCurrentFamily(openid, familyId)
   assertRole(family.role, MANAGE_ROLES)
-  const targetOpenid = payload.openid
-  if (!targetOpenid) {
-    throw new Error('openid is required')
+  const targetRoleId = String(payload.roleId || '')
+  if (!targetRoleId) {
+    throw new Error('roleId is required')
   }
-  const targetRole = await assertFamilyAccess(targetOpenid, family._id, VIEW_ROLES)
+  const targetRole = await assertFamilyRoleTarget(targetRoleId, family._id)
   if (targetRole.role === 'owner') {
     throw new Error('家庭创建者不能直接移除')
   }
+  const targetOpenid = targetRole.openid
   await db.collection('family_roles').doc(targetRole._id).update({
     data: {
       deletedAt: db.serverDate(),
@@ -2150,7 +2173,7 @@ async function removeFamilyUser(openid, familyId, payload) {
     },
   })
   return {
-    openid: targetOpenid,
+    roleId: targetRole._id,
     mode: 'removed',
   }
 }
@@ -2667,13 +2690,38 @@ async function findUserByOpenid(openid) {
   return result.data[0] || null
 }
 
+function isPublicUserId(value) {
+  return /^\d{10}$/.test(String(value || ''))
+}
+
+async function createUniquePublicUserId() {
+  for (let index = 0; index < 5; index += 1) {
+    const publicUserId = String(crypto.randomInt(1000000000, 10000000000))
+    const existing = await db.collection('users').where({ publicUserId }).limit(1).get()
+    if (!existing.data.some((user) => user.publicUserId === publicUserId)) {
+      return publicUserId
+    }
+  }
+  throw new Error('unable to allocate user ID')
+}
+
 function normalizeFamily(family, role) {
   return {
-    ...family,
     _id: family._id || role.familyId,
+    name: family.name || '我的家庭健康记录',
     role: role.role,
     roleId: role._id,
+    createdAt: family.createdAt || '',
+    updatedAt: family.updatedAt || '',
   }
+}
+
+async function assertFamilyRoleTarget(roleId, familyId) {
+  const result = await db.collection('family_roles').doc(roleId).get()
+  if (!result.data || result.data.familyId !== familyId || result.data.deletedAt) {
+    throw new Error('family role not found or no permission')
+  }
+  return result.data
 }
 
 function assertRole(role, allowedRoles) {
@@ -2753,18 +2801,37 @@ function toTime(value) {
   return Number.isNaN(time) ? 0 : time
 }
 
-function maskOpenid(openid) {
-  if (!openid) {
-    return '家庭成员'
-  }
-  return `${openid.slice(0, 4)}...${openid.slice(-4)}`
-}
-
 function ok(data) {
   return {
     ok: true,
-    data,
+    data: sanitizeClientData(data),
   }
+}
+
+function sanitizeClientData(value) {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeClientData)
+  }
+  if (!value || typeof value !== 'object' || value instanceof Date) {
+    return value
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !isPrivateIdentityField(key))
+      .map(([key, item]) => [key, sanitizeClientData(item)]),
+  )
+}
+
+function isPrivateIdentityField(key) {
+  const normalized = String(key || '').toLowerCase()
+  return normalized.includes('openid') || [
+    '_openid',
+    'createdby',
+    'updatedby',
+    'completedby',
+    'archivedby',
+    'confirmedby',
+  ].includes(normalized)
 }
 
 function fail(message) {

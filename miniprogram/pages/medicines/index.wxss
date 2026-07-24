@@ -8,21 +8,22 @@
 }
 
 .search-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
   align-items: center;
   gap: 14rpx;
 }
 
 .search-input {
-  flex: 1;
+  width: 100%;
   min-width: 0;
 }
 
 .filter-toggle {
-  flex: 0 0 auto;
-  min-width: 132rpx;
+  width: 100%;
+  min-width: 0;
   height: 78rpx;
-  padding: 0 20rpx;
+  padding: 0 12rpx;
   color: #5f746f;
   background: #ffffff;
   border: 1rpx solid #ddeee8;

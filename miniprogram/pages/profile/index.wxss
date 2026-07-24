@@ -55,6 +55,15 @@
   height: 100%;
 }
 
+.guest-avatar {
+  background: #e8f4f0;
+}
+
+.account-avatar .guest-avatar-icon {
+  width: 72rpx;
+  height: 72rpx;
+}
+
 .account-copy {
   flex: 1;
   min-width: 0;
@@ -78,6 +87,13 @@
   margin-top: 8rpx;
   color: #6d837d;
   font-size: 23rpx;
+}
+
+.account-user-id {
+  margin-top: 6rpx;
+  color: #6d837d;
+  font-size: 22rpx;
+  line-height: 1.4;
 }
 
 .account-entry {

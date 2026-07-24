@@ -181,3 +181,8 @@
   width: 100%;
   min-width: 0;
 }
+.delivery-error {
+  margin-top: 10rpx;
+  color: #a63b32;
+  font-size: 23rpx;
+}

@@ -1,17 +1,27 @@
 <view class="page profile-page">
-  <view class="account-card" bindtap="handleProfileTap">
+  <view wx:if="{{loggedIn}}" class="account-card" bindtap="handleProfileTap">
     <view class="account-avatar" style="{{avatarUrl ? '' : avatarStyle}}">
       <image wx:if="{{loggedIn && avatarUrl}}" src="{{avatarUrl}}" mode="aspectFill"></image>
       <text wx:else>{{profileInitial}}</text>
     </view>
     <view class="account-copy">
-      <view wx:if="{{loggedIn}}" class="account-name">{{profileName}}</view>
-      <view wx:else class="account-name login-name">{{loggingIn ? '登录中…' : '点击登录'}}</view>
+      <view class="account-name">{{profileName}}</view>
+      <view wx:if="{{user.publicUserId}}" class="account-user-id">用户ID：{{user.publicUserId}}</view>
       <view class="account-subtitle" wx:if="{{!loggedIn}}">登录后可同步家庭健康记录</view>
     </view>
     <view class="account-entry">
       <text class="entry-arrow">›</text>
     </view>
+  </view>
+
+  <view wx:else class="account-card guest-account-card" bindtap="login">
+    <view class="account-avatar guest-avatar">
+      <image class="guest-avatar-icon" src="/assets/tabbar/user-default.png" mode="aspectFit"></image>
+    </view>
+    <view class="account-copy">
+      <view class="account-name login-name">点击登录</view>
+    </view>
+    <view class="account-entry"><text class="entry-arrow">›</text></view>
   </view>
 
   <view class="membership-card" bindtap="openMembership">
@@ -105,3 +115,4 @@
   </view>
 
 </view>
+<global-auth-layer id="global-auth-layer" />

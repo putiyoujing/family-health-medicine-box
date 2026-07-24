@@ -8,10 +8,11 @@ cloud.init({
 
 const db = cloud.database()
 
-exports.main = async () => {
+exports.main = async (event = {}) => {
   const wxContext = cloud.getWXContext()
   const now = db.serverDate()
   const openid = wxContext.OPENID
+  const authorizedProfile = normalizeAuthorizedProfile(event.profile)
 
   if (!openid) {
     throw new Error('wechat login identity is missing')
@@ -27,41 +28,57 @@ exports.main = async () => {
 
   if (existing.data.length) {
     const user = existing.data[0]
+    const publicUserId = isPublicUserId(user.publicUserId)
+      ? user.publicUserId
+      : await createUniquePublicUserId()
     const defaultProfile = createDefaultProfile(openid)
-    const nickname = shouldUseDefaultNickname(user.nickname) ? defaultProfile.nickname : user.nickname
-    const avatarPreset = user.avatarPreset || defaultProfile.avatarPreset
-    const currentFamilyId = await ensureCurrentFamily(openid, { ...user, nickname, avatarPreset })
+    const nickname = authorizedProfile.nickname || (shouldUseDefaultNickname(user.nickname) ? defaultProfile.nickname : user.nickname)
+    const avatarPreset = authorizedProfile.avatarPreset || user.avatarPreset || defaultProfile.avatarPreset
+    const updatedUser = {
+      ...user,
+      nickname,
+      avatarUrl: authorizedProfile.avatarUrl || user.avatarUrl || '',
+      gender: authorizedProfile.gender || user.gender || '',
+      avatarPreset,
+      publicUserId,
+    }
+    const currentFamilyId = await ensureCurrentFamily(openid, updatedUser)
     await db.collection('users').doc(user._id).update({
       data: {
         currentFamilyId,
         nickname,
+        avatarUrl: updatedUser.avatarUrl,
+        gender: updatedUser.gender,
         avatarPreset,
+        publicUserId,
         lastLoginAt: now,
       },
     })
     return {
       openid,
       user: {
-        ...user,
+        ...updatedUser,
         currentFamilyId,
-        nickname,
-        avatarPreset,
       },
       currentFamilyId,
     }
   }
 
   const userId = stableId('user', openid)
-  const defaultProfile = createDefaultProfile(openid)
-  const currentFamilyId = await provisionDefaultFamily(openid, now, defaultProfile)
+  if (!authorizedProfile.nickname || (!authorizedProfile.avatarUrl && !authorizedProfile.avatarPreset)) {
+    throw new Error('authorized user profile is required')
+  }
+  const currentFamilyId = await provisionDefaultFamily(openid, now, authorizedProfile)
+  const publicUserId = await createUniquePublicUserId()
 
   await db.collection('users').doc(userId).set({
     data: {
       openid,
-      nickname: defaultProfile.nickname,
-      avatarUrl: '',
-      avatarPreset: defaultProfile.avatarPreset,
-      gender: '',
+      nickname: authorizedProfile.nickname,
+      avatarUrl: authorizedProfile.avatarUrl,
+      avatarPreset: authorizedProfile.avatarPreset,
+      publicUserId,
+      gender: authorizedProfile.gender,
       birthday: '',
       currentFamilyId,
       createdAt: now,
@@ -75,16 +92,28 @@ exports.main = async () => {
     user: {
       _id: userId,
       openid,
-      nickname: defaultProfile.nickname,
-      avatarUrl: '',
-      avatarPreset: defaultProfile.avatarPreset,
-      gender: '',
+      nickname: authorizedProfile.nickname,
+      avatarUrl: authorizedProfile.avatarUrl,
+      avatarPreset: authorizedProfile.avatarPreset,
+      publicUserId,
+      gender: authorizedProfile.gender,
       birthday: '',
       currentFamilyId,
     },
     currentFamilyId,
     familyId: currentFamilyId,
   }
+}
+
+function normalizeAuthorizedProfile(value) {
+  const profile = value && typeof value === 'object' ? value : {}
+  const nickname = String(profile.nickname || '').trim().slice(0, 80)
+  const avatarUrl = String(profile.avatarUrl || '').trim().slice(0, 2048)
+  const avatarPreset = ['sprout', 'sunrise', 'lake', 'berry', 'coral', 'forest'].includes(profile.avatarPreset)
+    ? profile.avatarPreset
+    : ''
+  const gender = ['male', 'female'].includes(profile.gender) ? profile.gender : ''
+  return { nickname, avatarUrl, avatarPreset, gender }
 }
 
 async function ensureCurrentFamily(openid, user) {
@@ -109,7 +138,7 @@ async function ensureCurrentFamily(openid, user) {
     return activeRoles[0].familyId
   }
 
-  return provisionDefaultFamily(openid, db.serverDate(), createDefaultProfile(openid))
+  return provisionDefaultFamily(openid, db.serverDate(), user)
 }
 
 async function provisionDefaultFamily(openid, now, profile) {
@@ -140,7 +169,7 @@ async function provisionDefaultFamily(openid, now, profile) {
       familyId,
       name: (profile && profile.nickname) || createDefaultProfile(openid).nickname,
       relation: '本人',
-      gender: '',
+      gender: profile.gender || '',
       birthday: '',
       allergyHistory: '',
       medicalHistory: '',
@@ -213,6 +242,21 @@ async function ensureOwnerMember(openid, role, user) {
 function stableId(prefix, value) {
   const digest = crypto.createHash('sha256').update(value).digest('hex').slice(0, 24)
   return `${prefix}_${digest}`
+}
+
+function isPublicUserId(value) {
+  return /^\d{10}$/.test(String(value || ''))
+}
+
+async function createUniquePublicUserId() {
+  for (let index = 0; index < 5; index += 1) {
+    const publicUserId = String(crypto.randomInt(1000000000, 10000000000))
+    const existing = await db.collection('users').where({ publicUserId }).limit(1).get()
+    if (!existing.data.some((user) => user.publicUserId === publicUserId)) {
+      return publicUserId
+    }
+  }
+  throw new Error('unable to allocate user ID')
 }
 
 function shouldUseDefaultNickname(value) {

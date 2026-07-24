@@ -46,3 +46,4 @@
     <view wx:else>头像会上传到当前小程序云存储；昵称、性别和生日仅用于账户资料及家庭协作展示。</view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

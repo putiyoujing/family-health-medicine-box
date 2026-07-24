@@ -2,6 +2,7 @@ const api = require('../../services/api')
 const { todayDate } = require('../../utils/format')
 const { ensureLoginReady } = require('../../utils/operation-guards')
 const { hasPackageConversion } = require('../../utils/medicine-stock')
+const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
 
 const DEFAULT_TAG_OPTIONS = ['儿童用药', '老人父母', '常规用药', '退烧', '感冒咳嗽', '鼻腔护理', '肠胃', '过敏', '外用', '常备', '处方药', '低库存关注']
 const DEFAULT_CATEGORY_OPTIONS = ['退热止痛', '感冒呼吸', '消化肠胃', '抗过敏', '外用皮肤', '五官口腔', '抗感染', '慢病长期', '急救备用', '其他']
@@ -74,7 +75,7 @@ Page({
   async load() {
     this.setData({ loading: true })
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
         this.setData({ loading: false })
         return
@@ -333,6 +334,9 @@ Page({
     if (this.data.saving) {
       return
     }
+    if (!await ensureLoginReady()) {
+      return
+    }
     const form = this.data.form
     const errors = validateForm(form)
     if (Object.keys(errors).length) {
@@ -414,7 +418,7 @@ Page({
         itemList: ['拍外包装/药瓶', '拍说明书', '从相册选择'],
       })
       const imageKind = res.tapIndex === 1 ? 'instruction' : 'medicine_box'
-      const sourceType = res.tapIndex === 2 ? ['album'] : ['camera', 'album']
+      const sourceType = getMediaSourceType(res.tapIndex, 2)
       const chooseResult = await wx.chooseMedia({
         count: remaining,
         mediaType: ['image'],
@@ -452,10 +456,15 @@ Page({
       wx.showToast({ title: '图片已添加' })
     } catch (error) {
       wx.hideLoading()
-      if (error.errMsg && error.errMsg.includes('cancel')) {
+      if (isImageSelectionCanceled(error)) {
         return
       }
-      wx.showToast({ title: '图片添加失败', icon: 'none' })
+      console.error('medicine image upload failed', error)
+      wx.showModal({
+        title: '药品图片上传失败',
+        content: getImageUploadErrorMessage(error, '药品图片'),
+        showCancel: false,
+      })
     }
   },
 

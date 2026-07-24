@@ -16,6 +16,7 @@ interface AdminRequest {
 const DATA_FILE = fileURLToPath(new URL('../.local-data/admin-api.json', import.meta.url))
 const LOCAL_ADMIN_TOKEN = 'local-dev-token'
 const DAY_MS = 24 * 60 * 60 * 1000
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
 
 const DATA_TABLES = [
   { id: 'users', name: 'Users', collection: 'users', statKey: 'users' },
@@ -40,7 +41,9 @@ const DATA_TABLES = [
 
 const COLLECTIONS = [
   ...DATA_TABLES.map((table) => table.collection),
+  'app_configs',
   'family_members',
+  'family_roles',
   'reminders',
   'coupon_redemptions',
 ] as const
@@ -112,6 +115,18 @@ async function dispatchAction(action: string, payload: Row) {
       return buildDashboard(store)
     case 'getDataOverview':
       return getDataOverview(store)
+    case 'getMembershipSettings':
+      return getMembershipSettings(store)
+    case 'updateMembershipSettings':
+      return updateMembershipSettings(store, payload)
+    case 'searchUsers':
+      return searchUsers(store, payload)
+    case 'getUserDetail':
+      return getUserDetail(store, payload)
+    case 'getFamilyDetail':
+      return getFamilyDetail(store, payload)
+    case 'updateFeedback':
+      return updateFeedback(store, payload)
     case 'createCoupon':
     case 'adminCreateCoupon':
       return createCoupon(store, payload)
@@ -130,6 +145,12 @@ async function dispatchAction(action: string, payload: Row) {
     case 'disableCouponCodeBatch':
     case 'adminDisableCouponCodeBatch':
       return disableCouponCodeBatch(store, payload)
+    case 'disableCoupon':
+    case 'adminDisableCoupon':
+      return disableCoupon(store, payload)
+    case 'disableCouponCode':
+    case 'adminDisableCouponCode':
+      return disableCouponCode(store, payload)
     default:
       throw new Error(`unknown local admin action: ${action}`)
   }
@@ -168,6 +189,13 @@ function seedStore() {
   const at = (offsetDays: number) => new Date(now.getTime() + offsetDays * DAY_MS).toISOString()
 
   return ensureStore({
+    app_configs: [
+      {
+        _id: 'membership',
+        membershipPurchaseGuide: DEFAULT_MEMBERSHIP_PURCHASE_GUIDE,
+        updatedAt: at(-1),
+      },
+    ],
     ai_usage_logs: [
       {
         _id: 'local_ai_001',
@@ -257,6 +285,10 @@ function seedStore() {
         medicalHistory: 'None',
         name: 'Demo admin',
       },
+    ],
+    family_roles: [
+      { _id: 'local_role_001', familyId: 'local_family_001', memberId: 'local_member_001', openid: 'local_openid_admin', role: 'owner' },
+      { _id: 'local_role_002', familyId: 'local_family_001', openid: 'local_openid_tester', role: 'member' },
     ],
     illness_records: [
       {
@@ -355,6 +387,7 @@ function seedStore() {
         lastLoginAt: at(-1),
         nickname: 'Local Admin',
         openid: 'local_openid_admin',
+        publicUserId: '1000000001',
       },
       {
         _id: 'local_user_002',
@@ -363,6 +396,7 @@ function seedStore() {
         lastLoginAt: at(-2),
         nickname: 'Local Tester',
         openid: 'local_openid_tester',
+        publicUserId: '1000000002',
       },
     ],
   })
@@ -370,7 +404,7 @@ function seedStore() {
 
 function pageList(store: Store, collection: string, payload: Row) {
   const skip = Math.max(toNumber(payload.skip, 0), 0)
-  const limit = clamp(toNumber(payload.limit, 100), 1, 500)
+  const limit = normalizePageSize(payload.limit)
   let rows = [...(store[collection] || [])]
 
   for (const key of ['batchId', 'channel', 'couponId', 'familyId', 'issueStatus', 'issuedChannel', 'redeemPlanId', 'status']) {
@@ -380,21 +414,150 @@ function pageList(store: Store, collection: string, payload: Row) {
     }
   }
 
+  let decoratedRows = decorateAdminRows(store, collection, rows)
   const keyword = stringValue(payload.keyword || payload.search).toLowerCase()
   if (keyword) {
-    rows = rows.filter((row) => Object.values(row).some((value) => String(value || '').toLowerCase().includes(keyword)))
+    if (collection === 'coupons') {
+      const matchingCouponIds = new Set(
+        decorateCouponCodeRows(store, store.coupon_codes)
+          .filter((row) => matchesKeyword(row, keyword))
+          .map((row) => stringValue(row.couponId)),
+      )
+      decoratedRows = decoratedRows.filter((row) => matchingCouponIds.has(stringValue(row._id)) || matchesKeyword(row, keyword))
+    } else {
+      decoratedRows = decoratedRows.filter((row) => matchesKeyword(row, keyword))
+    }
   }
 
-  rows.sort((left, right) => timestamp(right.createdAt || right.updatedAt) - timestamp(left.createdAt || left.updatedAt))
+  decoratedRows.sort((left, right) => timestamp(right.createdAt || right.updatedAt) - timestamp(left.createdAt || left.updatedAt))
 
   return {
-    hasMore: skip + limit < rows.length,
+    hasMore: skip + limit < decoratedRows.length,
     limit,
-    list: rows.slice(skip, skip + limit),
+    list: decoratedRows.slice(skip, skip + limit),
     skip,
-    total: rows.length,
+    total: decoratedRows.length,
   }
 }
+
+function decorateAdminRows(store: Store, collection: string, rows: Row[]): Row[] {
+  if (collection === 'coupon_codes') return decorateCouponCodeRows(store, rows)
+  if (collection === 'feedback') return decorateFeedbackRows(store, rows)
+  if (collection === 'users') return rows.map(summarizeUser)
+  return rows
+}
+
+function matchesKeyword(row: Row, keyword: string) {
+  return Object.values(row).some((value) => String(value || '').toLowerCase().includes(keyword))
+}
+
+function decorateCouponCodeRows(store: Store, rows: Row[]): Row[] {
+  return rows.map((row): Row => {
+    const user = store.users.find((item) => stringValue(item.openid) === stringValue(row.redeemedByOpenid))
+    return {
+      ...omitInternalIdentifiers(row),
+      redeemedUserId: user?.publicUserId || '',
+      redeemedUserNickname: user?.nickname || '',
+    }
+  })
+}
+
+function decorateFeedbackRows(store: Store, rows: Row[]): Row[] {
+  return rows.map((row): Row => {
+    const user = store.users.find((item) => stringValue(item.openid) === stringValue(row.openid))
+    return { ...omitInternalIdentifiers(row), userId: user?.publicUserId || '', userNickname: user?.nickname || '' }
+  })
+}
+
+function omitInternalIdentifiers(row: Row): Row {
+  const safe = { ...row }
+  delete safe.openid
+  delete safe._openid
+  delete safe.redeemedByOpenid
+  return safe
+}
+
+function searchUsers(store: Store, payload: Row) {
+  const keyword = stringValue(payload.keyword).toLowerCase()
+  if (!keyword) return pageList(store, 'users', payload)
+  const users = store.users.filter((user) =>
+    [user.nickname, user.publicUserId, user.phone, user.openid].some((value) => stringValue(value).toLowerCase().includes(keyword)),
+  )
+  return pageList({ ...store, users }, 'users', payload)
+}
+
+function getUserDetail(store: Store, payload: Row) {
+  const userId = stringValue(payload.userId || payload.id || payload._id)
+  const user = store.users.find((item) => item._id === userId)
+  if (!user) throw new Error('user not found')
+  const roles = store.family_roles.filter((item) => item.openid === user.openid)
+  return {
+    user: summarizeUser(user),
+    families: roles.map((role) => {
+      const family = store.families.find((item) => item._id === role.familyId)
+      return family ? { ...summarizeFamily(family), role: role.role, subscription: latestSubscription(store, stringValue(family._id)) } : null
+    }).filter(Boolean),
+  }
+}
+
+function getFamilyDetail(store: Store, payload: Row) {
+  const familyId = stringValue(payload.familyId || payload.id || payload._id)
+  const family = store.families.find((item) => item._id === familyId)
+  if (!family) throw new Error('family not found')
+  const includeSensitive = Boolean(payload.includeSensitive)
+  const byFamily = (collection: string) => store[collection].filter((item) => item.familyId === familyId)
+  const members = byFamily('family_members')
+  const medicines = byFamily('medicines')
+  const illnessRecords = byFamily('illness_records')
+  const medicationLogs = byFamily('medication_logs')
+  const roles = byFamily('family_roles')
+  const roleByMemberId = new Map(roles.filter((role) => role.memberId).map((role) => [stringValue(role.memberId), role]))
+  return {
+    family: summarizeFamily(family),
+    members: members.map((member) => {
+      const role = roleByMemberId.get(stringValue(member._id))
+      const user = store.users.find((item) => item.openid === role?.openid)
+      return { ...summarizeMember(member, includeSensitive), accountRole: role?.role || '', publicUserId: user?.publicUserId || '' }
+    }),
+    roles: roles.map((role) => ({ familyId: role.familyId, memberId: role.memberId || '', role: role.role, createdAt: role.createdAt })),
+    subscription: latestSubscription(store, familyId),
+    stats: { members: members.length, medicines: medicines.length, illnessRecords: illnessRecords.length, medicationLogs: medicationLogs.length },
+    recent: {
+      medicines: latestRows(medicines, 5).map(summarizeMedicine),
+      illnessRecords: latestRows(illnessRecords, 5).map(summarizeIllness),
+      medicationLogs: latestRows(medicationLogs, 5).map(summarizeMedication),
+      feedback: latestRows(byFamily('feedback'), 5).map(summarizeFeedback),
+    },
+    canRevealSensitive: true,
+    sensitiveFieldsIncluded: includeSensitive,
+  }
+}
+
+async function updateFeedback(store: Store, payload: Row) {
+  const id = stringValue(payload.feedbackId || payload.id || payload._id)
+  const status = stringValue(payload.status)
+  const operatorNote = stringValue(payload.operatorNote)
+  if (!id) throw new Error('feedbackId is required')
+  if (!['new', 'in_progress', 'resolved', 'closed'].includes(status)) throw new Error('invalid feedback status')
+  if (operatorNote.length > 500) throw new Error('operator note is too long')
+  const feedback = store.feedback.find((item) => item._id === id)
+  if (!feedback) throw new Error('feedback not found')
+  Object.assign(feedback, { operatorNote, status, updatedAt: new Date().toISOString() })
+  await saveStore(store)
+  return { id, status }
+}
+
+function latestSubscription(store: Store, familyId: string) {
+  return latestRows(store.subscriptions.filter((item) => item.familyId === familyId && item.status === 'active'), 1)[0] || null
+}
+
+function summarizeUser(user: Row) { return { _id: user._id, createdAt: user.createdAt, lastLoginAt: user.lastLoginAt, nickname: user.nickname || '', publicUserId: user.publicUserId || '' } }
+function summarizeFamily(family: Row) { return { _id: family._id, createdAt: family.createdAt, name: family.name || '', plan: family.plan || 'free', proExpireAt: family.proExpireAt || null } }
+function summarizeMember(member: Row, includeSensitive: boolean) { return includeSensitive ? { _id: member._id, allergyHistory: member.allergyHistory || '', medicalHistory: member.medicalHistory || '', name: member.name || '', relation: member.relation || '' } : { _id: member._id, name: member.name || '', relation: member.relation || '' } }
+function summarizeMedicine(medicine: Row) { return { _id: medicine._id, expireDate: medicine.expireDate || '', name: medicine.name || '' } }
+function summarizeIllness(record: Row) { return { _id: record._id, createdAt: record.createdAt, status: record.status || '', title: record.title || record.summary || '' } }
+function summarizeMedication(record: Row) { return { _id: record._id, createdAt: record.createdAt, medicineName: record.medicineName || '', status: record.status || '' } }
+function summarizeFeedback(record: Row) { return { _id: record._id, createdAt: record.createdAt, status: record.status || 'new', type: record.type || '' } }
 
 function getDataOverview(store: Store) {
   return {
@@ -461,13 +624,13 @@ function buildDashboard(store: Store) {
     },
     recentAiUsage: latestRows(store.ai_usage_logs, 8),
     recentCouponBatches: latestRows(store.coupon_code_batches, 8),
-    recentCouponCodes: latestRows(store.coupon_codes, 8),
+    recentCouponCodes: decorateCouponCodeRows(store, latestRows(store.coupon_codes, 8)),
     recentCoupons: latestRows(store.coupons, 8),
     recentIllness: latestRows(store.illness_records, 8),
     recentMedication: latestRows(store.medication_logs, 8),
     recentOrders: latestRows(store.orders, 8),
     recentSubscriptions: latestRows(store.subscriptions, 8),
-    recentUsers: latestRows(store.users, 8),
+    recentUsers: latestRows(store.users, 8).map(summarizeUser),
     revenue: buildRevenue(paidOrders),
     risk: {
       expiringMedicines: expiringMedicines.length,
@@ -613,6 +776,7 @@ function createMembershipRedeemCoupon(
     createdAt: now,
     endAt: payload.endAt || null,
     familyId: '',
+    channel: stringValue(payload.channel) || 'xiaohongshu',
     maxDiscountAmount: 0,
     minAmount: 0,
     name: stringValue(payload.couponName || payload.name) || `${prefix} membership redeem rule`,
@@ -642,16 +806,21 @@ async function exportCouponCodes(store: Store, payload: Row) {
     throw new Error('coupon code batch not found')
   }
   const limit = clamp(toNumber(payload.limit, 1000), 1, 1000)
-  const rows = store.coupon_codes
-    .filter((item) => item.batchId === batchId)
-    .sort((left, right) => timestamp(right.createdAt) - timestamp(left.createdAt))
-    .slice(0, limit)
-    .map((item) => ({
+  const rows = decorateCouponCodeRows(
+    store,
+    store.coupon_codes
+      .filter((item) => item.batchId === batchId)
+      .sort((left, right) => timestamp(right.createdAt) - timestamp(left.createdAt))
+      .slice(0, limit),
+  ).map((item) => ({
       code: item.code,
+      createdAt: item.createdAt || '',
       externalOrderId: item.externalOrderId || '',
       issueStatus: item.issueStatus || 'unissued',
       issuedChannel: item.issuedChannel || '',
       issuedToNote: item.issuedToNote || '',
+      redeemedAt: item.redeemedAt || '',
+      redeemedUser: formatRedeemedUser(item),
       status: item.status,
     }))
 
@@ -712,6 +881,62 @@ async function disableCouponCodeBatch(store: Store, payload: Row) {
   }
 }
 
+async function disableCoupon(store: Store, payload: Row) {
+  const couponId = stringValue(payload.id || payload._id || payload.couponId)
+  const coupon = store.coupons.find((item) => item._id === couponId)
+  if (!coupon) throw new Error('coupon not found')
+  const now = new Date().toISOString()
+  Object.assign(coupon, { disabledAt: now, disabledReason: stringValue(payload.reason) || 'manual_disabled', status: 'disabled', updatedAt: now })
+  store.coupon_codes.forEach((code) => {
+    if (code.couponId === couponId && code.status === 'active') {
+      Object.assign(code, { disabledReason: 'coupon_disabled', status: 'disabled', updatedAt: now })
+    }
+  })
+  await saveStore(store)
+  return { id: couponId, status: 'disabled' }
+}
+
+async function disableCouponCode(store: Store, payload: Row) {
+  const code = getCouponCodeRecord(store, payload)
+  if (code.status === 'used') throw new Error('used coupon code cannot be disabled')
+  if (code.status !== 'disabled') {
+    Object.assign(code, { disabledReason: stringValue(payload.reason) || 'manual_disabled', status: 'disabled', updatedAt: new Date().toISOString() })
+    await saveStore(store)
+  }
+  return { id: code._id, status: 'disabled' }
+}
+
+function getMembershipSettings(store: Store) {
+  const config = store.app_configs.find((item) => item._id === 'membership')
+  return {
+    membershipPurchaseGuide: stringValue(config && config.membershipPurchaseGuide)
+      || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE,
+  }
+}
+
+async function updateMembershipSettings(store: Store, payload: Row) {
+  const membershipPurchaseGuide = stringValue(payload.membershipPurchaseGuide)
+  if (!membershipPurchaseGuide) {
+    throw new Error('会员购买提示不能为空')
+  }
+  if (membershipPurchaseGuide.length > 120) {
+    throw new Error('会员购买提示不能超过 120 个字')
+  }
+  const current = store.app_configs.find((item) => item._id === 'membership')
+  const next = {
+    _id: 'membership',
+    membershipPurchaseGuide,
+    updatedAt: new Date().toISOString(),
+  }
+  if (current) {
+    Object.assign(current, next)
+  } else {
+    store.app_configs.push(next)
+  }
+  await saveStore(store)
+  return { membershipPurchaseGuide }
+}
+
 function normalizeCouponPayload(payload: Row) {
   const redeemPlanId = stringValue(payload.redeemPlanId)
   const redeemDurationDays = toNumber(payload.redeemDurationDays, 0)
@@ -720,6 +945,7 @@ function normalizeCouponPayload(payload: Row) {
     code: stringValue(payload.code).toUpperCase() || `LOCAL_${randomCode(6)}`,
     codeMode: stringValue(payload.codeMode) || 'shared_code',
     codePurpose: stringValue(payload.codePurpose || payload.purpose) || 'discount',
+    channel: stringValue(payload.channel),
     endAt: payload.endAt || null,
     familyId: stringValue(payload.familyId),
     maxDiscountAmount: toNumber(payload.maxDiscountAmount, 0),
@@ -756,6 +982,13 @@ function getCouponCodeRecord(store: Store, payload: Row) {
     throw new Error('coupon code not found')
   }
   return record
+}
+
+function formatRedeemedUser(row: Row) {
+  const nickname = stringValue(row.redeemedUserNickname)
+  const publicUserId = stringValue(row.redeemedUserId)
+  if (nickname && publicUserId) return `${nickname} (${publicUserId})`
+  return nickname || publicUserId
 }
 
 function buildRevenue(orders: Row[]) {
@@ -821,7 +1054,7 @@ function createUniqueCouponRuleCode(store: Store, prefix: string) {
 }
 
 function buildCodesCsv(rows: Row[]) {
-  const header = ['code', 'status', 'issueStatus', 'issuedChannel', 'externalOrderId', 'issuedToNote']
+  const header = ['code', 'status', 'issueStatus', 'issuedChannel', 'externalOrderId', 'issuedToNote', 'createdAt', 'redeemedAt', 'redeemedUser']
   const lines = rows.map((row) =>
     header.map((key) => `"${String(row[key] || '').replace(/"/g, '""')}"`).join(','),
   )
@@ -875,6 +1108,10 @@ function timestamp(value: unknown) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
+}
+
+function normalizePageSize(value: unknown) {
+  return clamp(Math.floor(toNumber(value, 20)), 1, 100)
 }
 
 function toNumber(value: unknown, fallback: number) {

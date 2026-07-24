@@ -37,8 +37,8 @@
 ## 微信开发者工具运行
 
 1. 用微信开发者工具打开本仓库根目录。
-2. 在 `project.config.json` 中替换正式 `appid`。
-3. 在 `miniprogram/app.js` 中填写云开发环境 `ENV_ID`。
+2. 确认 `project.config.json` 中的正式 `appid` 与目标小程序一致。
+3. 确认 `miniprogram/app.js` 中的云开发环境 `ENV_ID` 与目标环境一致。
 4. 在云开发控制台创建数据库集合，见 [docs/wechat-cloud-database.md](docs/wechat-cloud-database.md)。
 5. 上传并部署 `cloudfunctions/login`、`cloudfunctions/healthApi`、`cloudfunctions/paymentApi`、`cloudfunctions/adminApi` 和 `cloudfunctions/reminderDispatcher`，并上传定时触发器。
 6. 按 [docs/wechat-cloud-database.md](docs/wechat-cloud-database.md) 配置健康待办订阅模板和云函数环境变量。
@@ -50,11 +50,12 @@
 
 - 独立 Web 管理后台：见 [docs/web-admin.md](docs/web-admin.md)。
 
-管理后台需要在云数据库 `admins` 集合中添加管理员 openid：
+管理后台使用 CloudBase Web Auth。需要把管理员账号的认证 UID 写入云数据库 `admins` 集合：
 
 ```json
 {
-  "openid": "管理员 openid",
+  "authUid": "CloudBase Auth 用户 UID",
+  "role": "owner",
   "status": "active",
   "name": "管理员名称"
 }

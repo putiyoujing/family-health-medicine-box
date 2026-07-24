@@ -215,7 +215,7 @@
       </view>
       <view class="field last-field">
         <text class="field-label">用法说明</text>
-        <textarea class="textarea" data-field="instructionText" value="{{form.instructionText}}" bindinput="onInput" placeholder="按说明书或医生医嘱记录"></textarea>
+        <textarea class="textarea" data-field="instructionText" value="{{form.instructionText}}" bindinput="onInput" adjust-position="{{true}}" cursor-spacing="140" placeholder="按说明书或医生医嘱记录"></textarea>
       </view>
     </view>
 
@@ -230,3 +230,4 @@
     </view>
   </block>
 </view>
+<global-auth-layer id="global-auth-layer" />

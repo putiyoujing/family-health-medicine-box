@@ -1,6 +1,7 @@
 const api = require('../../services/api')
 const { formatDateTime, memberName } = require('../../utils/format')
-const { ensureHasMembers, ensureLoginReady } = require('../../utils/operation-guards')
+const { canEditFamilyRecords, ensureFamilyWriteAccess, ensureHasMembers, ensureLoginReady } = require('../../utils/operation-guards')
+const { syncTabBar } = require('../../utils/tab-bar')
 
 Page({
   data: {
@@ -8,19 +9,18 @@ Page({
     family: null,
     members: [],
     records: [],
+    canEditRecords: false,
+    showWriteEntries: true,
   },
 
   onShow() {
+    syncTabBar(this, 1)
     const app = getApp()
     if (app.globalData && app.globalData.openQuickIllness) {
       app.globalData.openQuickIllness = false
       this.shouldOpenQuickIllness = true
     }
-    if (this.homeLoaded && api.isHomeCacheFresh()) {
-      this.openQuickIllness()
-      return
-    }
-    this.load({ silent: this.homeLoaded })
+    this.load({ silent: this.homeLoaded, force: true })
   },
 
   async load(options = {}) {
@@ -28,12 +28,13 @@ Page({
       this.setData({ loading: true })
     }
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
-        this.setData({ loading: false })
+        this.showGuestState()
         return
       }
-      const home = await api.getHome()
+      const home = await api.getHome({ force: Boolean(options.force) })
+      const canEditRecords = canEditFamilyRecords(home.family)
       const records = [...home.illnessRecords].sort(compareIllnessRecords).map((item) => ({
         ...item,
         completed: isCompleted(item),
@@ -48,10 +49,16 @@ Page({
         family: home.family,
         members: home.members,
         records,
+        canEditRecords,
+        showWriteEntries: canEditRecords,
       })
       this.homeLoaded = true
-      this.openQuickIllness(home)
+      this.openQuickIllness(home, canEditRecords)
     } catch (error) {
+      if (error && error.message === 'LOGIN_REQUIRED') {
+        this.showGuestState()
+        return
+      }
       if (options.silent) {
         console.warn('illness refresh failed', error)
         return
@@ -61,29 +68,50 @@ Page({
     }
   },
 
-  openQuickIllness(home = getHomeSnapshot(this.data)) {
+  showGuestState() {
+    this.homeLoaded = false
+    this.setData({
+      loading: false,
+      family: null,
+      members: [],
+      records: [],
+      canEditRecords: false,
+      showWriteEntries: true,
+    })
+  },
+
+  openQuickIllness(home = getHomeSnapshot(this.data), canEditRecords = this.data.canEditRecords) {
     if (!this.shouldOpenQuickIllness) {
       return
     }
     this.shouldOpenQuickIllness = false
-    if (ensureHasMembers(home)) {
+    if (canEditRecords && ensureHasMembers(home)) {
       wx.navigateTo({ url: '/pages/illness/form' })
     }
   },
 
-  createRecord() {
+  async createRecord() {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     if (!ensureHasMembers(getHomeSnapshot(this.data))) {
       return
     }
     wx.navigateTo({ url: '/pages/illness/form' })
   },
 
-  editRecord(event) {
+  async editRecord(event) {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     wx.navigateTo({ url: `/pages/illness/form?id=${id}` })
   },
 
-  appendRecord(event) {
+  async appendRecord(event) {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     wx.navigateTo({ url: `/pages/illness/detail?id=${id}&action=add` })
   },
@@ -93,9 +121,16 @@ Page({
     wx.navigateTo({ url: `/pages/illness/detail?id=${id}` })
   },
 
-  quickSimilar(event) {
+  async quickSimilar(event) {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     wx.navigateTo({ url: `/pages/illness/form?similarId=${id}` })
+  },
+
+  onPullDownRefresh() {
+    this.load({ silent: true, force: true }).finally(() => wx.stopPullDownRefresh())
   },
 })
 

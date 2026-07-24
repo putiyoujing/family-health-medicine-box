@@ -1,9 +1,4 @@
 <view class="page">
-  <view class="page-title">
-    <text class="eyebrow">家庭药箱记录</text>
-    <view class="h1">药箱管理</view>
-  </view>
-
   <view class="section search-section">
     <view class="search-row">
       <input class="input search-input" placeholder="搜索药品名、位置、标签" value="{{query}}" bindinput="onSearch" />
@@ -39,7 +34,7 @@
     </view>
   </view>
 
-  <button class="primary-btn add-btn" bindtap="createMedicine">添加药品</button>
+  <button class="primary-btn add-btn" wx:if="{{showWriteEntries}}" bindtap="createMedicine">添加药品</button>
 
   <view class="card-list">
     <view class="list-heading" wx:if="{{filteredMedicines.length}}">
@@ -65,11 +60,13 @@
       <view class="medicine-indication" wx:if="{{item.indicationsText}}"><text>适用：</text>{{item.indicationsText}}</view>
       <view class="medicine-instruction" wx:if="{{item.instructionText}}"><text>用法：</text>{{item.instructionText}}</view>
       <view class="muted medicine-indication" wx:if="{{!item.indicationsText && !item.instructionText}}">暂无说明记录</view>
-      <view class="medicine-actions">
+      <view class="medicine-actions" wx:if="{{showWriteEntries}}">
         <button class="ghost-btn use-btn" data-id="{{item._id}}" catchtap="useMedicine">使用</button>
         <button class="ghost-btn edit-btn" data-id="{{item._id}}" catchtap="editMedicine">修改</button>
         <button class="delete-btn" data-id="{{item._id}}" catchtap="remove">删除</button>
       </view>
     </view>
+    <view class="list-end" wx:if="{{filteredMedicines.length}}">到底了哦</view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

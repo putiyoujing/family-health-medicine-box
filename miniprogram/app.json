@@ -34,6 +34,7 @@
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
+    "custom": true,
     "color": "#8ea19c",
     "selectedColor": "#259f8e",
     "backgroundColor": "#ffffff",
@@ -72,6 +73,12 @@
     ]
   },
   "sitemapLocation": "sitemap.json",
+  "useExtendedLib": {
+    "weui": true
+  },
+  "usingComponents": {
+    "global-auth-layer": "/components/global-auth-layer/index"
+  },
   "__usePrivacyCheck__": true,
   "style": "v2",
   "lazyCodeLoading": "requiredComponents"

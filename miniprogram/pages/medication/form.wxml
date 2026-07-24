@@ -13,3 +13,4 @@
     <view class="save-bar"><button class="primary-btn save-btn" loading="{{saving}}" disabled="{{saving}}" bindtap="save">{{isEditing ? '保存修改并调整库存' : (medicationEntries.length ? '保存记录并扣减库存' : '选择药品后保存')}}</button></view>
   </block>
 </view>
+<global-auth-layer id="global-auth-layer" />

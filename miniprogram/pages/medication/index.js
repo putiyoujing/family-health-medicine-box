@@ -1,6 +1,7 @@
 const api = require('../../services/api')
 const { formatDateTime, memberName, medicineName } = require('../../utils/format')
 const { ensureLoginReady, ensureMedicationReady } = require('../../utils/operation-guards')
+const { syncTabBar } = require('../../utils/tab-bar')
 
 Page({
   data: {
@@ -15,10 +16,12 @@ Page({
     memberFilterOptions: [{ _id: '', name: '全部成员' }],
     memberFilterIndex: 0,
     selectedMemberFilterName: '全部成员',
+    loggedIn: false,
     canEdit: false,
   },
 
   onShow() {
+    syncTabBar(this, 3)
     const app = typeof getApp === 'function' ? getApp() : null
     const globalData = app && app.globalData ? app.globalData : {}
     const forceRefresh = !!globalData.medicationListNeedsRefresh
@@ -34,10 +37,10 @@ Page({
       this.setData({ loading: true })
     }
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
-        this.setData({ loading: false })
-        return
+        this.showGuestState()
+        return false
       }
       const [home, history] = await Promise.all([api.getHome({ force: !!options.force }), api.listMedicationHistory()])
       const members = home.members || []
@@ -67,21 +70,52 @@ Page({
         memberFilterOptions,
         memberFilterIndex,
         selectedMemberFilterName: memberFilterOptions[memberFilterIndex].name,
+        loggedIn: true,
         canEdit: !home.family || ['owner', 'admin', 'member'].includes(home.family.role),
       })
       this.homeLoaded = true
       this.applyFilters()
+      return true
     } catch (error) {
+      if (error && error.message === 'LOGIN_REQUIRED') {
+        this.showGuestState()
+        return false
+      }
       if (options.silent) {
         console.warn('medication refresh failed', error)
-        return
+        return false
       }
       this.setData({ loading: false })
       wx.showToast({ title: error.message || '加载失败', icon: 'none' })
+      return false
     }
   },
 
-  createMedication() {
+  showGuestState() {
+    this.homeLoaded = false
+    this.setData({
+      loading: false,
+      family: null,
+      members: [],
+      medicines: [],
+      illnessRecords: [],
+      logs: [],
+      filteredLogs: [],
+      memberFilterOptions: [{ _id: '', name: '全部成员' }],
+      memberFilterIndex: 0,
+      selectedMemberFilterName: '全部成员',
+      loggedIn: false,
+      canEdit: false,
+    })
+  },
+
+  async createMedication() {
+    if (!await ensureLoginReady()) {
+      return
+    }
+    if (!await this.load({ silent: true, force: true })) {
+      return
+    }
     if (!this.data.canEdit) {
       wx.showToast({ title: '当前为只读权限', icon: 'none' })
       return

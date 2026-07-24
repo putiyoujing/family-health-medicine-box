@@ -27,7 +27,7 @@ Page({
   async load() {
     this.setData({ loading: true })
     try {
-      if (!await ensureLoginReady()) {
+      if (!await ensureLoginReady({ silent: true })) {
         this.setData({ loading: false })
         return
       }
@@ -147,6 +147,9 @@ Page({
 
   async save() {
     if (this.data.saving) return
+    if (!await ensureLoginReady()) {
+      return
+    }
     const errors = validateForm(this.data)
     if (Object.keys(errors).length) {
       this.setData({ errors, medicationEntries: this.data.medicationEntries })

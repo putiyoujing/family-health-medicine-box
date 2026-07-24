@@ -1,7 +1,8 @@
 const api = require('../../services/api')
 const { daysUntil, memberName } = require('../../utils/format')
-const { ensureLoginReady } = require('../../utils/operation-guards')
+const { canEditFamilyRecords, ensureFamilyWriteAccess, ensureLoginReady } = require('../../utils/operation-guards')
 const { formatMedicineStockSummary } = require('../../utils/medicine-stock')
+const { syncTabBar } = require('../../utils/tab-bar')
 
 const DEFAULT_TAG_OPTIONS = ['儿童用药', '老人父母', '常规用药', '退烧', '感冒咳嗽', '鼻腔护理', '肠胃', '过敏', '外用', '常备', '处方药', '低库存关注']
 
@@ -22,9 +23,12 @@ Page({
     selectedCategory: '',
     selectedTag: '',
     selectedMemberId: '',
+    canEditRecords: false,
+    showWriteEntries: true,
   },
 
   onShow() {
+    syncTabBar(this, 2)
     const app = getApp()
     const globalData = app.globalData || {}
     this.pendingAction = {
@@ -37,11 +41,7 @@ Page({
     globalData.openMedicineForm = false
     globalData.focusMedicineId = ''
     globalData.focusMedicineReason = ''
-    if (this.homeLoaded && api.isHomeCacheFresh()) {
-      this.load({ silent: true })
-      return
-    }
-    this.load({ silent: this.homeLoaded })
+    this.load({ silent: this.homeLoaded, force: true })
   },
 
   async load(options = {}) {
@@ -49,12 +49,13 @@ Page({
       this.setData({ loading: true })
     }
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
-        this.setData({ loading: false })
+        this.showGuestState()
         return
       }
-      const home = await api.getHome()
+      const home = await api.getHome({ force: Boolean(options.force) })
+      const canEditRecords = canEditFamilyRecords(home.family)
       const members = home.members || []
       const expiryReminderDays = normalizeExpiryReminderDays(home.user && home.user.expiryReminderDays)
       const medicines = (home.medicines || []).map((item) => {
@@ -76,6 +77,8 @@ Page({
         family: home.family,
         members,
         medicines,
+        canEditRecords,
+        showWriteEntries: canEditRecords,
         ...filterState,
         filteredMedicines: this.filterMedicines(medicines, {
           query: this.data.query,
@@ -85,8 +88,12 @@ Page({
         }),
       })
       this.homeLoaded = true
-      this.openPendingAction(medicines)
+      this.openPendingAction(medicines, canEditRecords)
     } catch (error) {
+      if (error && error.message === 'LOGIN_REQUIRED') {
+        this.showGuestState()
+        return
+      }
       if (options.silent) {
         console.warn('medicines refresh failed', error)
         return
@@ -96,9 +103,28 @@ Page({
     }
   },
 
-  openPendingAction(medicines) {
+  showGuestState() {
+    this.homeLoaded = false
+    this.setData({
+      loading: false,
+      family: null,
+      members: [],
+      medicines: [],
+      filteredMedicines: [],
+      categoryFilters: [],
+      tagFilters: [],
+      memberFilters: [],
+      canEditRecords: false,
+      showWriteEntries: true,
+    })
+  },
+
+  openPendingAction(medicines, canEditRecords = this.data.canEditRecords) {
     const action = this.pendingAction || {}
     this.pendingAction = null
+    if (!canEditRecords) {
+      return
+    }
     if (action.focusId) {
       if (!medicines.some((item) => item._id === action.focusId)) {
         wx.showToast({ title: '未找到这个药品', icon: 'none' })
@@ -177,18 +203,27 @@ Page({
     })
   },
 
-  createMedicine() {
+  async createMedicine() {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     wx.navigateTo({ url: '/pages/medicines/form' })
   },
 
-  editMedicine(event) {
+  async editMedicine(event) {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     if (id) {
       wx.navigateTo({ url: `/pages/medicines/form?id=${id}` })
     }
   },
 
-  useMedicine(event) {
+  async useMedicine(event) {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     const medicine = this.data.medicines.find((item) => item._id === id)
     if (!medicine) return
@@ -197,6 +232,9 @@ Page({
   },
 
   async remove(event) {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     const confirmed = await confirm('确认删除这个药品记录？')
     if (!confirmed) {

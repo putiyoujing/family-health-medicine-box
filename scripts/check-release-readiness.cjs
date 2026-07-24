@@ -38,12 +38,20 @@ if (productionMode) {
     failures.push('miniprogram/utils/constants.js HEALTH_TODO_TEMPLATE_ID is empty')
   }
 
-  const adminApiBase = readEnvironmentValue('VITE_ADMIN_API_BASE')
-  if (!adminApiBase || /your-admin-api-endpoint|example\.com/i.test(adminApiBase)) {
-    failures.push('VITE_ADMIN_API_BASE must be configured to a deployed trusted admin gateway')
+  const adminEnvId = readEnvironmentValue('VITE_CLOUDBASE_ENV_ID')
+  if (!adminEnvId || /your-|example/i.test(adminEnvId)) {
+    failures.push('VITE_CLOUDBASE_ENV_ID must be configured for the production admin Web app')
+  } else if (envMatch && envMatch[1] && adminEnvId !== envMatch[1]) {
+    failures.push('VITE_CLOUDBASE_ENV_ID must match the mini program production ENV_ID')
+  }
+
+  const adminPublishableKey = readEnvironmentValue('VITE_CLOUDBASE_PUBLISHABLE_KEY')
+  if (!adminPublishableKey || /configure-|your-|example/i.test(adminPublishableKey)) {
+    failures.push('VITE_CLOUDBASE_PUBLISHABLE_KEY must be configured for CloudBase Web Auth')
   }
 
   const releaseAttestations = {
+    ADMIN_WEB_AUTH_E2E_PASSED: 'CloudBase Web Auth owner login, unauthorized rejection, and real-data Event Function access passed',
     WECHAT_CLOUD_DEPLOYED: 'all five cloud functions and required collections are deployed',
     WECHAT_DB_ADMINONLY_CONFIRMED: 'every sensitive collection is confirmed ADMINONLY in the production environment',
     WECHAT_PRIVACY_GUIDE_CONFIGURED: 'the WeChat privacy protection guide declares every used privacy API',

@@ -73,6 +73,7 @@
         <text class="todo-status">{{item.deliveryLabel}}</text>
       </view>
       <view class="muted">{{item.memberName}} · {{item.typeLabel}} · {{item.remindAtText}}</view>
+      <view class="delivery-error" wx:if="{{item.deliveryError}}">失败原因：{{item.deliveryError}}</view>
       <view class="illness-link" wx:if="{{item.illnessLabel}}">关联病程：{{item.illnessLabel}}</view>
       <view wx:if="{{item.note}}" class="todo-note {{item.hasLongNote && !item.expanded ? 'todo-note-collapsed' : ''}}">{{item.note}}</view>
       <view wx:else class="muted">暂无备注</view>
@@ -85,5 +86,7 @@
         <button class="todo-action delete-action" data-id="{{item._id}}" catchtap="deleteReminder">删除</button>
       </view>
     </view>
+    <view class="list-end" wx:if="{{reminders.length}}">到底了哦</view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

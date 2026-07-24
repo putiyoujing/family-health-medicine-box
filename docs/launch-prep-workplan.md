@@ -1,24 +1,28 @@
 # 上线准备工作清单
 
-更新时间：2026-05-30
+更新时间：2026-07-24
 
 本文基于 `README.md`、`docs/release-checklist.md`、`docs/wechat-cloud-database.md`、`docs/web-admin.md` 和 `docs/role-review-and-gap-plan.md` 整理。当前项目适合进入微信开发者工具联调和封闭测试；正式公开上线前，需要先补齐真实微信环境、云数据库、外部服务、合规材料和真机验收。
 
-## 0. 当前阻塞项
+## 0. 当前状态与阻塞项
 
-- `project.config.json` 仍是 `appid: touristappid`，正式上线前必须替换为正式小程序 AppID。
-- `miniprogram/app.js` 中 `ENV_ID` 仍为空，必须填写正式云开发环境 ID。
-- `miniprogram/app.js` 中 `globalData.useDemoData` 当前为 `true`，正式联调和上线必须改为 `false`，否则会继续走本地 demo 数据。
-- 微信云开发数据库集合、索引、权限规则尚需在云控制台创建和验证。
-- 云函数 `login`、`healthApi`、`paymentApi`、`adminApi` 需要上传、安装依赖并部署到正式云环境。
-- 图片识别、真实支付或兑换码发放、订阅消息模板尚未接入真实生产配置。
+仓库已确认：正式 AppID 已配置，`ENV_ID` 已配置，`globalData.useDemoData=false`。这些不再是当前阻塞项。
+
+正式上线仍为 NO-GO：
+
+- `login`、`healthApi`、`paymentApi`、`adminApi` 已于 2026-07-24 更新到正式环境并验证为 `Active/Available`，`reminderDispatcher` 当前代码一致。
+- `healthApi` 已改为使用内部 `roleId` 管理家庭角色，并在成功响应出口剔除 OpenID 和内部审计身份字段；代码级安全回归已通过，正式上线前仍需完成真实双账号回归留证。
+- CloudBase Web Auth Owner 登录、非管理员拒绝和真实 Event Function 数据访问尚未完成 E2E 留证。
+- 微信隐私保护指引、双账号家庭共享/跨家庭隔离、iOS/Android 真机矩阵、订阅消息真机触达尚未留证。
+- 数据库集合、索引和 `ADMINONLY` 权限仍需在正式环境逐项复核。
+- 图片识别、正式支付路线或兑换码运营流程、订阅消息模板仍需按首发范围确认。
 
 ## 1. 账号与平台准备
 
-- 申请/确认正式微信小程序 AppID，并在 `project.config.json` 中替换。
-- 开通微信云开发正式环境，记录环境 ID，并写入 `miniprogram/app.js` 的 `ENV_ID`。
+- 复核 `project.config.json` 的正式小程序 AppID 与提交主体一致。
+- 复核 `miniprogram/app.js` 的 `ENV_ID` 与目标云开发环境一致。
 - 在小程序后台配置服务类目、服务器域名/云开发能力、隐私保护指引、用户协议和审核资料。
-- 准备管理员 openid，用于管理后台白名单。
+- 准备 CloudBase Web Auth 管理员账号，并将认证 UID 绑定到 `admins.authUid`。
 - 明确首发策略：建议先走“体验版/封闭测试”，通过后再提交公开审核。
 
 ## 2. 云开发与数据库
@@ -54,10 +58,11 @@
 
 ```json
 {
-  "openid": "管理员 openid",
+  "authUid": "CloudBase Auth 用户 UID",
+  "role": "owner",
   "status": "active",
   "name": "管理员名称",
-  "createdAt": "2026-05-30"
+  "createdAt": "服务端时间"
 }
 ```
 
@@ -90,10 +95,10 @@
 部署前检查：
 
 - 每个云函数依赖安装完整。
-- `adminApi` 配置 `ADMIN_WEB_TOKEN`。
+- `adminApi` 安装 `@cloudbase/node-sdk`，并从调用上下文读取 Web Auth UID。
 - `healthApi` 可完成登录后家庭初始化、家庭权限校验、额度校验。
 - `paymentApi` 确认首发支付路线：真实微信支付/虚拟支付，或先使用兑换码激活会员。
-- `adminApi` 只能允许 `admins.status=active` 的管理员访问。
+- `adminApi` 只能允许 `admins.authUid` 匹配且 `status=active` 的管理员访问。
 
 联调验证：
 
@@ -141,19 +146,21 @@
 
 上线前必须配置：
 
-- `ADMIN_WEB_TOKEN`
-- `VITE_ADMIN_API_BASE`
-- `VITE_ADMIN_API_TOKEN`
+- `VITE_CLOUDBASE_ENV_ID`
+- `VITE_CLOUDBASE_REGION`
+- `VITE_CLOUDBASE_PUBLISHABLE_KEY`
+- `admins.authUid`、`role=owner`、`status=active`
 
 建议部署路线：
 
-- 使用云开发 HTTP 触发器/云托管网关暴露 `adminApi`；或
-- 单独部署轻量 Node.js 管理网关，再由网关调用云开发环境。
+- 使用 CloudBase Web Auth 完成用户名密码登录。
+- 登录后通过 Web SDK 调用 `adminApi` Event Function。
+- `adminApi` 从服务端调用上下文读取认证 UID，并以 `admins` 白名单授权。
 
 安全要求：
 
 - 不要把云数据库权限直接暴露给浏览器。
-- 不要把 `ADMIN_WEB_TOKEN` 提交到 Git。
+- 不要把管理员密码、SecretId、SecretKey 或共享管理 token 提交到 Git。
 - 管理后台只放产品管理者入口，不在 C 端小程序里公开展示。
 
 ## 7. 合规与审核材料

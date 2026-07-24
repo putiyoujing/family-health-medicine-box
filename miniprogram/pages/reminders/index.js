@@ -52,7 +52,7 @@ Page({
 
   async load() {
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
         return
       }
@@ -326,6 +326,7 @@ function buildReminderList(home) {
         illnessLabel: illness ? illnessLabel(illness) : '',
         remindAtText: formatDateTime(item.remindAt),
         deliveryLabel: deliveryLabel(item),
+        deliveryError: item.deliveryStatus === 'failed' ? String(item.lastDeliveryError || '微信订阅消息未送达，请确认已授权并重新创建提醒。') : '',
         hasLongNote: Array.from(String(item.note || '')).length > 50,
         expanded: false,
       }

@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '..')
 test('dashboard quick actions keep all three buttons inside the content width', () => {
   const template = fs.readFileSync(path.join(root, 'miniprogram/pages/dashboard/index.wxml'), 'utf8')
   const styles = fs.readFileSync(path.join(root, 'miniprogram/pages/dashboard/index.wxss'), 'utf8')
-  const quickActions = template.match(/<view class="quick-grid">([\s\S]*?)<\/view>/)
+  const quickActions = template.match(/<view class="quick-grid"[^>]*>([\s\S]*?)<\/view>/)
 
   assert.ok(quickActions)
   assert.equal((quickActions[1].match(/<button/g) || []).length, 3)

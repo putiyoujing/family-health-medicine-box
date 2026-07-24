@@ -149,3 +149,4 @@
     </button>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

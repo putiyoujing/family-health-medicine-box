@@ -26,6 +26,7 @@
 - `coupon_redemptions`：优惠券使用记录。
 - `ai_tasks`：AI 图片解析任务。
 - `ai_usage_logs`：AI 使用额度记录。
+- `app_configs`：面向应用的后台配置；`membership` 文档保存会员购买提示文案。
 - `admin_operation_logs`：后台敏感查看和管理操作的最小化审计日志。
 
 ## 权限原则
@@ -187,6 +188,8 @@
 - `listCouponCodeBatches` / `adminListCouponCodeBatches`：会员兑换码批次列表。
 - `listCouponCodes` / `adminListCouponCodes`：会员兑换码列表。
 - `listAiUsage` / `adminListAiUsage`：AI 用量列表。
+- `getMembershipSettings`：读取会员中心购买提示配置。
+- `updateMembershipSettings`：修改会员中心购买提示配置，文案非空且不超过 120 字。
 - `createCoupon` / `adminCreateCoupon`：创建优惠券。
 - `updateCoupon` / `adminUpdateCoupon`：更新优惠券。
 - `batchGenerateCouponCodes` / `adminBatchGenerateCouponCodes`：批量生成小红书发码用的会员兑换码。
@@ -198,7 +201,7 @@
 
 会员与订单入口：
 
-- `getPlans`：读取会员套餐。
+- `getPlans`：读取会员套餐及会员购买提示文案；配置缺失时返回内置默认文案。
 - `previewOrder`：预览订单金额和优惠。
 - `createOrder`：创建待支付订单。
 - `applyCoupon`：校验并应用优惠券。
@@ -214,14 +217,15 @@
 
 ```json
 {
-  "openid": "管理员 openid",
+  "authUid": "CloudBase Auth 用户 UID",
+  "role": "owner",
   "status": "active",
   "name": "管理员名称",
-  "createdAt": "2026-05-12"
+  "createdAt": "服务端时间"
 }
 ```
 
-普通用户没有 `admins.status=active` 时，访问管理后台会返回无权限。
+Web 管理请求只在认证 UID 匹配且 `status=active` 时放行；OpenID 仅保留为小程序调用兼容路径，不能由浏览器请求参数伪造。
 
 ## 发布前必须配置
 
@@ -232,7 +236,7 @@
 5. 上传并部署 `cloudfunctions/adminApi`。
 6. 上传并部署 `cloudfunctions/paymentApi`。
 7. 创建上述数据库集合，并逐个设置为仅管理端可读写（`ADMINONLY`）。
-8. 创建商业版新增集合：`family_invites`、`plans`、`orders`、`subscriptions`、`coupons`、`coupon_code_batches`、`coupon_codes`、`coupon_redemptions`、`ai_tasks`、`ai_usage_logs`、`admin_operation_logs`。
+8. 创建商业版新增集合：`family_invites`、`plans`、`orders`、`subscriptions`、`coupons`、`coupon_code_batches`、`coupon_codes`、`coupon_redemptions`、`ai_tasks`、`ai_usage_logs`、`app_configs`、`admin_operation_logs`。
 9. 云存储开启，用于检查单、处方、外包装、说明书图片。
 
 `course_events` 建议索引：

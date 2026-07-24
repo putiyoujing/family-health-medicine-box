@@ -1,6 +1,7 @@
 const api = require('../../services/api')
 const { formatDateTime, memberName, nowDateTimeInput } = require('../../utils/format')
 const { ensureLoginReady, ensureMedicationReady } = require('../../utils/operation-guards')
+const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
 
 const eventTypes = [
   { label: '记录症状', value: 'symptom' },
@@ -10,6 +11,7 @@ const eventTypes = [
 const eventTypeLabels = {
   symptom: '症状变化',
   temperature: '体温记录',
+  medication: '用药记录',
   note: '备注',
   visit: '就诊',
   exam: '检查',
@@ -21,6 +23,8 @@ const VISIT_DRAFT_PREFIX = 'illness-visit-draft:'
 const emptyEventForm = {
   eventType: 'symptom',
   recordedAt: '',
+  recordedDate: '',
+  recordedTime: '',
   temperature: '',
   symptomsText: '',
   note: '',
@@ -52,7 +56,7 @@ Page({
     showEventForm: false,
     pendingAttachments: [],
     eventTypes,
-    eventForm: { ...emptyEventForm, recordedAt: nowDateTimeInput() },
+    eventForm: createEventForm(),
   },
 
   onLoad(options) {
@@ -73,7 +77,7 @@ Page({
     }
     this.setData({ loading: true })
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
         this.setData({ loading: false })
         return
@@ -135,7 +139,7 @@ Page({
         pendingAttachments: visitDraft && Array.isArray(visitDraft.pendingAttachments)
           ? visitDraft.pendingAttachments
           : this.data.pendingAttachments,
-        eventForm: { ...eventForm, recordedAt: eventForm.recordedAt || nowDateTimeInput() },
+        eventForm: createEventForm(eventForm),
       })
     } catch (error) {
       this.setData({ loading: false })
@@ -162,6 +166,22 @@ Page({
   onInput(event) {
     const field = event.currentTarget.dataset.field
     this.setData({ [`eventForm.${field}`]: event.detail.value })
+  },
+
+  onRecordedDateChange(event) {
+    const recordedDate = event.detail.value
+    this.setData({
+      'eventForm.recordedDate': recordedDate,
+      'eventForm.recordedAt': joinDateTime(recordedDate, this.data.eventForm.recordedTime),
+    })
+  },
+
+  onRecordedTimeChange(event) {
+    const recordedTime = event.detail.value
+    this.setData({
+      'eventForm.recordedTime': recordedTime,
+      'eventForm.recordedAt': joinDateTime(this.data.eventForm.recordedDate, recordedTime),
+    })
   },
 
   goAddPrescriptionMedicine() {
@@ -247,7 +267,7 @@ Page({
         showEventForm: false,
         pendingAttachments: [],
         prescribedMedicines: [],
-        eventForm: { ...emptyEventForm, recordedAt: nowDateTimeInput() },
+        eventForm: createEventForm(),
       })
       await this.load()
     } catch (error) {
@@ -273,10 +293,13 @@ Page({
     }
     const uploaded = []
     try {
+      const sourceResult = await wx.showActionSheet({
+        itemList: ['拍照', '从相册选择'],
+      })
       const chooseResult = await wx.chooseMedia({
         count: remaining,
         mediaType: ['image'],
-        sourceType: ['album', 'camera'],
+        sourceType: getMediaSourceType(sourceResult.tapIndex, 1),
       })
       wx.showLoading({ title: '上传中' })
       for (const file of chooseResult.tempFiles) {
@@ -295,13 +318,18 @@ Page({
       wx.showToast({ title: `已暂存 ${uploaded.length} 张` })
     } catch (error) {
       wx.hideLoading()
-      if (error.errMsg && error.errMsg.includes('cancel')) {
+      if (isImageSelectionCanceled(error)) {
         return
       }
       if (uploaded.length) {
         this.setData({ pendingAttachments: [...pendingAttachments, ...uploaded] })
       }
-      wx.showToast({ title: '上传失败', icon: 'none' })
+      console.error('illness attachment upload failed', error)
+      wx.showModal({
+        title: '单据图片上传失败',
+        content: getImageUploadErrorMessage(error, '单据图片'),
+        showCancel: false,
+      })
     }
   },
 
@@ -517,6 +545,27 @@ function buildEventText(item) {
 
 function eventTypeLabel(type) {
   return eventTypeLabels[type] || '记录'
+}
+
+function createEventForm(value = {}) {
+  const recordedAt = value.recordedAt || nowDateTimeInput()
+  const [recordedDate, recordedTime] = splitDateTime(recordedAt)
+  return {
+    ...emptyEventForm,
+    ...value,
+    recordedAt: joinDateTime(value.recordedDate || recordedDate, value.recordedTime || recordedTime),
+    recordedDate: value.recordedDate || recordedDate,
+    recordedTime: value.recordedTime || recordedTime,
+  }
+}
+
+function splitDateTime(value) {
+  const match = String(value || '').match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})$/)
+  return match ? [match[1], match[2]] : nowDateTimeInput().split(' ')
+}
+
+function joinDateTime(date, time) {
+  return `${date || nowDateTimeInput().slice(0, 10)} ${time || nowDateTimeInput().slice(11)}`
 }
 
 function buildIllnessTodos(home, illnessRecordId) {

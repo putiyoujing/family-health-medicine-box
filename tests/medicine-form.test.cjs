@@ -317,7 +317,7 @@ test('blank quick prescription can return without creating another medicine', as
   assert.equal(savedPayloads.length, 0)
 })
 
-test('medicine list routes create, edit, quick camera and alert focus into the form page', () => {
+test('medicine list routes create, edit, quick camera and alert focus into the form page', async () => {
   const listTemplate = fs.readFileSync(path.join(root, 'miniprogram/pages/medicines/index.wxml'), 'utf8')
   let pageDefinition
   const navigations = []
@@ -325,7 +325,10 @@ test('medicine list routes create, edit, quick camera and alert focus into the f
     stubs: {
       '../../services/api': {},
       '../../utils/format': { daysUntil: () => 90, memberName: () => '小宝' },
-      '../../utils/operation-guards': { ensureLoginReady: async () => true },
+      '../../utils/operation-guards': {
+        ensureFamilyWriteAccess: async (canEditRecords) => canEditRecords,
+        ensureLoginReady: async () => true,
+      },
     },
     globals: {
       Page(definition) {
@@ -339,10 +342,10 @@ test('medicine list routes create, edit, quick camera and alert focus into the f
       },
     },
   })
-  const page = createPageInstance(pageDefinition)
+  const page = createPageInstance(pageDefinition, { canEditRecords: true })
 
-  page.createMedicine()
-  page.editMedicine({ currentTarget: { dataset: { id: 'medicine-a' } } })
+  await page.createMedicine()
+  await page.editMedicine({ currentTarget: { dataset: { id: 'medicine-a' } } })
   page.pendingAction = { camera: true }
   page.openPendingAction([])
   page.pendingAction = { focusId: 'medicine-a', focusReason: 'expire' }

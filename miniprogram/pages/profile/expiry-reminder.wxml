@@ -37,3 +37,4 @@
     {{saving ? '保存中' : '保存提醒设置'}}
   </button>
 </view>
+<global-auth-layer id="global-auth-layer" />

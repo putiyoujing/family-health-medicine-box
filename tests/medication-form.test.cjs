@@ -13,8 +13,12 @@ test('medication create and edit use a dedicated picker-based form page', () => 
   const formTemplate = fs.readFileSync(path.join(root, 'miniprogram/pages/medication/form.wxml'), 'utf8')
 
   assert.ok(appConfig.pages.includes('pages/medication/form'))
+  assert.ok(
+    listTemplate.indexOf('class="section filter-section"') < listTemplate.indexOf('bindtap="createMedication"'),
+    'record medication button should follow the filter section',
+  )
   assert.doesNotMatch(listTemplate, /showForm|data-field="doseQuantity"|bindtap="save"/)
-  assert.match(listTemplate, /bindtap="createMedication"/)
+  assert.match(listTemplate, /wx:if="\{\{!loggedIn \|\| canEdit\}\}"[^>]+bindtap="createMedication"/)
   assert.match(listTemplate, /catchtap="editMedication"/)
   assert.match(listTemplate, /catchtap="voidMedication"/)
   assert.match(formTemplate, /<picker\s+mode="date"[^>]+bindchange="onDateChange"/)
@@ -180,4 +184,51 @@ test('cloud medication actions use dedicated transactional update and void handl
   assert.match(source, /async function deleteMedication[\s\S]+inventoryRestored[\s\S]+course_events/)
   assert.match(source, /function normalizeMedicationUnit/)
   assert.match(source, /case 'listMedicationHistory':[\s\S]{0,120}listMedicationHistory\(openid, familyId\)/)
+})
+
+test('guest medication action opens login and refreshes permissions before navigating', async () => {
+  let pageDefinition
+  const loginOptions = []
+  const navigationUrls = []
+  loadCjsModule(path.join(root, 'miniprogram/pages/medication/index.js'), {
+    stubs: {
+      '../../services/api': {
+        getHome: async () => ({
+          family: { _id: 'family-a', role: 'owner' },
+          members: [{ _id: 'member-a', name: '本人' }],
+          medicines: [{ _id: 'medicine-a', name: '测试药品' }],
+          illnessRecords: [],
+        }),
+        isHomeCacheFresh: () => false,
+        listMedicationHistory: async () => ({ logs: [] }),
+      },
+      '../../utils/format': { formatDateTime: () => '', memberName: () => '', medicineName: () => '' },
+      '../../utils/operation-guards': {
+        ensureLoginReady: async (options) => {
+          loginOptions.push(options)
+          return true
+        },
+        ensureMedicationReady: () => true,
+      },
+    },
+    globals: {
+      Page(definition) { pageDefinition = definition },
+      getApp: () => ({ globalData: {} }),
+      wx: {
+        navigateTo({ url }) {
+          navigationUrls.push(url)
+        },
+        showToast() {},
+      },
+    },
+  })
+  const page = createPageInstance(pageDefinition)
+
+  await page.createMedication()
+
+  assert.equal(loginOptions[0], undefined)
+  assert.equal(loginOptions[1].silent, true)
+  assert.equal(page.data.loggedIn, true)
+  assert.equal(page.data.canEdit, true)
+  assert.deepEqual(navigationUrls, ['/pages/medication/form'])
 })

@@ -40,7 +40,7 @@ Page({
   async load() {
     this.setData({ loading: true })
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
         this.setData({ loading: false })
         return

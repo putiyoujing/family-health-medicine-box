@@ -26,6 +26,10 @@ Page({
 
   async loadInvite(code) {
     try {
+      if (!await ensureLoginReady()) {
+        this.setData({ loading: false })
+        return
+      }
       const invite = await api.getFamilyInvite(code)
       const normalizedInvite = {
         ...invite,

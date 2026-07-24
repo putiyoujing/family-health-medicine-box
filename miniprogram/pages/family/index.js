@@ -60,7 +60,7 @@ Page({
   async load() {
     this.setData({ loading: true })
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
         this.setData({ loading: false })
         return
@@ -68,7 +68,7 @@ Page({
       const [membership, roleData, home] = await Promise.all([
         api.getMembershipStatus(),
         api.listFamilyRoles(),
-        api.getHome(),
+        api.getHome({ force: true }),
       ])
       const app = getApp()
       const shouldOpenAdd = this.openAddOnLoad || !!(app.globalData && app.globalData.openMemberModal)
@@ -87,7 +87,6 @@ Page({
         canManage: item.role !== 'owner' && canManageFamily,
       }))
       const pendingInvites = roleData.pendingInvites || []
-
       this.setData({
         loading: false,
         family: membership.family || {},
@@ -95,14 +94,16 @@ Page({
         members: (home.members || []).map((item) => {
           const linkedRole = roles.find((role) => role.memberId === item._id)
           const pendingInvite = pendingInvites.find((invite) => invite.targetMemberId === item._id)
+          const isCurrentAccount = !!(linkedRole && linkedRole.isCurrentUser)
           return {
             ...item,
             initial: (item.name || '家').slice(0, 1),
+            displayRelation: getDisplayRelation(item, linkedRole),
             linkedRole,
             pendingInvite,
             accountStatus: linkedRole ? 'linked' : pendingInvite ? 'pending' : 'managed',
             accountStatusText: linkedRole
-              ? `已关联微信 · ${linkedRole.roleLabel}`
+              ? `${isCurrentAccount ? '本人' : '已关联微信'} · ${linkedRole.roleLabel}`
               : pendingInvite
                 ? `等待接受邀请 · ${roleText[pendingInvite.role] || pendingInvite.role}`
                 : '无登录账号 · 由家人代管',
@@ -125,6 +126,24 @@ Page({
   },
 
   openMemberModal() {
+    if (this.data.members.length >= this.data.memberLimit) {
+      const isFreeMembership = (this.data.entitlement || {}).plan === 'free'
+        || String((this.data.entitlement || {}).planName || '').includes('免费')
+      wx.showModal({
+        title: '成员数量已达上限',
+        content: isFreeMembership
+          ? `当前免费版最多 ${this.data.memberLimit} 位成员，升级会员后可添加至 10 位。`
+          : `当前家庭最多可添加 ${this.data.memberLimit} 位成员。`,
+        confirmText: isFreeMembership ? '去升级' : '知道了',
+        showCancel: isFreeMembership,
+        success: (result) => {
+          if (isFreeMembership && result.confirm) {
+            this.openMembership()
+          }
+        },
+      })
+      return
+    }
     this.setData({
       showMemberModal: true,
       memberModalMode: 'add',
@@ -241,13 +260,13 @@ Page({
   },
 
   async changeRole(event) {
-    const openid = event.currentTarget.dataset.openid
+    const roleId = event.currentTarget.dataset.roleId
     const role = event.currentTarget.dataset.role
-    if (!openid || !role) {
+    if (!roleId || !role) {
       return
     }
     try {
-      await api.updateFamilyRole({ openid, role })
+      await api.updateFamilyRole({ roleId, role })
       wx.showToast({ title: '已更新' })
       this.closeMemberModal()
       await this.load()
@@ -257,13 +276,16 @@ Page({
   },
 
   async removeUser(event) {
-    const openid = event.currentTarget.dataset.openid
+    const roleId = event.currentTarget.dataset.roleId
+    if (!roleId) {
+      return
+    }
     const confirmed = await confirm('确认移除这个协作账号？对方将失去家庭访问权，但关联的成员档案和历史记录会保留。')
     if (!confirmed) {
       return
     }
     try {
-      await api.removeFamilyUser(openid)
+      await api.removeFamilyUser(roleId)
       wx.showToast({ title: '已移除' })
       this.closeMemberModal()
       await this.load()
@@ -272,6 +294,18 @@ Page({
     }
   },
 })
+
+function getDisplayRelation(member, linkedRole) {
+  if (linkedRole && linkedRole.isCurrentUser) {
+    return '本人'
+  }
+  if (member.relation === '本人') {
+    return linkedRole && linkedRole.role === 'owner' || member.isOwnerProfile
+      ? '家庭创建者'
+      : '家人'
+  }
+  return member.relation || '关系未填写'
+}
 
 function confirm(content) {
   return new Promise((resolve) => {

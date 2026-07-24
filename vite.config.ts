@@ -4,7 +4,7 @@ import { handleLocalAdminApi } from './scripts/local-admin-api'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/family-health-medicine-box/' : '/',
+  base: './',
   plugins: [
     react(),
     {

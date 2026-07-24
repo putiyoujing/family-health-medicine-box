@@ -36,10 +36,12 @@ test('a targeted invite links an account to an existing member without creating 
     openid: 'demo-invitee',
   })
   const roleData = demo.listFamilyRoles()
-  const linkedRole = roleData.roles.find((role) => role.openid === 'demo-invitee')
+  const linkedRole = roleData.roles.find((role) => role.memberId === member.id)
 
   assert.equal(accepted.memberId, member.id)
   assert.equal(linkedRole.memberId, member.id)
+  assert.ok(linkedRole.roleId)
+  assert.equal('openid' in linkedRole, false)
   assert.equal(roleData.pendingInvites.length, 0)
   assert.equal(demo.getHome().members.length, memberCountBeforeInvite)
   assert.throws(
@@ -53,11 +55,12 @@ test('removing collaboration access keeps the member health profile', () => {
   const member = demo.saveMember({ name: '爸爸', relation: '爸爸' })
   const invite = demo.createFamilyInvite({ role: 'viewer', targetMemberId: member.id })
   demo.acceptFamilyInvite({ inviteCode: invite.inviteCode, openid: 'demo-invitee' })
+  const linkedRole = demo.listFamilyRoles().roles.find((role) => role.memberId === member.id)
 
-  demo.removeFamilyUser('demo-invitee')
+  demo.removeFamilyUser(linkedRole.roleId)
 
   assert.ok(demo.getHome().members.some((item) => item._id === member.id))
-  assert.equal(demo.listFamilyRoles().roles.some((role) => role.openid === 'demo-invitee'), false)
+  assert.equal(demo.listFamilyRoles().roles.some((role) => role.roleId === linkedRole.roleId), false)
 })
 
 test('archiving a member removes the profile from active members and unlinks its account', () => {
@@ -69,7 +72,7 @@ test('archiving a member removes the profile from active members and unlinks its
   demo.deleteMember(member.id)
 
   assert.equal(demo.getHome().members.some((item) => item._id === member.id), false)
-  const formerLinkedRole = demo.listFamilyRoles().roles.find((role) => role.openid === 'demo-invitee')
+  const formerLinkedRole = demo.listFamilyRoles().roles.find((role) => role.role !== 'owner')
   assert.equal(formerLinkedRole.memberId, '')
 })
 
@@ -81,13 +84,66 @@ test('an invite must target an existing family member profile', () => {
 test('the family owner is present and linked in family members by default', () => {
   const demo = loadDemo()
   const home = demo.getHome()
-  const ownerRole = demo.listFamilyRoles().roles.find((role) => role.openid === 'demo-owner')
+  const ownerRole = demo.listFamilyRoles().roles.find((role) => role.isCurrentUser)
   const ownerMember = home.members.find((member) => member._id === ownerRole.memberId)
 
   assert.ok(ownerMember)
   assert.equal(ownerMember.relation, '本人')
   assert.equal(ownerMember.isOwnerProfile, true)
   assert.throws(() => demo.deleteMember(ownerMember._id), /创建者本人档案不能归档/)
+})
+
+test('family management labels 本人 relative to the invited account', async () => {
+  let pageDefinition
+  loadCjsModule(path.join(root, 'miniprogram/pages/family/index.js'), {
+    stubs: {
+      '../../services/api': {
+        async getMembershipStatus() {
+          return {
+            family: { _id: 'family-a', role: 'viewer' },
+            entitlement: { limits: { maxMembers: 3, maxSharedUsers: 2 } },
+          }
+        },
+        async listFamilyRoles() {
+          return {
+            roles: [
+              { roleId: 'owner-role', role: 'owner', memberId: 'owner-member', isCurrentUser: false },
+              { roleId: 'invitee-role', role: 'viewer', memberId: 'invitee-member', isCurrentUser: true },
+            ],
+            pendingInvites: [],
+          }
+        },
+        async getHome() {
+          return {
+            members: [
+              { _id: 'owner-member', name: '邀请者', relation: '本人', isOwnerProfile: true },
+              { _id: 'invitee-member', name: '被邀请人', relation: '家人' },
+            ],
+          }
+        },
+      },
+      '../../utils/operation-guards': { ensureLoginReady: async () => true },
+    },
+    globals: {
+      getApp: () => ({ globalData: {} }),
+      Page(definition) {
+        pageDefinition = definition
+      },
+      wx: {
+        showToast() {},
+      },
+    },
+  })
+
+  const page = createPageInstance(pageDefinition)
+  await page.load()
+
+  assert.equal(page.data.members[0].displayRelation, '家庭创建者')
+  assert.equal(page.data.members[1].displayRelation, '本人')
+  assert.match(
+    fs.readFileSync(path.join(root, 'miniprogram/pages/family/index.wxml'), 'utf8'),
+    /{{item\.displayRelation}}/,
+  )
 })
 
 test('an account already in the family cannot accept its own member invite', () => {
@@ -152,7 +208,7 @@ test('invite page loads the selected member when legacy limits omit sharedRoles'
         },
         async listFamilyRoles() {
           return {
-            roles: [{ openid: 'owner', role: 'owner', memberId: 'owner-member' }],
+            roles: [{ roleId: 'owner-role', role: 'owner', memberId: 'owner-member', isCurrentUser: true }],
             pendingInvites: [],
           }
         },
@@ -257,6 +313,34 @@ test('accepting an invite switches the active family before opening the dashboar
 
   assert.equal(app.globalData.currentFamilyId, 'joined-family')
   assert.deepEqual(switchedTabs, ['/pages/dashboard/index'])
+})
+
+test('guest invite lookup requests login instead of stopping silently', async () => {
+  let pageDefinition
+  let guardOptions = 'not-called'
+  loadCjsModule(path.join(root, 'miniprogram/pages/family/accept.js'), {
+    stubs: {
+      '../../services/api': {},
+      '../../utils/operation-guards': {
+        async ensureLoginReady(options) {
+          guardOptions = options
+          return false
+        },
+      },
+    },
+    globals: {
+      Page(definition) {
+        pageDefinition = definition
+      },
+      wx: {},
+    },
+  })
+
+  const page = createPageInstance(pageDefinition)
+  await page.loadInvite('TEST01')
+
+  assert.equal(guardOptions, undefined)
+  assert.equal(page.data.loading, false)
 })
 
 test('invite page shows a modal and returns when the account is already in the family', async () => {

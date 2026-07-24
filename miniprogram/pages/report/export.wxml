@@ -28,3 +28,4 @@
 
   <canvas type="2d" id="reportCanvas" class="report-canvas"></canvas>
 </view>
+<global-auth-layer id="global-auth-layer" />

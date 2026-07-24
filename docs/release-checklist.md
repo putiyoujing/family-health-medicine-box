@@ -49,11 +49,12 @@ AI 功能不得输出：
 
 独立 Web 管理后台见 `docs/web-admin.md`。
 
-上线前必须创建 `admins` 集合，并添加管理员 openid：
+上线前必须创建 `admins` 集合，并绑定 CloudBase Web Auth 管理员 UID：
 
 ```json
 {
-  "openid": "管理员 openid",
+  "authUid": "CloudBase Auth 用户 UID",
+  "role": "owner",
   "status": "active",
   "name": "管理员名称"
 }
@@ -80,9 +81,10 @@ AI 功能不得输出：
 
 Web 管理后台上线前必须配置：
 
-- `ADMIN_WEB_TOKEN`
-- `VITE_ADMIN_API_BASE`
-- `VITE_ADMIN_API_TOKEN`
+- `VITE_CLOUDBASE_ENV_ID`
+- `VITE_CLOUDBASE_REGION`
+- `VITE_CLOUDBASE_PUBLISHABLE_KEY`
+- `ADMIN_WEB_AUTH_E2E_PASSED=true`，仅在真实管理员和非管理员账号验收完成后填写
 
 ## GitHub 发布
 

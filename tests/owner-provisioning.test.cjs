@@ -22,8 +22,16 @@ test('first login creates one owner member and binds the owner role idempotently
     stubs: { 'wx-server-sdk': cloud },
   })
 
-  await login.main()
-  await login.main()
+  await assert.rejects(login.main(), /authorized user profile is required/)
+  assert.equal(database.dump('users').length, 0)
+
+  const profile = {
+    nickname: 'Owner',
+    avatarUrl: 'https://example.com/owner.jpg',
+    gender: 'male',
+  }
+  await login.main({ profile })
+  await login.main({ profile })
 
   const members = database.dump('family_members')
   const roles = database.dump('family_roles')
@@ -31,8 +39,41 @@ test('first login creates one owner member and binds the owner role idempotently
   assert.equal(roles.length, 1)
   assert.equal(members[0].relation, '本人')
   assert.equal(members[0].isOwnerProfile, true)
+  assert.equal(members[0].name, 'Owner')
+  assert.equal(members[0].gender, 'male')
   assert.equal(roles[0].role, 'owner')
   assert.equal(roles[0].memberId, members[0]._id)
+})
+
+test('first login accepts an app-generated avatar preset as the official fallback path', async () => {
+  const database = createDatabase()
+  const cloud = {
+    DYNAMIC_CURRENT_ENV: 'test',
+    init() {},
+    getWXContext() {
+      return { OPENID: 'random-profile-openid' }
+    },
+    database() {
+      return database
+    },
+  }
+  const login = loadCjsModule(path.join(root, 'cloudfunctions/login/index.js'), {
+    stubs: { 'wx-server-sdk': cloud },
+  })
+
+  const result = await login.main({
+    profile: {
+      nickname: '健康守护者4821',
+      avatarUrl: '',
+      avatarPreset: 'lake',
+    },
+  })
+
+  const user = database.dump('users')[0]
+  assert.equal(user.nickname, '健康守护者4821')
+  assert.equal(user.avatarUrl, '')
+  assert.equal(user.avatarPreset, 'lake')
+  assert.equal(result.user.avatarPreset, 'lake')
 })
 
 test('an existing unlinked owner is backfilled with one member profile', async () => {
@@ -74,6 +115,60 @@ test('an existing unlinked owner is backfilled with one member profile', async (
   assert.equal(members.length, 1)
   assert.equal(members[0].name, '妈妈')
   assert.equal(ownerRole.memberId, members[0]._id)
+})
+
+test('login keeps a linked owner member name and gender edited by the family', async () => {
+  const database = createDatabase()
+  database.seed('users', 'existing-user', {
+    openid: 'owner-openid-001',
+    nickname: '旧微信昵称',
+    avatarUrl: 'https://example.com/old.jpg',
+    gender: 'female',
+    currentFamilyId: 'existing-family',
+  })
+  database.seed('families', 'existing-family', {
+    ownerOpenid: 'owner-openid-001',
+    name: '我的家庭',
+    membersOpenids: ['owner-openid-001'],
+  })
+  database.seed('family_members', 'owner-member', {
+    familyId: 'existing-family',
+    name: '妈妈（家庭内称呼）',
+    gender: 'female',
+    relation: '本人',
+    isOwnerProfile: true,
+  })
+  database.seed('family_roles', 'owner-role', {
+    familyId: 'existing-family',
+    openid: 'owner-openid-001',
+    role: 'owner',
+    memberId: 'owner-member',
+  })
+  const cloud = {
+    DYNAMIC_CURRENT_ENV: 'test',
+    init() {},
+    getWXContext() {
+      return { OPENID: 'owner-openid-001' }
+    },
+    database() {
+      return database
+    },
+  }
+  const login = loadCjsModule(path.join(root, 'cloudfunctions/login/index.js'), {
+    stubs: { 'wx-server-sdk': cloud },
+  })
+
+  await login.main({
+    profile: {
+      nickname: '新的微信昵称',
+      avatarUrl: 'https://example.com/new.jpg',
+      gender: 'male',
+    },
+  })
+
+  const member = database.dump('family_members')[0]
+  assert.equal(member.name, '妈妈（家庭内称呼）')
+  assert.equal(member.gender, 'female')
 })
 
 function createDatabase() {

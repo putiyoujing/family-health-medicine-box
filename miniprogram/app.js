@@ -1,4 +1,4 @@
-const ENV_ID = ''
+const ENV_ID = 'family-health-prod-d9csm29f27d75'
 const ENABLE_DEV_MOCK_LOGIN = true
 
 App({
@@ -26,54 +26,165 @@ App({
 
   onLaunch() {
     this.globalData.useDemoData = shouldUseDevMockLogin(this.globalData.enableDevMockLogin)
-    if (this.globalData.useDemoData) {
-      this.loginPromise = this.bootstrap()
-      this.loginPromise.catch(() => {})
-      return
-    }
+    this.globalData.envId = this.globalData.useDemoData ? '' : ENV_ID
+    if (!this.globalData.useDemoData) {
+      if (!wx.cloud) {
+        wx.showModal({
+          title: '初始化失败',
+          content: '当前微信版本暂不支持此服务，请升级微信后再试。',
+          showCancel: false,
+        })
+        return
+      }
 
-    if (!wx.cloud) {
-      wx.showModal({
-        title: '初始化失败',
-        content: '当前微信版本暂不支持此服务，请升级微信后再试。',
-        showCancel: false,
+      wx.cloud.init({
+        env: ENV_ID || undefined,
+        traceUser: true,
       })
-      return
     }
 
-    wx.cloud.init({
-      env: ENV_ID || undefined,
-      traceUser: true,
-    })
-
-    this.loginPromise = this.bootstrap()
-    this.loginPromise.catch(() => {})
+    this.registerPrivacyAuthorization()
+    this.restoreLoginPromise = this.restoreLogin()
   },
 
-  ensureLogin(options = {}) {
-    if (this.globalData.openid && !options.force) {
+  registerPrivacyAuthorization() {
+    if (
+      this.needPrivacyAuthorizationHandler
+      || typeof wx.onNeedPrivacyAuthorization !== 'function'
+    ) {
+      return
+    }
+    this.needPrivacyAuthorizationHandler = (resolve) => {
+      this.privacyAuthorizationResolve = resolve
+      const layer = this.activeAuthLayer
+      if (layer && typeof layer.showPrivacyDialog === 'function') {
+        layer.showPrivacyDialog()
+        return
+      }
+      this.resolvePrivacyAuthorization(false)
+    }
+    wx.onNeedPrivacyAuthorization(this.needPrivacyAuthorizationHandler)
+  },
+
+  requestPrivacyAuthorization(layer) {
+    if (this.privacyRequestPromise) {
+      return this.privacyRequestPromise
+    }
+    this.activeAuthLayer = layer
+    if (typeof wx.requirePrivacyAuthorize !== 'function') {
+      this.activeAuthLayer = null
+      return Promise.resolve(true)
+    }
+    this.privacyRequestPromise = new Promise((resolve) => {
+      this.finishPrivacyRequest = resolve
+    })
+    wx.requirePrivacyAuthorize({
+      success: () => this.completePrivacyRequest(true),
+      fail: () => this.completePrivacyRequest(false),
+    })
+    return this.privacyRequestPromise
+  },
+
+  resolvePrivacyAuthorization(agreed) {
+    const resolve = this.privacyAuthorizationResolve
+    this.privacyAuthorizationResolve = null
+    if (typeof resolve === 'function') {
+      resolve(agreed
+        ? { event: 'agree', buttonId: 'privacy-agree-button' }
+        : { event: 'disagree' })
+    }
+    if (!agreed) {
+      this.completePrivacyRequest(false)
+    }
+  },
+
+  completePrivacyRequest(granted) {
+    const finish = this.finishPrivacyRequest
+    this.finishPrivacyRequest = null
+    this.privacyRequestPromise = null
+    this.activeAuthLayer = null
+    if (typeof finish === 'function') {
+      finish(granted)
+    }
+  },
+
+  async restoreLogin() {
+    if (this.globalData.openid) {
+      return true
+    }
+    if (this.globalData.useDemoData) {
+      return false
+    }
+    try {
+      return !!(await this.bootstrap(undefined, { allowGuest: true }))
+    } catch (error) {
+      console.warn('silent login restore failed', error)
+      this.globalData.loginStatus = 'idle'
+      this.globalData.loginError = ''
+      return false
+    }
+  },
+
+  ensureLogin() {
+    if (this.globalData.openid) {
       return Promise.resolve({
         openid: this.globalData.openid,
         user: this.globalData.userProfile,
         currentFamilyId: this.globalData.currentFamilyId,
       })
     }
-    if (!this.loginPromise || options.force) {
-      this.loginPromise = this.bootstrap()
-    }
-    return this.loginPromise
+    return Promise.reject(new Error('LOGIN_REQUIRED'))
   },
 
-  async bootstrap() {
+  resetLogin() {
+    this.globalData.openid = ''
+    this.globalData.currentFamilyId = ''
+    this.globalData.userProfile = null
+    this.globalData.loginStatus = 'idle'
+    this.globalData.loginError = ''
+    this.globalData.loginMode = ''
+  },
+
+  async authorizeLogin(profile) {
+    if (this.loginPromise) {
+      return this.loginPromise
+    }
+    this.loginPromise = this.bootstrap(profile)
+    try {
+      return await this.loginPromise
+    } finally {
+      this.loginPromise = null
+    }
+  },
+
+  async requestLogin(profile) {
+    if (this.globalData.openid) {
+      return this.ensureLogin()
+    }
+    if (!hasCompleteProfile(profile)) {
+      throw new Error('PROFILE_REQUIRED')
+    }
+    if (this.profileLoginPromise) {
+      return this.profileLoginPromise
+    }
+    this.profileLoginPromise = this.authorizeLogin(profile)
+    try {
+      return await this.profileLoginPromise
+    } finally {
+      this.profileLoginPromise = null
+    }
+  },
+
+  async bootstrap(profile, options = {}) {
     this.globalData.loginStatus = 'loading'
     this.globalData.loginError = ''
     if (this.globalData.useDemoData) {
-      return this.useTestLogin('development-mock')
+      return this.useTestLogin('development-mock', profile)
     }
     try {
-      await wxLogin()
       const result = await wx.cloud.callFunction({
         name: 'login',
+        data: { profile },
       })
       this.globalData.openid = result.result.openid
       this.globalData.userProfile = result.result.user
@@ -86,6 +197,11 @@ App({
         currentFamilyId: this.globalData.currentFamilyId,
       }
     } catch (error) {
+      if (options.allowGuest && isAuthorizedProfileRequired(error)) {
+        this.globalData.loginStatus = 'idle'
+        this.globalData.loginError = ''
+        return null
+      }
       console.error('login failed', error)
       this.globalData.loginStatus = 'failed'
       this.globalData.loginError = error && (error.errMsg || error.message) ? (error.errMsg || error.message) : 'login failed'
@@ -93,15 +209,17 @@ App({
     }
   },
 
-  useTestLogin(reason = 'manual') {
+  useTestLogin(reason = 'manual', profile = {}) {
+    const submittedProfile = {
+      nickname: String(profile.nickname || '').trim() || '测试用户',
+      avatarUrl: String(profile.avatarUrl || '').trim(),
+      avatarPreset: String(profile.avatarPreset || '').trim() || 'sprout',
+    }
+    const demoProfile = require('./services/demo-data').updateUserProfile(submittedProfile).user
     const testUser = {
+      ...demoProfile,
       _id: 'devtools-user-001',
       openid: 'devtools-openid',
-      nickname: '测试用户',
-      avatarUrl: '',
-      avatarPreset: 'sprout',
-      gender: '',
-      birthday: '',
       currentFamilyId: 'demo-family-001',
       loginReason: reason,
     }
@@ -119,13 +237,21 @@ App({
   },
 })
 
-function wxLogin() {
-  return new Promise((resolve, reject) => {
-    wx.login({
-      success: resolve,
-      fail: reject,
-    })
-  })
+function hasCompleteProfile(profile) {
+  return !!(
+    profile
+    && String(profile.nickname || '').trim()
+    && (
+      String(profile.avatarUrl || '').trim()
+      || String(profile.avatarPreset || '').trim()
+    )
+  )
+}
+
+function isAuthorizedProfileRequired(error) {
+  const message = String(error && (error.errMsg || error.message) || '').toLowerCase()
+  return message.includes('authorized user profile is required')
+    || message.includes('profile_required')
 }
 
 function shouldUseDevMockLogin(enabled) {

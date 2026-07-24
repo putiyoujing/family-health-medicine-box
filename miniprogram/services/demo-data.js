@@ -1,5 +1,6 @@
 const SAFETY_NOTICE =
   '本系统仅用于家庭健康记录、历史信息查询和医嘱整理，不提供疾病诊断、处方建议或剂量调整建议。用药请遵医嘱或咨询医生/药师；如症状加重或出现紧急情况，请及时就医。'
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
 
 const limits = {
   maxOwnedFamilies: 1,
@@ -56,6 +57,7 @@ function createDemoState() {
   const testSeed = SHOW_TEST_SEED_DATA ? createTestSeedData() : createEmptyTestSeedData()
   const user = {
     _id: 'demo-user-001',
+    publicUserId: '1000000001',
     nickname: '守护者·TEST01',
     avatarUrl: '',
     avatarPreset: 'sprout',
@@ -596,7 +598,7 @@ function listMedicationHistory() {
 
 function updateUserProfile(payload = {}) {
   const user = { ...state.user }
-  ;['nickname', 'avatarUrl', 'gender', 'birthday', 'phone', 'email', 'note'].forEach((field) => {
+  ;['nickname', 'avatarUrl', 'avatarPreset', 'gender', 'birthday', 'phone', 'email', 'note'].forEach((field) => {
     if (Object.prototype.hasOwnProperty.call(payload, field)) {
       user[field] = payload[field] || ''
     }
@@ -736,8 +738,17 @@ function switchFamily(payload = {}) {
 
 function listFamilyRoles() {
   return clone({
-    roles: state.roles,
-    pendingInvites: state.invites.filter((invite) => invite.status === 'active' && invite.targetMemberId),
+    roles: state.roles.map((role) => ({
+      roleId: role._id,
+      nickname: role.nickname || '已关联家人',
+      role: role.role,
+      memberId: role.memberId || '',
+      joinedAt: role.joinedAt || '',
+      isCurrentUser: role.openid === 'demo-owner',
+    })),
+    pendingInvites: state.invites
+      .filter((invite) => invite.status === 'active' && invite.targetMemberId)
+      .map(toPublicFamilyInvite),
   })
 }
 
@@ -1384,7 +1395,10 @@ function formatDemoEvent(item) {
 }
 
 function getPlans() {
-  return clone({ plans })
+  return clone({
+    plans,
+    membershipPurchaseGuide: DEFAULT_MEMBERSHIP_PURCHASE_GUIDE,
+  })
 }
 
 function listCouponsForUser() {
@@ -1475,7 +1489,7 @@ function getFamilyInvite(payload = {}) {
   const openid = String(payload.openid || 'demo-owner')
   const canAccept = invite.inviterOpenid !== openid && !state.roles.some((role) => role.openid === openid)
   return clone({
-    ...invite,
+    ...toPublicFamilyInvite(invite),
     canAccept,
     acceptBlockedReason: canAccept ? '' : ALREADY_IN_FAMILY_MESSAGE,
   })
@@ -1525,7 +1539,7 @@ function createFamilyInvite(payload = {}) {
   }
   state.invites.push(invite)
   return clone({
-    ...invite,
+    ...toPublicFamilyInvite(invite),
     path: `/pages/family/accept?code=${invite.inviteCode}`,
   })
 }
@@ -1563,13 +1577,36 @@ function acceptFamilyInvite(payload = {}) {
 }
 
 function updateFamilyRole(payload = {}) {
-  state.roles = state.roles.map((role) => (role.openid === payload.openid ? { ...role, role: payload.role } : role))
+  const target = state.roles.find((role) => role._id === payload.roleId)
+  if (!target) {
+    throw new Error('家庭角色不存在')
+  }
+  target.role = payload.role
   return clone({ updated: true })
 }
 
-function removeFamilyUser(openid) {
-  state.roles = state.roles.filter((role) => role.openid !== openid)
+function removeFamilyUser(roleId) {
+  const target = state.roles.find((role) => role._id === roleId)
+  if (!target) {
+    throw new Error('家庭角色不存在')
+  }
+  state.roles = state.roles.filter((role) => role._id !== roleId)
   return clone({ removed: true })
+}
+
+function toPublicFamilyInvite(invite) {
+  return {
+    inviteId: invite._id,
+    inviteCode: invite.inviteCode,
+    familyId: invite.familyId,
+    familyNameSnapshot: invite.familyNameSnapshot,
+    inviterNameSnapshot: invite.inviterNameSnapshot || '家人',
+    targetMemberId: invite.targetMemberId || '',
+    targetMemberNameSnapshot: invite.targetMemberNameSnapshot || '',
+    role: invite.role,
+    expiresAt: invite.expiresAt || '',
+    privacyNotice: invite.privacyNotice || '',
+  }
 }
 
 function buildStats() {

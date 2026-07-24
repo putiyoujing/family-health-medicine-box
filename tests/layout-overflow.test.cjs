@@ -72,4 +72,8 @@ test('all responsive button groups stay inside their containers', () => {
     'miniprogram/pages/profile/index.wxss',
     /\.benefit-strip\s*{[\s\S]*repeat\(3,\s*minmax\(0,\s*1fr\)\)/,
   )
+  expectStyle(
+    'miniprogram/pages/medicines/index.wxss',
+    /\.search-row\s*{[\s\S]*minmax\(0,\s*3fr\)\s+minmax\(0,\s*1fr\)/,
+  )
 })

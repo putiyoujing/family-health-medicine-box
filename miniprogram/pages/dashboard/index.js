@@ -1,8 +1,15 @@
 const api = require('../../services/api')
 const { SAFETY_NOTICE } = require('../../utils/constants')
 const { daysUntil, formatDateTime, memberName } = require('../../utils/format')
-const { ensureHasMembers, ensureLoginReady, ensureMedicationReady } = require('../../utils/operation-guards')
+const {
+  canEditFamilyRecords,
+  ensureFamilyWriteAccess,
+  ensureHasMembers,
+  ensureLoginReady,
+  ensureMedicationReady,
+} = require('../../utils/operation-guards')
 const { formatMedicineStockSummary } = require('../../utils/medicine-stock')
+const { syncTabBar } = require('../../utils/tab-bar')
 
 Page({
   data: {
@@ -17,11 +24,14 @@ Page({
     expiryReminderDays: 60,
     lowStockMedicines: [],
     isDefaultHome: false,
+    canEditRecords: false,
+    showWriteEntries: true,
     loadError: '',
     safetyNotice: SAFETY_NOTICE,
   },
 
   onShow() {
+    syncTabBar(this, 0)
     this.loadHome({ silent: this.homeLoaded, force: true })
   },
 
@@ -30,17 +40,27 @@ Page({
       this.setData({ loading: true, loadError: '' })
     }
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
-        this.setData({ loading: false })
+        this.showGuestHome()
         return
       }
       const home = await api.getHome({ force: Boolean(options.force) })
+      const canEditRecords = canEditFamilyRecords(home.family)
       const lowStockThreshold = normalizeLowStockThreshold(home.user && home.user.lowStockThreshold)
       const expiryReminderDays = normalizeExpiryReminderDays(home.user && home.user.expiryReminderDays)
       const expiringMedicines = home.medicines
         .filter((item) => daysUntil(item.expireDate) <= expiryReminderDays)
+        .sort((left, right) => daysUntil(left.expireDate) - daysUntil(right.expireDate))
         .slice(0, 3)
+        .map((item) => {
+          const expireStatus = daysUntil(item.expireDate) < 0 ? 'expired' : 'expiring'
+          return {
+            ...item,
+            expireStatus,
+            expireLabel: expireStatus === 'expired' ? `已过期 ${item.expireDate}` : `快过期 ${item.expireDate}`,
+          }
+        })
       const lowStockMedicines = home.medicines
         .filter((item) => Number(item.remainingQuantity || 0) <= Math.max(1, Number(item.totalQuantity || 0) * (lowStockThreshold / 100)))
         .slice(0, 3)
@@ -83,10 +103,16 @@ Page({
         expiryReminderDays,
         lowStockMedicines,
         isDefaultHome,
+        canEditRecords,
+        showWriteEntries: canEditRecords,
         safetyNotice: home.safetyNotice || SAFETY_NOTICE,
       })
       this.homeLoaded = true
     } catch (error) {
+      if (error && error.message === 'LOGIN_REQUIRED') {
+        this.showGuestHome()
+        return
+      }
       if (options.silent) {
         console.warn('dashboard refresh failed', error)
         return
@@ -102,12 +128,35 @@ Page({
     }
   },
 
+  showGuestHome() {
+    this.homeLoaded = false
+    this.setData({
+      loading: false,
+      loadError: '',
+      family: null,
+      stats: {},
+      members: [],
+      medicines: [],
+      illnessRecords: [],
+      medicationLogs: [],
+      activeCourses: [],
+      expiringMedicines: [],
+      lowStockMedicines: [],
+      isDefaultHome: true,
+      canEditRecords: false,
+      showWriteEntries: true,
+    })
+  },
+
   retryLoadHome() {
     api.invalidateHomeCache()
     this.loadHome()
   },
 
-  goAddMember() {
+  async goAddMember() {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const app = getApp()
     if (app.globalData) {
       app.globalData.openMemberModal = true
@@ -120,7 +169,7 @@ Page({
   },
 
   goMembers() {
-    wx.switchTab({ url: '/pages/profile/index' })
+    wx.navigateTo({ url: '/pages/family/index' })
   },
 
   goByStat(event) {
@@ -136,7 +185,10 @@ Page({
     }
   },
 
-  handleMedicine(event) {
+  async handleMedicine(event) {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     const reason = event.currentTarget.dataset.reason || ''
     const app = getApp()
@@ -147,7 +199,10 @@ Page({
     wx.switchTab({ url: '/pages/medicines/index' })
   },
 
-  goMedicinePhoto() {
+  async goMedicinePhoto() {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const app = getApp()
     if (app.globalData) {
       app.globalData.openMedicineCamera = true
@@ -162,7 +217,10 @@ Page({
     wx.switchTab({ url: '/pages/illness/index' })
   },
 
-  goQuickIllness() {
+  async goQuickIllness() {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     if (!ensureHasMembers(getHomeSnapshot(this.data))) {
       return
     }
@@ -178,12 +236,18 @@ Page({
     wx.navigateTo({ url: `/pages/illness/detail?id=${id}` })
   },
 
-  addCourseEvent(event) {
+  async addCourseEvent(event) {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     wx.navigateTo({ url: `/pages/illness/detail?id=${id}&action=add` })
   },
 
-  goCourseMedication(event) {
+  async goCourseMedication(event) {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     if (!ensureMedicationReady(getHomeSnapshot(this.data))) {
       return
     }
@@ -203,7 +267,10 @@ Page({
     wx.switchTab({ url: '/pages/medication/index' })
   },
 
-  createMedication() {
+  async createMedication() {
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
     if (!ensureMedicationReady(getHomeSnapshot(this.data))) {
       return
     }

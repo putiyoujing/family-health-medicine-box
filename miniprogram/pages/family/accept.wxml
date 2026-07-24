@@ -27,3 +27,4 @@
 
   <button class="primary-btn" wx:if="{{invite && invite.canAccept}}" bindtap="accept">接受邀请</button>
 </view>
+<global-auth-layer id="global-auth-layer" />

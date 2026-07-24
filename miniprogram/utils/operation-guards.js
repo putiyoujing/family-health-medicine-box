@@ -1,47 +1,106 @@
-function ensureLoginReady(options = {}) {
+async function ensureLoginReady(options = {}) {
+  if (isLoggedIn()) {
+    return true
+  }
   const app = getApp()
-  if (!app || typeof app.ensureLogin !== 'function') {
-    return Promise.resolve(true)
-  }
-
-  if (app.globalData && app.globalData.openid && !options.force) {
-    return Promise.resolve(true)
-  }
-
-  if (options.showLoading !== false) {
-    wx.showLoading({ title: '登录中' })
-  }
-
-  return app
-    .ensureLogin({ force: !!options.force })
-    .then(() => {
-      if (options.showLoading !== false) {
-        wx.hideLoading()
-      }
+  if (app && app.restoreLoginPromise) {
+    try {
+      await app.restoreLoginPromise
+    } catch (error) {
+      console.warn('silent login restore failed', error)
+    }
+    if (isLoggedIn()) {
       return true
-    })
-    .catch(() => {
-      if (options.showLoading !== false) {
-        wx.hideLoading()
-      }
-      wx.showModal({
-        title: '需要微信登录',
-        content: '请先完成微信登录，登录后才能查看和修改个人信息、家庭成员和健康记录。',
-        confirmText: '重新登录',
-        cancelText: '稍后',
-        success: (result) => {
-          if (result.confirm && app && typeof app.ensureLogin === 'function') {
-            app.ensureLogin({ force: true }).catch(() => {
-              wx.showToast({ title: '登录失败，请稍后重试', icon: 'none' })
-            })
-          }
-        },
-      })
-      return false
-    })
+    }
+  }
+  if (!options.silent) {
+    return openGlobalAuthLayer()
+  }
+  return false
+}
+
+function isLoggedIn() {
+  const app = getApp()
+  return !!(app && app.globalData && app.globalData.openid)
+}
+
+function canEditFamilyRecords(family = {}) {
+  return ['owner', 'admin', 'member'].includes(family.role)
+}
+
+async function ensureFamilyWriteAccess(canEditRecords) {
+  if (canEditRecords) {
+    return true
+  }
+  await ensureLoginReady()
+  return false
+}
+
+function openGlobalAuthLayer() {
+  if (typeof getCurrentPages !== 'function') {
+    wx.showToast({ title: '登录服务暂不可用', icon: 'none' })
+    return Promise.resolve(false)
+  }
+  const pages = getCurrentPages()
+  const page = pages[pages.length - 1]
+  const layer = page && typeof page.selectComponent === 'function'
+    ? page.selectComponent('#global-auth-layer')
+    : null
+  if (!layer || typeof layer.open !== 'function') {
+    wx.showToast({ title: '当前页面暂不支持登录，请重新进入', icon: 'none' })
+    return Promise.resolve(false)
+  }
+  return layer.open()
+}
+
+async function requestWechatLogin(profile) {
+  const app = getApp()
+  if (!app || typeof app.requestLogin !== 'function') {
+    wx.showToast({ title: '登录服务暂不可用', icon: 'none' })
+    return false
+  }
+  const hasAvatar = profile && (
+    String(profile.avatarUrl || '').trim()
+    || String(profile.avatarPreset || '').trim()
+  )
+  if (!profile || !String(profile.nickname || '').trim() || !hasAvatar) {
+    wx.showToast({ title: '请先填写昵称', icon: 'none' })
+    return false
+  }
+
+  let loadingShown = false
+  try {
+    wx.showLoading({ title: '登录中' })
+    loadingShown = true
+    await app.requestLogin(profile)
+    return true
+  } catch (error) {
+    console.error('wechat login failed', error)
+    wx.showToast({ title: getWechatLoginErrorMessage(error), icon: 'none' })
+    return false
+  } finally {
+    if (loadingShown) {
+      wx.hideLoading()
+    }
+  }
+}
+
+function getWechatLoginErrorMessage(error) {
+  const message = String(error && (error.errMsg || error.message) || '').toLowerCase()
+  if (Number(error && error.errno) === 112 || message.includes('privacy agreement')) {
+    return '微信登录授权尚未配置'
+  }
+  if (message.includes('deny') || message.includes('cancel') || message.includes('拒绝') || message.includes('取消')) {
+    return '已取消微信授权'
+  }
+  return '微信登录失败，请稍后重试'
 }
 
 function ensureHasFamily(home = {}) {
+  if (!isLoggedIn()) {
+    openGlobalAuthLayer()
+    return false
+  }
   if (home.currentFamilyId || (home.family && home.family._id)) {
     return true
   }
@@ -140,9 +199,12 @@ function ensureMedicationReady(home = {}) {
 }
 
 module.exports = {
+  canEditFamilyRecords,
+  ensureFamilyWriteAccess,
   ensureHasFamily,
   ensureHasMembers,
   ensureHasMedicines,
   ensureLoginReady,
   ensureMedicationReady,
+  requestWechatLogin,
 }

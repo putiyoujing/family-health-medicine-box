@@ -4,7 +4,7 @@
     <view class="page-subtitle">按时间查看症状、体温、就诊和恢复过程</view>
   </view>
 
-  <button class="primary-btn add-btn" loading="{{loading}}" disabled="{{loading}}" bindtap="createRecord">记一次生病</button>
+  <button class="primary-btn add-btn" wx:if="{{showWriteEntries}}" loading="{{loading}}" disabled="{{loading}}" bindtap="createRecord">记一次生病</button>
 
   <view class="card-list">
     <view class="list-heading" wx:if="{{records.length}}">
@@ -24,11 +24,13 @@
         <view>{{item.summary || item.symptomDescription || '暂无总结'}}</view>
         <view class="muted">最高体温：{{item.temperatureText}} · 医嘱：{{item.doctorAdvice || '未记录'}}</view>
       </view>
-      <view class="card-actions">
+      <view class="card-actions" wx:if="{{showWriteEntries}}">
         <button class="append-btn" wx:if="{{!item.completed}}" data-id="{{item._id}}" bindtap="appendRecord">追加记录</button>
         <button class="ghost-btn edit-btn" data-id="{{item._id}}" bindtap="editRecord">修改</button>
         <button class="ghost-btn mini-btn" data-id="{{item._id}}" bindtap="quickSimilar">再记一条相似的</button>
       </view>
     </view>
+    <view class="list-end" wx:if="{{records.length}}">到底了哦</view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

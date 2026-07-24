@@ -13,7 +13,7 @@ const demo = loadCjsModule(path.join(root, 'miniprogram/services/demo-data.js'))
 test('illness list routes append through detail and keeps course actions inside detail', () => {
   const listTemplate = fs.readFileSync(path.join(root, 'miniprogram/pages/illness/index.wxml'), 'utf8')
   const detailTemplate = fs.readFileSync(path.join(root, 'miniprogram/pages/illness/detail.wxml'), 'utf8')
-  const actionBlock = listTemplate.match(/<view class="card-actions">([\s\S]*?)<\/view>/)[1]
+  const actionBlock = listTemplate.match(/<view class="card-actions"[^>]*>([\s\S]*?)<\/view>/)[1]
 
   assert.ok(actionBlock.indexOf('追加记录') < actionBlock.indexOf('修改'))
   assert.ok(actionBlock.indexOf('修改') < actionBlock.indexOf('再记一条相似的'))
@@ -23,11 +23,11 @@ test('illness list routes append through detail and keeps course actions inside 
   assert.match(detailTemplate, /bindtap="remove"[^>]*>删除病程<\/button>/)
 })
 
-test('illness list append opens the selected detail form', () => {
+test('illness list append opens the selected detail form', async () => {
   const { pageDefinition, navigations } = loadPage(listScript)
-  const page = createPageInstance(pageDefinition)
+  const page = createPageInstance(pageDefinition, { canEditRecords: true })
 
-  page.appendRecord({ currentTarget: { dataset: { id: 'illness-a' } } })
+  await page.appendRecord({ currentTarget: { dataset: { id: 'illness-a' } } })
 
   assert.deepEqual(navigations.urls, ['/pages/illness/detail?id=illness-a&action=add'])
 })
@@ -35,7 +35,7 @@ test('illness list append opens the selected detail form', () => {
 test('illness list keeps open courses ahead of completed courses', async () => {
   const { pageDefinition } = loadPage(listScript, {
     home: {
-      family: { _id: 'family-a' },
+      family: { _id: 'family-a', role: 'member' },
       members: [{ _id: 'member-a', name: '小宝' }],
       illnessRecords: [
         { _id: 'completed-new', memberId: 'member-a', startedAt: '2026-07-20 20:00', status: '已恢复' },
@@ -455,6 +455,8 @@ function loadPage(script, options = {}) {
         deleteIllness: options.deleteIllness || (async () => ({ id: 'illness-a' })),
       },
       '../../utils/operation-guards': {
+        canEditFamilyRecords: (family) => family && family.role !== 'viewer',
+        ensureFamilyWriteAccess: async (canEditRecords) => canEditRecords,
         ensureHasMembers: () => true,
         ensureLoginReady: async () => true,
         ensureMedicationReady: () => true,
@@ -466,6 +468,9 @@ function loadPage(script, options = {}) {
       },
       getApp: () => ({ globalData: { useDemoData: true } }),
       wx: {
+        async showActionSheet() {
+          return { tapIndex: options.attachmentSourceIndex || 0 }
+        },
         async chooseMedia({ count }) {
           attachmentPickerCounts.push(count)
           return { tempFiles: (options.mediaFiles || []).slice(0, count) }
@@ -489,7 +494,9 @@ function loadPage(script, options = {}) {
         showLoading() {},
         showModal({ content, success, title }) {
           modalRequests.push({ title, content })
-          success({ confirm: true, content: options.modalContent || '' })
+          if (success) {
+            success({ confirm: true, content: options.modalContent || '' })
+          }
         },
         showToast() {},
       },

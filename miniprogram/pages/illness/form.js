@@ -1,6 +1,7 @@
 const api = require('../../services/api')
 const { nowDateTimeInput, todayDate } = require('../../utils/format')
 const { ensureHasMembers, ensureLoginReady } = require('../../utils/operation-guards')
+const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
 
 const emptyForm = {
   _id: '',
@@ -66,7 +67,7 @@ Page({
   async load() {
     this.setData({ loading: true })
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
         this.setData({ loading: false })
         return
@@ -260,6 +261,9 @@ Page({
     if (this.data.saving) {
       return
     }
+    if (!await ensureLoginReady()) {
+      return
+    }
     const form = this.data.form
     const symptoms = parseSymptoms(form.symptomsText)
     const temperatureText = String(form.temperatureMax || '').trim()
@@ -346,10 +350,13 @@ Page({
     }
     const uploaded = []
     try {
+      const sourceResult = await wx.showActionSheet({
+        itemList: ['拍照', '从相册选择'],
+      })
       const chooseResult = await wx.chooseMedia({
         count: remaining,
         mediaType: ['image'],
-        sourceType: ['album', 'camera'],
+        sourceType: getMediaSourceType(sourceResult.tapIndex, 1),
       })
       wx.showLoading({ title: '上传中' })
       for (const file of chooseResult.tempFiles) {
@@ -368,13 +375,18 @@ Page({
       wx.showToast({ title: `已暂存 ${uploaded.length} 张` })
     } catch (error) {
       wx.hideLoading()
-      if (error.errMsg && error.errMsg.includes('cancel')) {
+      if (isImageSelectionCanceled(error)) {
         return
       }
       if (uploaded.length) {
         this.setData({ pendingAttachments: [...pendingAttachments, ...uploaded] })
       }
-      wx.showToast({ title: '上传失败', icon: 'none' })
+      console.error('illness attachment upload failed', error)
+      wx.showModal({
+        title: '单据图片上传失败',
+        content: getImageUploadErrorMessage(error, '单据图片'),
+        showCancel: false,
+      })
     }
   },
 

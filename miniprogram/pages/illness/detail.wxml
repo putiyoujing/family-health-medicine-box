@@ -38,7 +38,14 @@
     </view>
     <view class="field">
       <text class="field-label">记录时间</text>
-      <input class="input" data-field="recordedAt" value="{{eventForm.recordedAt}}" bindinput="onInput" />
+      <view class="recorded-time-grid">
+        <picker mode="date" value="{{eventForm.recordedDate}}" bindchange="onRecordedDateChange">
+          <view class="picker-value">{{eventForm.recordedDate}}</view>
+        </picker>
+        <picker mode="time" value="{{eventForm.recordedTime}}" bindchange="onRecordedTimeChange">
+          <view class="picker-value">{{eventForm.recordedTime}}</view>
+        </picker>
+      </view>
     </view>
     <view wx:if="{{eventForm.eventType === 'symptom'}}">
       <view class="field">
@@ -173,3 +180,4 @@
     <button class="delete-record-btn" bindtap="remove">删除病程</button>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

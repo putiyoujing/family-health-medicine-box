@@ -1,6 +1,6 @@
 # 家人健康记小程序开发结果总结
 
-更新时间：2026-05-12
+更新时间：2026-07-24
 
 ## 1. 项目定位
 
@@ -91,7 +91,7 @@
 管理后台权限：
 
 - C 端小程序不展示管理后台入口。
-- Web 管理后台支持 `ADMIN_WEB_TOKEN` 作为接口访问 token。
+- Web 管理后台使用 CloudBase Web Auth 会话，通过 Event Function 调用 `adminApi`，不使用浏览器共享管理 token。
 
 ## 5. Web 管理后台完成情况
 
@@ -107,8 +107,10 @@ Web 后台位于项目 `src/` 目录，使用 React + Vite 实现。
 - 左侧菜单已拆分为独立页面，后续每个模块可以单独扩展筛选、分页、导出和运营动作。
 - 数据总表：展示所有业务表总量、当前已载入行数和分表入口。
 - 分表详情：用户、家庭、订单、会员家庭、优惠券、AI 用量、药品、健康记录、用药记录、附件均有独立明细页。
-- 未配置真实接口时显示演示数据。
-- 配置真实接口后可读取 `adminApi` 的真实数据。
+- 生产和普通开发模式在配置 CloudBase 后进入 Web Auth 登录，并通过 Event Function 读取 `adminApi`。
+- `npm run dev:local` 明确使用本地可逆数据，不读取真实云数据。
+- 用户列表和家庭详情不返回 OpenID；家庭成员敏感健康字段仅 Owner 二次确认后临时查看。
+- 管理操作审计可定位用户、反馈、家庭、兑换码批次和订单目标，并标记敏感查看。
 
 线上后台当前已通过 GitHub Pages 发布：
 
@@ -167,10 +169,9 @@ Web 后台位于项目 `src/` 目录，使用 React + Vite 实现。
 - 微信小程序正式 AppID
 - 微信云开发正式环境 ID
 - 云数据库集合权限与索引
-- 管理员 openid 写入 `admins` 集合
-- `ADMIN_WEB_TOKEN`
-- Web 管理后台真实接口地址 `VITE_ADMIN_API_BASE`
-- Web 管理后台访问 token `VITE_ADMIN_API_TOKEN`
+- CloudBase Auth 管理员 UID 以 `authUid` 写入 `admins` 集合，并设置 `role=owner`、`status=active`
+- Web 管理后台配置 `VITE_CLOUDBASE_ENV_ID`、`VITE_CLOUDBASE_REGION` 和 `VITE_CLOUDBASE_PUBLISHABLE_KEY`
+- 完成 Owner 登录、非管理员拒绝和 `adminApi` Event Function 真实数据访问验收
 - 上传并部署 `paymentApi` 云函数
 - 在云数据库创建 `orders`、`subscriptions`、`coupons`、`coupon_redemptions`、`ai_usage_logs`
 - 微信小程序隐私协议、用户协议、医疗安全免责声明

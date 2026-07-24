@@ -1,9 +1,4 @@
 {
-  "permissions": {
-    "openapi": [
-      "subscribeMessage.send"
-    ]
-  },
   "triggers": [
     {
       "name": "healthTodoEveryMinute",

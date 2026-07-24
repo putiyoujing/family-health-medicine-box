@@ -22,7 +22,7 @@ Page({
 
   async load() {
     try {
-      const loggedIn = await ensureLoginReady()
+      const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
         return
       }

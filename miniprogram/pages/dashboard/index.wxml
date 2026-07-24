@@ -66,10 +66,10 @@
       </view>
     </view>
 
-    <button class="default-primary" bindtap="goAddMember">添加家庭成员</button>
-    <button class="default-secondary" bindtap="goQuickIllness">先记录一次症状</button>
+    <button class="default-primary" wx:if="{{showWriteEntries}}" bindtap="goAddMember">添加家庭成员</button>
+    <button class="default-secondary" wx:if="{{showWriteEntries}}" bindtap="goQuickIllness">先记录一次症状</button>
 
-    <view class="starter-card">
+    <view class="starter-card" wx:if="{{showWriteEntries}}">
       <view class="starter-title">可以从这里开始</view>
       <view class="starter-grid">
         <view class="starter-item starter-photo" bindtap="goMedicinePhoto">
@@ -101,7 +101,7 @@
         <view class="member-title">孩子生病不用靠回忆</view>
         <view class="muted">快速记下体温、症状、用药和复诊要点。</view>
       </view>
-      <button class="primary-btn hero-btn" bindtap="goQuickIllness">记一次生病</button>
+      <button class="primary-btn hero-btn" wx:if="{{showWriteEntries}}" bindtap="goQuickIllness">记一次生病</button>
     </view>
 
     <view class="stats-grid">
@@ -113,7 +113,7 @@
       <view class="stat-card action-card" data-target="medicines" bindtap="goByStat">
         <text>药箱记录</text>
         <view>{{stats.medicines || 0}}</view>
-        <text class="stat-action">管理药箱</text>
+        <text class="stat-action">{{showWriteEntries ? '管理药箱' : '查看药箱'}}</text>
       </view>
       <view class="stat-card action-card" data-target="illness" bindtap="goByStat">
         <text>健康记录</text>
@@ -123,11 +123,11 @@
       <view class="stat-card action-card" data-target="medication" bindtap="goByStat">
         <text>用药记录</text>
         <view>{{stats.medicationLogs || 0}}</view>
-        <text class="stat-action">记录用药</text>
+        <text class="stat-action">{{showWriteEntries ? '记录用药' : '查看用药'}}</text>
       </view>
     </view>
 
-    <view class="quick-grid">
+    <view class="quick-grid" wx:if="{{showWriteEntries}}">
       <button class="ghost-btn" bindtap="goQuickIllness">快速记录</button>
       <button class="ghost-btn" bindtap="createMedication">记录一次用药</button>
       <button class="ghost-btn" bindtap="goMedicinePhoto">拍照录入药品</button>
@@ -135,7 +135,8 @@
 
     <view class="section">
       <view class="section-title">进行中的病程</view>
-      <view wx:if="{{!activeCourses.length}}" class="empty" bindtap="goQuickIllness">暂无进行中的病程，点这里记录一次</view>
+      <view wx:if="{{!activeCourses.length && showWriteEntries}}" class="empty" bindtap="goQuickIllness">暂无进行中的病程，点这里记录一次</view>
+      <view wx:elif="{{!activeCourses.length}}" class="empty">暂无进行中的病程</view>
       <view class="card-list" wx:else>
         <view class="record-card" wx:for="{{activeCourses}}" wx:key="_id" data-id="{{item._id}}" bindtap="goIllnessDetail">
           <view class="record-head">
@@ -146,7 +147,7 @@
             <text class="pill">看时间线</text>
           </view>
           <view>{{item.summary || item.symptomDescription || '继续追加体温、症状、用药记录'}}</view>
-          <view class="card-actions">
+          <view class="card-actions" wx:if="{{showWriteEntries}}">
             <button class="ghost-btn action-btn" data-id="{{item._id}}" catchtap="addCourseEvent">追加记录</button>
             <button class="ghost-btn action-btn" data-id="{{item._id}}" data-member="{{item.memberId}}" catchtap="goCourseMedication">记录用药</button>
             <button class="ghost-btn action-btn" data-id="{{item._id}}" catchtap="goCourseReport">复诊摘要</button>
@@ -168,10 +169,10 @@
               <view class="record-title">{{item.name}}</view>
               <view class="muted">{{item.category}} · 剩余 {{item.remainingQuantity}}{{item.unit}}</view>
             </view>
-            <text class="pill warn-pill">{{item.expireDate}}</text>
+            <text class="expire-text {{item.expireStatus === 'expired' ? 'expire-expired' : 'expire-expiring'}}">{{item.expireLabel}}</text>
           </view>
           <view class="muted">位置：{{item.location || '未记录'}}</view>
-          <view class="card-actions">
+          <view class="card-actions" wx:if="{{showWriteEntries}}">
             <button class="ghost-btn action-btn" data-id="{{item._id}}" data-reason="expire" catchtap="handleMedicine">处理/修改</button>
             <button class="ghost-btn action-btn" catchtap="goMedicinePhoto">补拍包装</button>
           </view>
@@ -189,7 +190,7 @@
         <view class="record-card action-card" wx:for="{{lowStockMedicines}}" wx:key="_id" data-id="{{item._id}}" data-reason="stock" bindtap="handleMedicine">
           <view class="record-title">{{item.name}}</view>
           <view class="muted">{{item.stockSummary}}</view>
-          <view class="card-actions">
+          <view class="card-actions" wx:if="{{showWriteEntries}}">
             <button class="ghost-btn action-btn" data-id="{{item._id}}" data-reason="stock" catchtap="handleMedicine">补库存/修改</button>
           </view>
         </view>
@@ -201,7 +202,8 @@
         <text>最近病程</text>
         <text class="section-action" bindtap="goIllness">查看全部</text>
       </view>
-      <view wx:if="{{!illnessRecords.length}}" class="empty" bindtap="goQuickIllness">还没有病程，点这里记录一次</view>
+      <view wx:if="{{!illnessRecords.length && showWriteEntries}}" class="empty" bindtap="goQuickIllness">还没有病程，点这里记录一次</view>
+      <view wx:elif="{{!illnessRecords.length}}" class="empty">还没有病程记录</view>
       <view class="card-list" wx:else>
         <view class="record-card" wx:for="{{illnessRecords}}" wx:key="_id" data-id="{{item._id}}" bindtap="goIllnessDetail">
           <view class="record-head">
@@ -211,7 +213,7 @@
             </view>
           </view>
           <view>{{item.summary || item.symptomDescription || '暂无总结'}}</view>
-          <view class="card-actions">
+          <view class="card-actions" wx:if="{{showWriteEntries}}">
             <button class="ghost-btn action-btn" data-id="{{item._id}}" catchtap="addCourseEvent">追加</button>
             <button class="ghost-btn action-btn" data-id="{{item._id}}" catchtap="goCourseReport">摘要</button>
           </view>
@@ -221,3 +223,4 @@
 
   </block>
 </view>
+<global-auth-layer id="global-auth-layer" />

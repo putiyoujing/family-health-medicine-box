@@ -50,6 +50,8 @@ const expected = {
   'cloudfunctions/adminApi/index.js': {
     getDashboard: ['getDashboard'],
     getDataOverview: ['getDataOverview'],
+    getMembershipSettings: ['getMembershipSettings'],
+    updateMembershipSettings: ['updateMembershipSettings'],
     listUsers: ['pageList'],
     listFamilies: ['pageList'],
     listMedicines: ['pageList'],

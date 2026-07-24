@@ -54,7 +54,12 @@ async function callHealthApi(action, payload = {}) {
   }
 
   if (!result.result || !result.result.ok) {
-    throw new Error((result.result && result.result.message) || '服务暂不可用，请稍后再试')
+    const message = (result.result && result.result.message) || '服务暂不可用，请稍后再试'
+    if (action === 'getHome' && message === 'family not found or no permission') {
+      resetExpiredFamilySession(app)
+      throw new Error('LOGIN_REQUIRED')
+    }
+    throw new Error(message)
   }
 
   const data = result.result.data
@@ -65,6 +70,13 @@ async function callHealthApi(action, payload = {}) {
     app.globalData.currentFamilyId = data.family._id
   }
   return data
+}
+
+function resetExpiredFamilySession(app) {
+  invalidateHomeCache()
+  if (app && typeof app.resetLogin === 'function') {
+    app.resetLogin()
+  }
 }
 
 async function callPaymentApi(action, payload = {}) {
@@ -112,8 +124,11 @@ function normalizeCloudError(error, fallback) {
 }
 
 async function ensureCloudLogin(app) {
-  if (app && typeof app.ensureLogin === 'function') {
-    await app.ensureLogin()
+  if (app && app.globalData && app.globalData.useDemoData) {
+    return
+  }
+  if (!app || !app.globalData || !app.globalData.openid) {
+    throw new Error('LOGIN_REQUIRED')
   }
 }
 
@@ -239,8 +254,8 @@ async function updateFamilyRole(payload) {
   return callHealthOrDemo('updateFamilyRole', payload, demo.updateFamilyRole)
 }
 
-async function removeFamilyUser(openid) {
-  return callHealthOrDemo('removeFamilyUser', { openid }, () => demo.removeFamilyUser(openid))
+async function removeFamilyUser(roleId) {
+  return callHealthOrDemo('removeFamilyUser', { roleId }, () => demo.removeFamilyUser(roleId))
 }
 
 async function saveMember(payload) {

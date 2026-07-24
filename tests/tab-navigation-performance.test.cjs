@@ -67,7 +67,7 @@ test('getHome reuses recent data and invalidates it after a successful mutation'
   assert.equal(getHomeCalls, 4)
 })
 
-test('dashboard refreshes and medicine tab synchronizes local data from a fresh shared cache', () => {
+test('loaded tabs silently request fresh data so changes from another account appear on return', () => {
   for (const relativeFile of tabPages) {
     let pageDefinition
     let loadCalls = 0
@@ -98,10 +98,11 @@ test('dashboard refreshes and medicine tab synchronizes local data from a fresh 
     page.loadHome = page.load
     page.onShow()
 
-    const shouldReload = ['pages/dashboard/index.js', 'pages/medicines/index.js'].includes(relativeFile)
+    const shouldReload = ['pages/dashboard/index.js', 'pages/illness/index.js', 'pages/medicines/index.js', 'pages/profile/index.js'].includes(relativeFile)
     assert.equal(loadCalls, shouldReload ? 1 : 0, relativeFile)
-    if (relativeFile === 'pages/medicines/index.js') {
-      assert.equal(page.loadOptions && page.loadOptions.silent, true)
+    if (shouldReload) {
+      assert.equal(page.loadOptions && page.loadOptions.silent, true, relativeFile)
+      assert.equal(page.loadOptions && page.loadOptions.force, true, relativeFile)
     }
   }
 })
@@ -138,4 +139,30 @@ test('loaded tab pages request a silent refresh after the shared cache expires',
 
     assert.equal(loadOptions && loadOptions.silent, true, relativeFile)
   }
+})
+
+test('dashboard family member card opens family management directly', () => {
+  let pageDefinition
+  const navigatedUrls = []
+
+  loadCjsModule(path.join(root, 'miniprogram/pages/dashboard/index.js'), {
+    stubs: {
+      '../../services/api': {},
+    },
+    globals: {
+      Page(definition) {
+        pageDefinition = definition
+      },
+      wx: {
+        navigateTo({ url }) {
+          navigatedUrls.push(url)
+        },
+      },
+    },
+  })
+
+  const page = createPageInstance(pageDefinition)
+  page.goMembers()
+
+  assert.deepEqual(navigatedUrls, ['/pages/family/index'])
 })

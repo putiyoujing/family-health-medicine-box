@@ -1,15 +1,4 @@
 <view class="page">
-  <view class="page-title">
-    <text class="eyebrow">家庭用药时间线</text>
-    <view class="h1">用药记录</view>
-    <view class="page-subtitle">按实际服用时间查看剂量、反应和库存变化</view>
-  </view>
-
-  <block wx:if="{{!loading}}">
-    <button wx:if="{{canEdit}}" class="primary-btn add-btn" bindtap="createMedication">记录一次用药</button>
-    <view wx:else class="section readonly-notice">当前角色为查看者，可以查看记录，但不能新增、修改或作废。</view>
-  </block>
-
   <view class="section filter-section" wx:if="{{!loading}}">
     <input class="input search-input" placeholder="搜索药品、成员、病程或反应" value="{{query}}" bindinput="onSearch" />
     <view class="filter-row">
@@ -19,6 +8,10 @@
       <text class="clear-filter" wx:if="{{query || memberFilterIndex}}" bindtap="clearFilters">清除筛选</text>
     </view>
   </view>
+
+  <block wx:if="{{!loading}}">
+    <button wx:if="{{!loggedIn || canEdit}}" class="primary-btn add-btn" bindtap="createMedication">记录一次用药</button>
+  </block>
 
   <view class="loading-state" wx:if="{{loading}}">正在读取用药记录…</view>
   <view class="card-list" wx:else>
@@ -47,5 +40,7 @@
         <text class="void-action" data-id="{{item._id}}" catchtap="voidMedication">作废</text>
       </view>
     </view>
+    <view class="list-end" wx:if="{{filteredLogs.length}}">到底了哦</view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

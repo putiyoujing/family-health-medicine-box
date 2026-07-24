@@ -1,10 +1,11 @@
 const api = require('../../services/api')
 const { getAvatarPresetStyle } = require('../../utils/avatar-presets')
+const { ensureLoginReady } = require('../../utils/operation-guards')
+const { syncTabBar } = require('../../utils/tab-bar')
 
 Page({
   data: {
     loading: true,
-    loggingIn: false,
     loggedIn: false,
     family: {},
     entitlement: {
@@ -24,32 +25,18 @@ Page({
     memberLimit: 3,
   },
 
-  onShow() {
+  async onShow() {
+    syncTabBar(this, 4)
     const app = getApp()
     const hasPendingAction = !!(app.globalData && app.globalData.openMemberModal)
-    if (this.homeLoaded && api.isHomeCacheFresh() && !hasPendingAction) {
-      return
-    }
-    this.load({ silent: this.homeLoaded })
+    await this.load({ silent: this.homeLoaded && !hasPendingAction, force: true })
   },
 
   async load(options = {}) {
     if (!options.silent) {
       this.setData({ loading: true })
     }
-    const app = getApp()
-    let loggedIn = !!(app.globalData && app.globalData.openid)
-
-    if (!loggedIn && app.loginPromise) {
-      try {
-        await app.loginPromise
-        loggedIn = !!(app.globalData && app.globalData.openid)
-      } catch (error) {
-        loggedIn = false
-      }
-    }
-
-    if (!loggedIn) {
+    if (!await ensureLoginReady({ silent: true })) {
       this.showGuestState()
       return
     }
@@ -59,7 +46,7 @@ Page({
 
   async loadHome(options = {}) {
     try {
-      const home = await api.getHome()
+      const home = await api.getHome({ force: Boolean(options.force) })
       const user = home.user || {}
       const entitlement = home.entitlement || this.data.entitlement
       const members = (home.members || []).map((member) => ({
@@ -94,6 +81,10 @@ Page({
         }, 0)
       }
     } catch (error) {
+      if (error && error.message === 'LOGIN_REQUIRED') {
+        this.showGuestState()
+        return
+      }
       if (options.silent) {
         console.warn('profile refresh failed', error)
         return
@@ -117,28 +108,14 @@ Page({
   },
 
   async login() {
-    if (this.data.loggingIn) {
+    if (this.data.loggedIn) {
       return false
     }
-    const app = getApp()
-    if (!app || typeof app.ensureLogin !== 'function') {
-      wx.showToast({ title: '登录服务暂不可用', icon: 'none' })
+    if (!await ensureLoginReady()) {
       return false
     }
-
-    this.setData({ loggingIn: true })
-    wx.showLoading({ title: '登录中' })
-    try {
-      await app.ensureLogin({ force: true })
-      await this.loadHome()
-      return true
-    } catch (error) {
-      wx.showToast({ title: '微信登录失败，请稍后重试', icon: 'none' })
-      return false
-    } finally {
-      wx.hideLoading()
-      this.setData({ loggingIn: false })
-    }
+    await this.load({ force: true })
+    return true
   },
 
   async handleProfileTap() {
@@ -150,11 +127,8 @@ Page({
   },
 
   async navigateWithLogin(url) {
-    if (!this.data.loggedIn) {
-      const loggedIn = await this.login()
-      if (!loggedIn) {
-        return
-      }
+    if (!await ensureLoginReady()) {
+      return
     }
     wx.navigateTo({ url })
   },

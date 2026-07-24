@@ -38,7 +38,7 @@
         <view class="member-avatar">{{item.initial}}</view>
         <view class="member-copy">
           <view class="record-title">{{item.name}}</view>
-          <view class="muted">{{item.relation || '关系未填写'}} · {{item.birthday || '生日未填写'}}</view>
+          <view class="muted">{{item.displayRelation}} · {{item.birthday || '生日未填写'}}</view>
           <view class="member-account-status {{item.accountStatus}}">{{item.accountStatusText}}</view>
         </view>
         <button class="member-invite-btn" wx:if="{{item.canInvite}}" data-id="{{item._id}}" catchtap="openMemberInvite">邀请本人</button>
@@ -62,6 +62,8 @@
         <button class="modal-close" bindtap="closeMemberModal">×</button>
       </view>
 
+      <scroll-view class="member-modal-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <view class="member-modal-body">
       <view class="field">
         <text class="field-label">昵称</text>
         <input class="input" data-field="name" value="{{form.name}}" bindinput="onMemberInput" placeholder="例如：爸爸、妈妈、小宝" />
@@ -94,12 +96,14 @@
         <view class="member-account-status {{selectedMember.accountStatus}}">{{selectedMember.accountStatusText}}</view>
         <button class="ghost-btn account-link-btn" wx:if="{{selectedMember.canInvite}}" data-id="{{selectedMember._id}}" bindtap="openMemberInvite">邀请本人关联微信</button>
         <view class="role-actions" wx:if="{{selectedMember.linkedRole && selectedMember.linkedRole.canManage}}">
-          <button class="ghost-btn tiny-btn" data-openid="{{selectedMember.linkedRole.openid}}" data-role="admin" bindtap="changeRole">设管理员</button>
-          <button class="ghost-btn tiny-btn" data-openid="{{selectedMember.linkedRole.openid}}" data-role="member" bindtap="changeRole">设协作者</button>
-          <button class="ghost-btn tiny-btn" data-openid="{{selectedMember.linkedRole.openid}}" data-role="viewer" bindtap="changeRole">设查看</button>
-          <button class="delete-btn" data-openid="{{selectedMember.linkedRole.openid}}" bindtap="removeUser">移除账号</button>
+          <button class="ghost-btn tiny-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" data-role="admin" bindtap="changeRole">设管理员</button>
+          <button class="ghost-btn tiny-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" data-role="member" bindtap="changeRole">设协作者</button>
+          <button class="ghost-btn tiny-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" data-role="viewer" bindtap="changeRole">设查看</button>
+          <button class="delete-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" bindtap="removeUser">移除账号</button>
         </view>
       </view>
+        </view>
+      </scroll-view>
       <view class="modal-actions">
         <button class="delete-member-btn" wx:if="{{memberModalMode === 'edit' && canManageFamily && (!selectedMember.linkedRole || selectedMember.linkedRole.role !== 'owner')}}" bindtap="deleteMember">归档这位成员</button>
         <button class="cancel-member-btn" bindtap="closeMemberModal">取消</button>
@@ -108,3 +112,4 @@
     </view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

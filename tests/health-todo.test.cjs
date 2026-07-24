@@ -167,15 +167,17 @@ test('health API validates todo relations and owns the subscription recipient', 
   assert.equal(fixture.savedReminders.length, 1)
 })
 
-test('reminder dispatcher declares subscribe permission and a one-minute timer', () => {
+test('reminder dispatcher uses server credentials and a one-minute timer', () => {
   const functionRoot = path.join(root, 'cloudfunctions/reminderDispatcher')
   const config = JSON.parse(fs.readFileSync(path.join(functionRoot, 'config.json'), 'utf8'))
   const source = fs.readFileSync(path.join(functionRoot, 'index.js'), 'utf8')
 
-  assert.ok(config.permissions.openapi.includes('subscribeMessage.send'))
   assert.ok(config.triggers.some((trigger) => trigger.type === 'timer' && trigger.config === '0 * * * * * *'))
   assert.match(source, /HEALTH_TODO_TEMPLATE_ID/)
-  assert.match(source, /subscribeMessage\.send/)
+  assert.match(source, /WECHAT_MINIPROGRAM_APP_ID/)
+  assert.match(source, /WECHAT_MINIPROGRAM_APP_SECRET/)
+  assert.match(source, /cgi-bin\/message\/subscribe\/send/)
+  assert.doesNotMatch(source, /cloud\.openapi\.subscribeMessage\.send/)
   assert.match(source, /deliveryStatus/)
 })
 

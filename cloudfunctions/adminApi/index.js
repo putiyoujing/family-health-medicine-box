@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk')
+const tcb = require('@cloudbase/node-sdk')
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
@@ -6,6 +7,9 @@ cloud.init({
 
 const db = cloud.database()
 const _ = db.command
+const auth = tcb.init({ env: cloud.DYNAMIC_CURRENT_ENV }).auth()
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
+const DEFAULT_ADMIN_AUTH_UID = String(process.env.DEFAULT_ADMIN_AUTH_UID || '').trim()
 
 const DATA_TABLES = [
   { id: 'users', name: '用户表', collection: 'users', statKey: 'users' },
@@ -24,22 +28,31 @@ const DATA_TABLES = [
 ]
 
 exports.main = async (event = {}) => {
-  const wxContext = cloud.getWXContext()
-  const openid = wxContext.OPENID
+  const caller = getAdminCaller()
   const action = event.action || 'getDashboard'
   const payload = event.payload || {}
 
   try {
-    await assertAdmin(openid)
-    await logAdminAccess(openid, action, payload)
+    const admin = await assertAdmin(caller)
+    await logAdminAccess(admin, action, payload)
 
     switch (action) {
       case 'getDashboard':
         return ok(await getDashboard())
       case 'getDataOverview':
         return ok(await getDataOverview())
+      case 'getMembershipSettings':
+        return ok(await getMembershipSettings())
+      case 'updateMembershipSettings':
+        return ok(await updateMembershipSettings(payload, admin))
       case 'listUsers':
         return ok(await pageList('users', payload))
+      case 'searchUsers':
+        return ok(await searchUsers(payload))
+      case 'getUserDetail':
+        return ok(await getUserDetail(payload))
+      case 'getFamilyDetail':
+        return ok(await getFamilyDetail(payload, admin))
       case 'listFamilies':
         return ok(await pageList('families', payload))
       case 'listMedicines':
@@ -52,6 +65,8 @@ exports.main = async (event = {}) => {
         return ok(await pageList('attachments', payload))
       case 'listFeedback':
         return ok(await pageList('feedback', payload))
+      case 'updateFeedback':
+        return ok(await updateFeedback(payload))
       case 'listOrders':
       case 'adminListOrders':
         return ok(await pageList('orders', payload))
@@ -78,7 +93,7 @@ exports.main = async (event = {}) => {
         return ok(await updateCoupon(payload))
       case 'batchGenerateCouponCodes':
       case 'adminBatchGenerateCouponCodes':
-        return ok(await batchGenerateCouponCodes(openid, payload))
+        return ok(await batchGenerateCouponCodes(admin.authUid || admin.openid || '', payload))
       case 'exportCouponCodes':
       case 'adminExportCouponCodes':
         return ok(await exportCouponCodes(payload))
@@ -88,6 +103,12 @@ exports.main = async (event = {}) => {
       case 'disableCouponCodeBatch':
       case 'adminDisableCouponCodeBatch':
         return ok(await disableCouponCodeBatch(payload))
+      case 'disableCoupon':
+      case 'adminDisableCoupon':
+        return ok(await disableCoupon(payload))
+      case 'disableCouponCode':
+      case 'adminDisableCouponCode':
+        return ok(await disableCouponCode(payload))
       default:
         return fail(`unknown admin action: ${action}`)
     }
@@ -97,32 +118,72 @@ exports.main = async (event = {}) => {
   }
 }
 
-async function assertAdmin(openid) {
-  if (!openid) {
-    throw new Error('admin login required')
-  }
-  const result = await db
-    .collection('admins')
-    .where({
-      openid,
-      status: 'active',
-    })
-    .limit(1)
-    .get()
-
-  if (!result.data.length) {
-    throw new Error('no admin permission')
+function getAdminCaller() {
+  const wxContext = cloud.getWXContext()
+  const userInfo = auth.getUserInfo()
+  return {
+    authUid: userInfo.uid || '',
+    openid: wxContext.OPENID || '',
   }
 }
 
-async function logAdminAccess(openid, action, payload = {}) {
+async function assertAdmin(caller) {
+  if (!caller.authUid && !caller.openid) {
+    throw new Error('admin login required')
+  }
+  const query = { status: 'active' }
+  if (caller.authUid) {
+    query.authUid = caller.authUid
+  } else {
+    query.openid = caller.openid
+  }
+  const result = await db.collection('admins').where(query).limit(1).get()
+
+  if (result.data.length) {
+    return result.data[0]
+  }
+  if (caller.authUid && caller.authUid === DEFAULT_ADMIN_AUTH_UID) {
+    const admin = {
+      authUid: caller.authUid,
+      name: 'Administrator',
+      role: 'owner',
+      status: 'active',
+      protected: true,
+    }
+    await db.collection('admins').add({
+      data: {
+        ...admin,
+        createdAt: db.serverDate(),
+        updatedAt: db.serverDate(),
+      },
+    })
+    return admin
+  }
+  throw new Error('no admin permission')
+}
+
+async function logAdminAccess(admin, action, payload = {}) {
   await db.collection('admin_operation_logs').add({
     data: {
       action,
-      adminOpenid: openid,
+      adminAuthUid: admin.authUid || '',
+      adminOpenid: admin.openid || '',
       createdAt: db.serverDate(),
       familyId: safeAuditValue(payload.familyId),
-      targetId: safeAuditValue(payload.id || payload._id || payload.batchId || payload.orderId),
+      sensitiveAccess: action === 'getFamilyDetail' && Boolean(payload.includeSensitive),
+      targetId: ['getMembershipSettings', 'updateMembershipSettings'].includes(action)
+        ? 'membership'
+        : safeAuditValue(
+          payload.userId
+          || payload.feedbackId
+          || payload.familyId
+          || payload.couponId
+          || payload.codeId
+          || payload.batchId
+          || payload.orderId
+          || payload.id
+          || payload._id,
+        ),
     },
   })
 }
@@ -273,14 +334,14 @@ async function getDashboard() {
     },
     trend,
     aiUsage,
-    recentUsers: recentUsers.data,
+    recentUsers: recentUsers.data.map(summarizeUser),
     recentIllness: recentIllness.data,
     recentMedication: recentMedication.data,
     recentOrders: recentOrders.data,
     recentSubscriptions: recentSubscriptions.data,
     recentCoupons: recentCoupons.data,
     recentCouponBatches: recentCouponBatches.data,
-    recentCouponCodes: recentCouponCodes.data,
+    recentCouponCodes: await decorateCouponCodeRows(recentCouponCodes.data),
     recentAiUsage: recentAiUsage.data,
     expiringMedicines: expiringMedicinesAll.slice(0, 20),
     lowStockMedicines: lowStockMedicinesAll.slice(0, 20),
@@ -377,9 +438,28 @@ async function trendCountWhere(collection, field, days, extraQuery) {
 }
 
 async function pageList(collection, payload) {
-  const limit = Math.min(Number(payload.limit || 50), 100)
+  const limit = normalizePageSize(payload.limit)
   const skip = Math.max(Number(payload.skip || 0), 0)
   const query = buildPageQuery(collection, payload)
+  const keyword = String(payload.keyword || payload.search || '').trim().toLowerCase()
+  if (keyword && ['coupons', 'coupon_codes', 'feedback'].includes(collection)) {
+    let rows = await decorateAdminRows(collection, (await allRows(collection, query)).data)
+    if (collection === 'coupons') {
+      const codeRows = await decorateCouponCodeRows((await allRows('coupon_codes')).data)
+      const matchedCouponIds = new Set(codeRows.filter((row) => matchesKeyword(row, keyword)).map((row) => row.couponId))
+      rows = rows.filter((row) => matchedCouponIds.has(row._id) || matchesKeyword(row, keyword))
+    } else {
+      rows = rows.filter((row) => matchesKeyword(row, keyword))
+    }
+    rows.sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime())
+    return {
+      list: rows.slice(skip, skip + limit),
+      skip,
+      limit,
+      total: rows.length,
+      hasMore: skip + limit < rows.length,
+    }
+  }
   const collectionRef = db.collection(collection).where(query)
   const [countResult, result] = await Promise.all([
     collectionRef.count(),
@@ -387,12 +467,294 @@ async function pageList(collection, payload) {
   ])
   const total = countResult.total || 0
   return {
-    list: result.data,
+    list: await decorateAdminRows(collection, result.data),
     skip,
     limit,
     total,
     hasMore: skip + result.data.length < total,
   }
+}
+
+async function decorateAdminRows(collection, rows) {
+  if (collection === 'coupon_codes') return decorateCouponCodeRows(rows)
+  if (collection === 'feedback') return decorateFeedbackRows(rows)
+  if (collection === 'users') return rows.map(summarizeUser)
+  return rows
+}
+
+function matchesKeyword(row, keyword) {
+  return Object.values(row).some((value) => String(value || '').toLowerCase().includes(keyword))
+}
+
+async function decorateCouponCodeRows(rows) {
+  const openids = [...new Set(rows.map((row) => String(row.redeemedByOpenid || '')).filter(Boolean))]
+  if (!openids.length) {
+    return rows.map(omitInternalIdentifiers)
+  }
+  const usersByOpenid = new Map()
+  for (let index = 0; index < openids.length; index += 20) {
+    const result = await db
+      .collection('users')
+      .where({
+        openid: _.in(openids.slice(index, index + 20)),
+        deletedAt: _.exists(false),
+      })
+      .get()
+    result.data.forEach((user) => usersByOpenid.set(user.openid, user))
+  }
+  return rows.map((row) => {
+    const user = usersByOpenid.get(row.redeemedByOpenid)
+    return {
+      ...omitInternalIdentifiers(row),
+      redeemedUserId: user?.publicUserId || '',
+      redeemedUserNickname: user?.nickname || '',
+    }
+  })
+}
+
+async function decorateFeedbackRows(rows) {
+  const openids = [...new Set(rows.map((row) => String(row.openid || '')).filter(Boolean))]
+  if (!openids.length) return rows.map(omitInternalIdentifiers)
+  const usersByOpenid = new Map()
+  for (let index = 0; index < openids.length; index += 20) {
+    const result = await db.collection('users').where({ openid: _.in(openids.slice(index, index + 20)), deletedAt: _.exists(false) }).get()
+    result.data.forEach((user) => usersByOpenid.set(user.openid, user))
+  }
+  return rows.map((row) => {
+    const user = usersByOpenid.get(row.openid)
+    return { ...omitInternalIdentifiers(row), userId: user?.publicUserId || '', userNickname: user?.nickname || '' }
+  })
+}
+
+function omitInternalIdentifiers(row) {
+  const safe = { ...row }
+  delete safe.openid
+  delete safe._openid
+  delete safe.redeemedByOpenid
+  return safe
+}
+
+async function searchUsers(payload = {}) {
+  const keyword = String(payload.keyword || '').trim().toLowerCase()
+  if (!keyword) {
+    return pageList('users', payload)
+  }
+  const skip = Math.max(Number(payload.skip || 0), 0)
+  const limit = normalizePageSize(payload.limit)
+  const users = (await allRows('users')).data
+    .filter((user) => [user.nickname, user.publicUserId, user.phone, user.openid].some((value) => String(value || '').toLowerCase().includes(keyword)))
+    .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime())
+  return {
+    list: users.slice(skip, skip + limit).map(summarizeUser),
+    skip,
+    limit,
+    total: users.length,
+    hasMore: skip + limit < users.length,
+  }
+}
+
+function normalizePageSize(value) {
+  const pageSize = Number(value || 20)
+  return Number.isFinite(pageSize) ? Math.min(Math.max(Math.floor(pageSize), 1), 100) : 20
+}
+
+async function getUserDetail(payload = {}) {
+  const userId = String(payload.userId || payload.id || payload._id || '').trim()
+  if (!userId) {
+    throw new Error('userId is required')
+  }
+  const user = await safeGetDoc('users', userId)
+  if (!user) {
+    throw new Error('user not found')
+  }
+  const roles = (await allRows('family_roles', { openid: user.openid })).data
+  const families = (await Promise.all(roles.map((role) => safeGetDoc('families', role.familyId)))).filter(Boolean)
+  const subscriptions = (await allRows('subscriptions')).data
+  return {
+    user: summarizeUser(user),
+    families: families.map((family) => ({
+      ...summarizeFamily(family),
+      role: (roles.find((item) => item.familyId === family._id) || {}).role || '',
+      subscription: latestActiveSubscription(subscriptions, family._id),
+    })),
+  }
+}
+
+async function getFamilyDetail(payload = {}, admin) {
+  const familyId = String(payload.familyId || payload.id || payload._id || '').trim()
+  if (!familyId) {
+    throw new Error('familyId is required')
+  }
+  const includeSensitive = Boolean(payload.includeSensitive)
+  if (includeSensitive && admin.role !== 'owner') {
+    throw new Error('owner permission required to reveal sensitive information')
+  }
+  const family = await safeGetDoc('families', familyId)
+  if (!family) {
+    throw new Error('family not found')
+  }
+  const [roles, members, subscriptions, medicines, illnessRecords, medicationLogs, feedback] = await Promise.all([
+    allRows('family_roles', { familyId }),
+    allRows('family_members', { familyId }),
+    allRows('subscriptions', { familyId }),
+    allRows('medicines', { familyId }),
+    allRows('illness_records', { familyId }),
+    allRows('medication_logs', { familyId }),
+    allRows('feedback', { familyId }),
+  ])
+  const roleByMemberId = new Map(roles.data.filter((role) => role.memberId).map((role) => [role.memberId, role]))
+  const memberOpenids = [...new Set([...roleByMemberId.values()].map((role) => role.openid).filter(Boolean))]
+  const usersByOpenid = new Map()
+  for (let index = 0; index < memberOpenids.length; index += 20) {
+    const userResult = await db.collection('users').where({ openid: _.in(memberOpenids.slice(index, index + 20)), deletedAt: _.exists(false) }).get()
+    userResult.data.forEach((user) => usersByOpenid.set(user.openid, user))
+  }
+  return {
+    family: summarizeFamily(family),
+    members: members.data.map((member) => {
+      const role = roleByMemberId.get(member._id)
+      const user = usersByOpenid.get(role?.openid)
+      return {
+        ...summarizeMember(member, includeSensitive),
+        accountRole: role?.role || '',
+        publicUserId: user?.publicUserId || '',
+      }
+    }),
+    roles: roles.data.map((role) => ({ familyId: role.familyId, memberId: role.memberId || '', role: role.role, createdAt: role.createdAt })),
+    subscription: latestActiveSubscription(subscriptions.data, familyId),
+    stats: {
+      medicines: medicines.data.length,
+      illnessRecords: illnessRecords.data.length,
+      medicationLogs: medicationLogs.data.length,
+      members: members.data.length,
+    },
+    recent: {
+      medicines: latestRows(medicines.data, 5).map(summarizeMedicine),
+      illnessRecords: latestRows(illnessRecords.data, 5).map(summarizeIllness),
+      medicationLogs: latestRows(medicationLogs.data, 5).map(summarizeMedication),
+      feedback: latestRows(feedback.data, 5).map(summarizeFeedback),
+    },
+    canRevealSensitive: admin.role === 'owner',
+    sensitiveFieldsIncluded: includeSensitive,
+  }
+}
+
+async function updateFeedback(payload = {}) {
+  const feedbackId = String(payload.feedbackId || payload.id || payload._id || '').trim()
+  const status = String(payload.status || '').trim()
+  const operatorNote = String(payload.operatorNote || '').trim()
+  if (!feedbackId) {
+    throw new Error('feedbackId is required')
+  }
+  if (!['new', 'in_progress', 'resolved', 'closed'].includes(status)) {
+    throw new Error('invalid feedback status')
+  }
+  if (operatorNote.length > 500) {
+    throw new Error('operator note is too long')
+  }
+  await db.collection('feedback').doc(feedbackId).update({
+    data: {
+      status,
+      operatorNote,
+      updatedAt: db.serverDate(),
+    },
+  })
+  return { id: feedbackId, status }
+}
+
+async function getMembershipSettings() {
+  try {
+    const result = await db.collection('app_configs').doc('membership').get()
+    return {
+      membershipPurchaseGuide: String(result.data && result.data.membershipPurchaseGuide || '').trim()
+        || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE,
+    }
+  } catch (error) {
+    console.warn('membership settings unavailable', error.message)
+    return { membershipPurchaseGuide: DEFAULT_MEMBERSHIP_PURCHASE_GUIDE }
+  }
+}
+
+async function updateMembershipSettings(payload = {}, admin = {}) {
+  const membershipPurchaseGuide = String(payload.membershipPurchaseGuide || '').trim()
+  if (!membershipPurchaseGuide) {
+    throw new Error('会员购买提示不能为空')
+  }
+  if (membershipPurchaseGuide.length > 120) {
+    throw new Error('会员购买提示不能超过 120 个字')
+  }
+  await db.collection('app_configs').doc('membership').set({
+    data: {
+      membershipPurchaseGuide,
+      updatedAt: db.serverDate(),
+      updatedBy: admin.authUid || admin.openid || '',
+    },
+  })
+  return { membershipPurchaseGuide }
+}
+
+function latestRows(rows, limit) {
+  return [...rows]
+    .sort((left, right) => new Date(right.createdAt || right.updatedAt || 0).getTime() - new Date(left.createdAt || left.updatedAt || 0).getTime())
+    .slice(0, limit)
+}
+
+function latestActiveSubscription(rows, familyId) {
+  return latestRows(
+    rows.filter((row) => row.familyId === familyId && row.status === 'active'),
+    1,
+  )[0] || null
+}
+
+function summarizeUser(user) {
+  return {
+    _id: user._id,
+    createdAt: user.createdAt,
+    lastLoginAt: user.lastLoginAt,
+    nickname: user.nickname || '',
+    publicUserId: user.publicUserId || '',
+  }
+}
+
+function summarizeFamily(family) {
+  return {
+    _id: family._id,
+    createdAt: family.createdAt,
+    name: family.name || '',
+    plan: family.plan || 'free',
+    proExpireAt: family.proExpireAt || null,
+  }
+}
+
+function summarizeMember(member, includeSensitive) {
+  const summary = {
+    _id: member._id,
+    birthDate: member.birthDate || '',
+    gender: member.gender || '',
+    name: member.name || '',
+    relation: member.relation || '',
+  }
+  if (includeSensitive) {
+    summary.allergyHistory = member.allergyHistory || ''
+    summary.medicalHistory = member.medicalHistory || ''
+  }
+  return summary
+}
+
+function summarizeMedicine(medicine) {
+  return { _id: medicine._id, expireDate: medicine.expireDate || '', name: medicine.name || '', status: medicine.status || '' }
+}
+
+function summarizeIllness(record) {
+  return { _id: record._id, createdAt: record.createdAt, status: record.status || '', title: record.title || record.name || '' }
+}
+
+function summarizeMedication(record) {
+  return { _id: record._id, createdAt: record.createdAt, medicineName: record.medicineName || '', status: record.status || '' }
+}
+
+function summarizeFeedback(record) {
+  return { _id: record._id, createdAt: record.createdAt, status: record.status || 'new', type: record.type || '' }
 }
 
 function buildPageQuery(collection, payload = {}) {
@@ -486,6 +848,7 @@ function normalizeCouponPayload(payload) {
     code: payload.code ? String(payload.code).trim().toUpperCase() : undefined,
     codeMode: payload.codeMode || 'shared_code',
     codePurpose: payload.codePurpose || payload.purpose || 'discount',
+    channel: payload.channel || '',
     type: payload.type || 'fixed_amount',
     value: Number(payload.value || 0),
     redeemPlanId: payload.redeemPlanId || '',
@@ -503,7 +866,7 @@ function normalizeCouponPayload(payload) {
   }
 }
 
-async function batchGenerateCouponCodes(adminOpenid, payload = {}) {
+async function batchGenerateCouponCodes(adminId, payload = {}) {
   const quantity = Math.min(Math.max(Number(payload.quantity || 0), 1), 1000)
   const codeLength = Math.min(Math.max(Number(payload.codeLength || 8), 6), 16)
   const prefix = normalizeCodePrefix(payload.prefix || 'XHSVIP')
@@ -525,7 +888,7 @@ async function batchGenerateCouponCodes(adminOpenid, payload = {}) {
       codeLength,
       generatedCount: 0,
       exportedAt: null,
-      generatedByAdminId: payload.generatedByAdminId || adminOpenid || '',
+      generatedByAdminId: adminId,
       status: 'active',
       createdAt: now,
       updatedAt: now,
@@ -607,6 +970,7 @@ async function createMembershipRedeemCoupon(payload, prefix, redeemPlanId, redee
       startAt: payload.startAt || null,
       endAt: payload.endAt || null,
       familyId: '',
+      channel: payload.channel || 'xiaohongshu',
       status: 'active',
       createdAt: now,
       updatedAt: now,
@@ -694,13 +1058,16 @@ async function exportCouponCodes(payload = {}) {
     },
   })
 
-  const rows = result.data.map((item) => ({
+  const rows = (await decorateCouponCodeRows(result.data)).map((item) => ({
     code: item.code,
+    createdAt: item.createdAt || '',
     status: item.status,
     issueStatus: item.issueStatus || 'unissued',
     issuedChannel: item.issuedChannel || '',
     externalOrderId: item.externalOrderId || '',
     issuedToNote: item.issuedToNote || '',
+    redeemedAt: item.redeemedAt || '',
+    redeemedUser: formatRedeemedUser(item),
   }))
   return {
     batchId,
@@ -710,13 +1077,20 @@ async function exportCouponCodes(payload = {}) {
 }
 
 function buildCodesCsv(rows) {
-  const header = ['code', 'status', 'issueStatus', 'issuedChannel', 'externalOrderId', 'issuedToNote']
+  const header = ['code', 'status', 'issueStatus', 'issuedChannel', 'externalOrderId', 'issuedToNote', 'createdAt', 'redeemedAt', 'redeemedUser']
   const lines = rows.map((row) =>
     header
       .map((key) => `"${String(row[key] || '').replace(/"/g, '""')}"`)
       .join(','),
   )
   return [header.join(','), ...lines].join('\n')
+}
+
+function formatRedeemedUser(row) {
+  const nickname = String(row.redeemedUserNickname || '')
+  const publicUserId = String(row.redeemedUserId || '')
+  if (nickname && publicUserId) return `${nickname} (${publicUserId})`
+  return nickname || publicUserId || ''
 }
 
 async function markCouponCodeIssued(payload = {}) {
@@ -770,6 +1144,31 @@ async function disableCouponCodeBatch(payload = {}) {
     batchId,
     status: 'disabled',
   }
+}
+
+async function disableCoupon(payload = {}) {
+  const couponId = String(payload.id || payload._id || payload.couponId || '').trim()
+  if (!couponId) throw new Error('coupon id is required')
+  const coupon = await safeGetDoc('coupons', couponId)
+  if (!coupon || coupon.deletedAt) throw new Error('coupon not found')
+  const now = db.serverDate()
+  await db.collection('coupons').doc(couponId).update({
+    data: { status: 'disabled', disabledReason: payload.reason || 'manual_disabled', disabledAt: now, updatedAt: now },
+  })
+  await db.collection('coupon_codes').where({ couponId, status: 'active', deletedAt: _.exists(false) }).update({
+    data: { status: 'disabled', disabledReason: 'coupon_disabled', updatedAt: now },
+  })
+  return { id: couponId, status: 'disabled' }
+}
+
+async function disableCouponCode(payload = {}) {
+  const record = await getCouponCodeRecord(payload)
+  if (record.status === 'used') throw new Error('used coupon code cannot be disabled')
+  if (record.status === 'disabled') return { id: record._id, status: 'disabled' }
+  await db.collection('coupon_codes').doc(record._id).update({
+    data: { status: 'disabled', disabledReason: payload.reason || 'manual_disabled', updatedAt: db.serverDate() },
+  })
+  return { id: record._id, status: 'disabled' }
 }
 
 async function getCouponCodeRecord(payload = {}) {

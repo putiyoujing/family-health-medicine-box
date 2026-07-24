@@ -2,6 +2,8 @@ const api = require('../../services/api')
 const { ensureLoginReady } = require('../../utils/operation-guards')
 
 const PLAN_DISPLAY_ORDER = { monthly_pro: 0, yearly_pro: 1 }
+const MEMBERSHIP_DISPLAY_CACHE_KEY = 'membership-display-cache'
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
 
 const DEFAULT_PLANS = [
   {
@@ -46,7 +48,7 @@ Page({
     entitlement: DEFAULT_ENTITLEMENT,
     usage: {},
     familyPolicy: DEFAULT_FAMILY_POLICY,
-    plans: [],
+    plans: decoratePlans(DEFAULT_PLANS),
     benefitRows: buildBenefitRows(DEFAULT_ENTITLEMENT.limits, {}, DEFAULT_FAMILY_POLICY),
     comparisonRows: buildComparisonRows(),
     isFreeMembership: true,
@@ -55,10 +57,12 @@ Page({
     redeemInputFocused: false,
     redeeming: false,
     redeemResult: null,
+    membershipPurchaseGuide: DEFAULT_MEMBERSHIP_PURCHASE_GUIDE,
   },
 
   onLoad(options) {
     this.shouldFocusRedeem = options.focus === 'redeem'
+    this.restoreCachedMembershipDisplay()
   },
 
   onShow() {
@@ -72,7 +76,8 @@ Page({
 
   async load() {
     this.setData({ loading: true })
-    const loggedIn = await ensureLoginReady()
+    const planRequest = this.loadPlanDisplay()
+    const loggedIn = await ensureLoginReady({ silent: true })
     if (!loggedIn) {
       this.setData({ loading: false })
       return
@@ -86,27 +91,19 @@ Page({
     let planData = { plans: [] }
     let familyPolicy = this.data.familyPolicy
 
-    try {
-      membership = await api.getMembershipStatus()
-    } catch (error) {
-      membership = {
-        family: {},
-        entitlement: this.data.entitlement,
-        usage: {},
-        plans: [],
-      }
+    const [membershipResult, familyPolicyResult, planResult] = await Promise.allSettled([
+      api.getMembershipStatus(),
+      api.listMyFamilies(),
+      planRequest,
+    ])
+    if (membershipResult.status === 'fulfilled') {
+      membership = membershipResult.value
     }
-
-    try {
-      planData = await api.getPlans()
-    } catch (error) {
-      planData = { plans: [] }
+    if (planResult.status === 'fulfilled') {
+      planData = planResult.value
     }
-
-    try {
-      familyPolicy = await api.listMyFamilies()
-    } catch (error) {
-      familyPolicy = this.data.familyPolicy
+    if (familyPolicyResult.status === 'fulfilled') {
+      familyPolicy = familyPolicyResult.value
     }
 
     const planSource = pickPlans(planData.plans, membership.plans)
@@ -124,10 +121,53 @@ Page({
       benefitRows: buildBenefitRows(entitlement.limits || {}, usage, familyPolicy),
       isFreeMembership: isFreePlan(entitlement),
       expireText: formatExpireAt(entitlement.proExpireAt || entitlement.expireAt),
+      membershipPurchaseGuide: String(planData.membershipPurchaseGuide || '').trim()
+        || this.data.membershipPurchaseGuide
+        || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE,
     })
     if (this.shouldFocusRedeem) {
       this.shouldFocusRedeem = false
       this.focusRedeem()
+    }
+  },
+
+  async loadPlanDisplay() {
+    try {
+      const planData = await api.getPlans()
+      const membershipPurchaseGuide = String(planData.membershipPurchaseGuide || '').trim()
+        || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE
+      const plans = decoratePlans(pickPlans(planData.plans, this.data.plans))
+      this.setData({
+        membershipPurchaseGuide,
+        plans,
+      })
+      wx.setStorageSync(MEMBERSHIP_DISPLAY_CACHE_KEY, {
+        membershipPurchaseGuide,
+        plans,
+      })
+      return planData
+    } catch (error) {
+      console.warn('membership display config unavailable', error.message)
+      return { plans: [] }
+    }
+  },
+
+  restoreCachedMembershipDisplay() {
+    try {
+      const cached = wx.getStorageSync(MEMBERSHIP_DISPLAY_CACHE_KEY)
+      if (!cached || typeof cached !== 'object') {
+        return
+      }
+      const membershipPurchaseGuide = String(cached.membershipPurchaseGuide || '').trim()
+      const plans = Array.isArray(cached.plans) && cached.plans.length
+        ? decoratePlans(cached.plans)
+        : this.data.plans
+      this.setData({
+        ...(membershipPurchaseGuide ? { membershipPurchaseGuide } : {}),
+        plans,
+      })
+    } catch (error) {
+      console.warn('membership display cache unavailable', error.message)
     }
   },
 
@@ -189,11 +229,19 @@ function decoratePlans(plans) {
       (PLAN_DISPLAY_ORDER[a.planId] ?? 10 + Number(a.sort || 0))
       - (PLAN_DISPLAY_ORDER[b.planId] ?? 10 + Number(b.sort || 0))
     ))
-    .map((plan) => ({
-      ...plan,
-      priceText: formatMoney(plan.price),
-      audienceText: buildPlanAudienceText(plan),
-    }))
+    .map((plan) => {
+      const defaultPlan = DEFAULT_PLANS.find((item) => item.planId === plan.planId) || {}
+      const mergedPlan = {
+        ...defaultPlan,
+        ...plan,
+        badge: String(plan.badge || defaultPlan.badge || '').trim(),
+      }
+      return {
+        ...mergedPlan,
+        priceText: formatMoney(mergedPlan.price),
+        audienceText: buildPlanAudienceText(mergedPlan),
+      }
+    })
 }
 
 function buildPlanAudienceText(plan) {

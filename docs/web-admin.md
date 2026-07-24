@@ -1,8 +1,8 @@
 # Web 管理后台
 
-更新时间：2026-07-12
+更新时间：2026-07-24
 
-本项目包含面向产品运营人员的独立 Web 后台。公开部署的静态页面默认只能展示演示数据；真实健康数据必须通过带管理员登录会话的可信服务端网关访问。
+本项目包含面向产品运营人员的独立 Web 后台。生产环境使用 CloudBase Web Auth 用户名密码会话，并通过 CloudBase Event Function 调用 `adminApi`。真实健康数据不会由浏览器直接查询数据库。
 
 ## 本地运行
 
@@ -11,46 +11,54 @@ npm install
 npm run dev
 ```
 
-开发模式自动使用 `/api/admin` 本地接口和 `.local-data/admin-store.json`，不需要把生产管理密钥放入浏览器。
+未配置 CloudBase 环境变量时，开发模式使用 `/api/admin` 本地接口和 `.local-data/admin-store.json`。配置 CloudBase 环境变量后，开发模式也会进入真实管理员登录流程。
+
+如本机已经配置 CloudBase，但只想使用可逆的本地模拟数据做界面测试：
+
+```bash
+npm run dev:local
+```
+
+`local-admin` 模式只有在 Vite 开发环境中生效，生产构建仍强制使用 CloudBase 登录配置。
 
 ## 生产连接方式
 
-前端只接受一个公开配置：
+前端使用以下公开配置：
 
 ```env
-VITE_ADMIN_API_BASE=https://your-authenticated-admin-gateway.example.com/api/admin
+VITE_CLOUDBASE_ENV_ID=family-health-prod-d9csm29f27d75
+VITE_CLOUDBASE_REGION=ap-shanghai
+VITE_CLOUDBASE_PUBLISHABLE_KEY=从云开发身份认证获取的-Publishable-Key
 ```
 
-生产网关必须：
+`Publishable Key` 是浏览器公开配置，不是服务端密钥。严禁把 SecretId、SecretKey、API Key、管理员密码或共享管理 token 放进任何 `VITE_*` 变量。
 
-- 有独立的管理员登录、会话过期和退出能力。
-- 使用 `HttpOnly`、`Secure`、合适 `SameSite` 的 Cookie 保存会话。
-- 在服务端校验管理员身份和权限，再调用微信云环境。
-- 限制允许来源，不能使用 `Access-Control-Allow-Origin: *` 搭配敏感接口。
-- 对敏感详情查看、导出、兑换码操作等写入审计日志。
-- 不把服务端密钥、管理员 token 或云开发密钥返回给浏览器。
+生产调用链：
 
-严禁使用 `VITE_ADMIN_API_TOKEN`、`VITE_*SECRET` 等变量保存共享管理密钥。所有 `VITE_*` 变量都会进入浏览器静态包，访问者可直接读取。
+1. 浏览器调用 `auth.signInWithPassword({ username, password })`。
+2. 页面使用 `auth.getSession()` 判断是否存在真实登录会话。
+3. 登录成功后使用 `cloudbaseApp.callFunction()` 调用 `adminApi` Event Function。
+4. `adminApi` 从调用上下文读取认证 UID，并查询 `admins` 集合。
+5. 仅 `status=active` 的管理员记录可以继续访问业务数据。
 
-当前仓库尚未包含生产管理员登录网关，因此：
-
-- GitHub Pages 版本只能作为无真实数据的演示后台。
-- 不得把 `adminApi` 直接以共享 token 方式暴露到公网。
-- 正式连接真实数据前，`npm run check:release:production` 应保持失败。
+不得用请求参数传入 UID、OpenID 或角色来替代服务端身份判断。
 
 ## 云函数权限
 
-`cloudfunctions/adminApi` 不再接受浏览器共享 token。云函数调用必须带可信的微信身份上下文，并要求 `admins` 集合存在一条启用记录：
+`cloudfunctions/adminApi` 不接受浏览器共享 token。Web 管理员以 `authUid` 授权；小程序 OpenID 仅保留为兼容迁移路径：
 
 ```json
 {
-  "openid": "管理员 openid",
+  "authUid": "CloudBase Auth 用户 UID",
+  "role": "owner",
   "status": "active",
   "name": "管理员名称"
 }
 ```
 
-每次管理接口调用会向 `admin_operation_logs` 写入最小化审计信息，包括管理员、动作、目标 ID、家庭 ID 和时间；日志不得保存完整健康内容或密钥。
+每次管理接口调用会向 `admin_operation_logs` 写入最小化审计信息，包括管理员、动作、目标 ID、家庭 ID、是否查看敏感健康字段和时间；用户、反馈、家庭、兑换码批次及订单动作都必须能定位目标。日志不得保存完整健康内容、兑换码明文或密钥。
+
+运营中心可编辑会员中心的购买提示文案。配置保存在 `app_configs/membership` 文档的 `membershipPurchaseGuide` 字段中，不能为空且最多 120 字；审计日志只记录配置目标和操作动作，不保存完整文案。
 
 ## 当前模块
 
@@ -62,9 +70,10 @@ VITE_ADMIN_API_BASE=https://your-authenticated-admin-gateway.example.com/api/adm
 
 ## 上线前验收
 
-- 浏览器构建产物中不存在管理 token、secret 或 `ADMIN_WEB_TOKEN`。
-- 未登录、会话过期、错误角色全部返回 401/403。
+- 浏览器构建产物中不存在管理密钥、服务端 secret 或共享管理 token。
+- 未登录、会话过期、非管理员账号均无法读取真实数据。
 - 真实管理员可以分页查看授权范围内的数据。
 - 每次敏感查看、导出和写操作都有审计记录。
+- 用户列表和家庭详情不返回 OpenID；家庭成员默认隐藏过敏史和既往病史，仅 Owner 二次确认后临时查看。
 - 在桌面和 390px 移动宽度验证导航与表格可用。
-- 生产网关完成限流、CSRF 防护、会话撤销和安全告警。
+- `ADMIN_WEB_AUTH_E2E_PASSED=true` 只能在 Owner 登录、非管理员拒绝和真实 Event Function 调用全部通过后填写。

@@ -237,3 +237,10 @@ button::after {
   border: 1rpx solid #ddeee8;
   border-radius: 28rpx;
 }
+
+.list-end {
+  padding: 18rpx 0 8rpx;
+  color: #8aa19a;
+  font-size: 22rpx;
+  text-align: center;
+}

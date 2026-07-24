@@ -9,6 +9,7 @@ const db = cloud.database({
   throwOnNotFound: false,
 })
 const _ = db.command
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
 
 const PRO_LIMITS = {
   maxOwnedFamilies: 3,
@@ -37,6 +38,7 @@ const PLANS = [
     price: 990,
     displayPrice: '9.9',
     durationDays: 30,
+    badge: '灵活体验',
     sort: 1,
     benefits: PRO_LIMITS,
   },
@@ -74,10 +76,20 @@ exports.main = async (event = {}) => {
 }
 
 async function getPlans() {
-  const dbPlans = await safeGetPlansFromDb()
+  const [dbPlans, membershipPurchaseGuide] = await Promise.all([
+    safeGetPlansFromDb(),
+    getMembershipPurchaseGuide(),
+  ])
   return {
     plans: dbPlans.length ? dbPlans : PLANS,
+    membershipPurchaseGuide,
   }
+}
+
+async function getMembershipPurchaseGuide() {
+  const config = await safeGetDoc('app_configs', 'membership')
+  return String(config && config.membershipPurchaseGuide || '').trim()
+    || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE
 }
 
 async function previewOrder(openid, payload) {
@@ -159,7 +171,7 @@ async function applyCoupon(openid, payload) {
 
 async function redeemMembershipCode(openid, payload) {
   const familyId = await resolveFamilyId(openid, payload.familyId)
-  const managerRole = await assertFamilyManager(openid, familyId)
+  await assertFamilyManager(openid, familyId)
   const code = normalizeRedeemCode(payload.code || payload.couponCode || payload.redeemCode)
   if (!code) {
     throw new Error('请输入会员兑换码')
@@ -170,14 +182,19 @@ async function redeemMembershipCode(openid, payload) {
     safeGetDoc('coupons', initialCodeRecord.couponId),
     safeGetDoc('coupon_code_batches', initialCodeRecord.batchId),
   ])
+  const codeRecord = initialCodeRecord
+  validateMembershipCode(codeRecord)
+  validateMembershipCodeRule(initialCoupon, initialBatch)
   const initialPlanConfig = resolveMembershipCodePlan(initialCodeRecord, initialCoupon, initialBatch)
+  const redeemDurationDays = initialPlanConfig.durationDays
   const plan = {
     ...(await getPlan(initialPlanConfig.planId)),
-    durationDays: initialPlanConfig.durationDays,
+    durationDays: redeemDurationDays,
   }
+  const expireAt = await getSubscriptionExpireAt(familyId, redeemDurationDays)
+  const membershipChange = await getMembershipChangeContext(familyId)
+  const externalOrderId = String(codeRecord.externalOrderId || payload.externalOrderId || '').trim()
   const now = db.serverDate()
-  const subscriptionId = createDeterministicDocumentId('mcodesub', initialCodeRecord._id)
-  const redemptionId = createDeterministicDocumentId('mcoderedemption', initialCodeRecord._id)
 
   const subscriptionResult = await db.collection('subscriptions').add({
     data: {
@@ -185,6 +202,7 @@ async function redeemMembershipCode(openid, payload) {
       orderId: '',
       externalOrderId,
       source: 'membership_code',
+      ...membershipChange,
       sourceCodeId: codeRecord._id,
       code,
       planId: plan.planId,
@@ -323,6 +341,7 @@ async function mockPaymentSuccess(openid, payload) {
   const now = db.serverDate()
   const plan = await getPlan(order.planId)
   const expireAt = await getSubscriptionExpireAt(order.familyId, plan.durationDays)
+  const membershipChange = await getMembershipChangeContext(order.familyId)
   const tradeNo = `MOCK${Date.now()}`
 
   await db.collection('orders').doc(orderId).update({
@@ -338,6 +357,8 @@ async function mockPaymentSuccess(openid, payload) {
     data: {
       familyId: order.familyId,
       orderId,
+      source: 'mock_payment',
+      ...membershipChange,
       planId: order.planId,
       planName: order.planName,
       payerOpenid: order.payerOpenid,
@@ -536,6 +557,29 @@ function validateMembershipCodeRule(coupon, batch) {
   }
 }
 
+function resolveMembershipCodePlan(codeRecord, coupon, batch) {
+  const planId =
+    codeRecord.redeemPlanId ||
+    (batch && batch.redeemPlanId) ||
+    (coupon && coupon.redeemPlanId) ||
+    'yearly_pro'
+  const defaultPlan = PLANS.find((item) => item.planId === planId) || PLANS[0]
+  const requestedDurationDays = Number(
+    codeRecord.redeemDurationDays ||
+      (batch && batch.redeemDurationDays) ||
+      (coupon && coupon.redeemDurationDays) ||
+      (coupon && coupon.value) ||
+      defaultPlan.durationDays,
+  )
+  if (!Number.isFinite(requestedDurationDays) || requestedDurationDays < 1 || requestedDurationDays > 3650) {
+    throw new Error('兑换码会员时长无效')
+  }
+  return {
+    planId,
+    durationDays: Math.floor(requestedDurationDays),
+  }
+}
+
 async function safeGetDoc(collection, id) {
   if (!id) {
     return null
@@ -715,6 +759,16 @@ async function markCouponUsed(order, orderId, openid) {
       updatedAt: now,
     },
   })
+}
+
+async function getMembershipChangeContext(familyId) {
+  const family = await safeGetDoc('families', familyId)
+  const previousPlan = family?.plan === 'pro' ? 'pro' : 'free'
+  return {
+    changeType: previousPlan === 'free' ? 'upgrade' : 'renewal',
+    previousExpireAt: family?.proExpireAt || null,
+    previousPlan,
+  }
 }
 
 async function getSubscriptionExpireAt(familyId, durationDays) {

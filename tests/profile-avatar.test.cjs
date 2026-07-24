@@ -91,6 +91,13 @@ function loadLowStockPage({ getHome, updateUserProfile }) {
   }
 }
 
+test('guest profile keeps a default avatar beside the login entry', () => {
+  const source = fs.readFileSync(path.join(root, 'miniprogram/pages/profile/index.wxml'), 'utf8')
+
+  assert.match(source, /wx:else class="account-card guest-account-card"[\s\S]*class="account-avatar guest-avatar"/)
+  assert.match(source, /class="guest-avatar-icon" src="\/assets\/tabbar\/user-default\.png"/)
+})
+
 test('demo mode lets the user choose and save a preview avatar', async () => {
   let savedProfile
   let uploadCalls = 0

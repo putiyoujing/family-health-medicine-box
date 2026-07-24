@@ -249,6 +249,24 @@
   font-weight: 800;
 }
 
+.expire-text {
+  flex: 0 0 auto;
+  max-width: 240rpx;
+  color: #5f746f;
+  font-size: 23rpx;
+  font-weight: 800;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.expire-expiring {
+  color: #b86b00;
+}
+
+.expire-expired {
+  color: #a52222;
+}
+
 .card-actions {
   display: flex;
   flex-wrap: wrap;

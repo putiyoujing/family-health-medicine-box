@@ -32,7 +32,7 @@
       <view class="redeem-heading">
         <view>
           <view class="section-title redeem-title">{{isFreeMembership ? '兑换会员' : '续费会员'}}</view>
-          <view class="muted">可通过小红书搜索账号【XXlifelab】店铺购买兑换码。</view>
+          <view class="muted">{{membershipPurchaseGuide}}</view>
         </view>
         <view class="redeem-mark">兑</view>
       </view>
@@ -81,3 +81,4 @@
     </view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

@@ -2,11 +2,6 @@
   margin-bottom: 24rpx;
 }
 
-.readonly-notice {
-  color: #5f746f;
-  line-height: 1.6;
-}
-
 .filter-section {
   padding: 24rpx;
 }
