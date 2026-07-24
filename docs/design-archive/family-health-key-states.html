@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家人健康记｜关键状态补全</title>
+  <style>
+    :root{--bg:#f4f1eb;--paper:#fffdf9;--ink:#20312c;--muted:#6f7b75;--line:#ded8cf;--soft:#f7f3ec;--brand:#31584d;--brand-soft:#dfeae5;--warn:#c56a4a;--warn-soft:#f5e5dc;--blue:#52779b;--blue-soft:#e5edf5;--shadow:0 20px 40px rgba(55,45,34,.08)}
+    *{box-sizing:border-box}html,body{margin:0;background:var(--bg);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;color:var(--ink)}
+    body{width:1800px;padding:46px 56px 56px} h1{margin:0;font-size:34px}.sub{margin-top:10px;color:var(--muted);font-size:18px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:28px}.title{font-size:20px;font-weight:700;margin:0 0 12px 8px}
+    .phone{width:390px;height:820px;background:var(--paper);border-radius:34px;border:1px solid rgba(74,66,57,.14);box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:12px}
+    .mini{font-size:12px;color:var(--muted)}.ttl{font-size:24px;font-weight:700}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}.hero{background:linear-gradient(135deg,#f0ebe2,#fbf7f1)}.blue{background:var(--blue-soft)}
+    .pill{display:inline-block;background:var(--brand-soft);color:var(--brand);padding:7px 10px;border-radius:999px;font-size:12px;font-weight:700}.warn{background:var(--warn-soft);color:#8f4e38}.btn{height:46px;border-radius:14px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}.btn.light{background:var(--brand-soft);color:var(--brand)}
+    .muted{color:var(--muted);font-size:13px;line-height:1.55}.note{margin-top:auto;background:rgba(255,255,255,.72);border:1px solid rgba(109,101,89,.16);border-radius:16px;padding:12px;color:var(--muted);font-size:12px;line-height:1.55}
+  </style>
+  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+</head>
+<body>
+  <h1>家人健康记｜关键状态补全</h1>
+  <div class="sub">把主流程之外真正决定研发实现的空态、失败态、恢复态补齐，保证评审时没有“默认总会成功”的幻觉。</div>
+  <div class="grid">
+    <section><div class="title">S1 首页｜首次无病程</div><div class="phone"><div class="mini">家庭首页</div><div class="ttl">先建第一条健康记录</div><div class="card hero"><span class="pill">还没有病程</span><h3>今天先从一次生病记录开始</h3><p class="muted">后续体温、用药、检查单都会自动归入同一段病程。</p></div><div class="btn">＋ 记录一次生病</div><div class="note">首页空态：`getHome` 未返回进行中病程。</div></div></section>
+    <section><div class="title">S2 病程详情｜已恢复</div><div class="phone"><div class="mini">本次病程</div><div class="ttl">宝宝｜发烧咳嗽</div><div class="card blue"><span class="pill">已恢复</span><h3>本次病程已结束</h3><p class="muted">恢复于 5 月 17 日 09:20；仍可查看，不再默认继续追加。</p></div><div class="btn light">查看复诊摘要</div><div class="btn">重新打开病程</div><div class="note">恢复态：`illness_records.status = recovered`。</div></div></section>
+    <section><div class="title">S3 OCR｜解析失败</div><div class="phone"><div class="mini">附件解析</div><div class="ttl">这张图没看清</div><div class="card"><span class="pill warn">解析失败</span><p class="muted">可能是图片模糊、裁切不全或反光。当前不会写入正式病程。</p></div><div class="btn light">重新上传</div><div class="btn">手动录入关键信息</div><div class="note">失败态：`ai_tasks.status = failed`，附件仍不可进入时间线。</div></div></section>
+    <section><div class="title">S4 复诊摘要｜信息不足</div><div class="phone"><div class="mini">生成前检查</div><div class="ttl">还差一点信息</div><div class="card"><span class="pill warn">无法生成</span><p class="muted">当前只有 1 条症状事件，没有体温、用药或就诊记录。</p></div><div class="btn light">继续补记录</div><div class="btn">仍然生成简版</div><div class="note">保护性状态：避免把过少数据包装成“完整摘要”。</div></div></section>
+    <section><div class="title">S5 复诊摘要｜无问题直接生成</div><div class="phone"><div class="mini">生成前补充</div><div class="ttl">没有要补充的问题</div><div class="card"><p class="muted">你可以跳过“想问医生的问题”，系统会只基于已确认数据生成摘要。</p></div><div class="btn light">稍后再补</div><div class="btn">直接生成摘要</div><div class="note">允许 `questions[] = []`，但必须是用户明确跳过。</div></div></section>
+    <section><div class="title">S6 附件｜已拒绝</div><div class="phone"><div class="mini">附件确认</div><div class="ttl">这不是本次病程资料</div><div class="card"><span class="pill warn">已拒绝</span><p class="muted">附件保留在资料中，但不会派生正式事件，也不会进入摘要。</p></div><div class="btn light">重新归类</div><div class="btn">返回病程</div><div class="note">拒绝态：`attachments.status = rejected`。</div></div></section>
+  </div>
+</body>
+</html>

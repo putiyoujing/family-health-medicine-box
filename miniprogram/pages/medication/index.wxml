@@ -1,71 +1,46 @@
 <view class="page">
-  <view class="page-title">
-    <text class="eyebrow">用药记录</text>
-    <view class="h1">记录一次用药并扣库存</view>
+  <view class="section filter-section" wx:if="{{!loading}}">
+    <input class="input search-input" placeholder="搜索药品、成员、病程或反应" value="{{query}}" bindinput="onSearch" />
+    <view class="filter-row">
+      <picker class="member-filter" mode="selector" range="{{memberFilterOptions}}" range-key="name" value="{{memberFilterIndex}}" bindchange="onMemberFilterChange">
+        <view class="picker-value compact-picker">{{selectedMemberFilterName}}</view>
+      </picker>
+      <text class="clear-filter" wx:if="{{query || memberFilterIndex}}" bindtap="clearFilters">清除筛选</text>
+    </view>
   </view>
 
-  <button class="primary-btn add-btn" bindtap="toggleForm">{{showForm ? '收起表单' : '记录一次用药'}}</button>
+  <block wx:if="{{!loading}}">
+    <button wx:if="{{!loggedIn || canEdit}}" class="primary-btn add-btn" bindtap="createMedication">记录一次用药</button>
+  </block>
 
-  <view class="section" wx:if="{{showForm}}">
-    <view class="field">
-      <text class="field-label">家庭成员</text>
-      <picker mode="selector" range="{{members}}" range-key="name" bindchange="onMemberChange">
-        <view class="picker-value">选择成员</view>
-      </picker>
+  <view class="loading-state" wx:if="{{loading}}">正在读取用药记录…</view>
+  <view class="card-list" wx:else>
+    <view class="list-heading" wx:if="{{filteredLogs.length}}">
+      <text>全部记录</text>
+      <text class="muted">{{filteredLogs.length}} 条</text>
     </view>
-    <view class="field">
-      <text class="field-label">关联药品</text>
-      <picker mode="selector" range="{{medicines}}" range-key="name" bindchange="onMedicineChange">
-        <view class="picker-value">选择药品</view>
-      </picker>
+    <view wx:if="{{!filteredLogs.length}}" class="empty">
+      {{logs.length ? '没有符合筛选条件的记录' : '还没有用药记录'}}
     </view>
-    <view class="field">
-      <text class="field-label">关联健康记录</text>
-      <picker mode="selector" range="{{illnessRecords}}" range-key="summary" bindchange="onIllnessChange">
-        <view class="picker-value">可选</view>
-      </picker>
-    </view>
-    <view class="grid-2">
-      <view class="field">
-        <text class="field-label">本次剂量</text>
-        <input class="input" data-field="doseQuantity" value="{{form.doseQuantity}}" bindinput="onInput" type="digit" />
-      </view>
-      <view class="field">
-        <text class="field-label">单位</text>
-        <input class="input" data-field="doseUnit" value="{{form.doseUnit}}" bindinput="onInput" />
-      </view>
-    </view>
-    <view class="field">
-      <text class="field-label">服用时间</text>
-      <input class="input" data-field="takenAt" value="{{form.takenAt}}" bindinput="onInput" placeholder="2026-05-11 20:30" />
-    </view>
-    <view class="field">
-      <text class="field-label">频率说明</text>
-      <input class="input" data-field="frequencyText" value="{{form.frequencyText}}" bindinput="onInput" />
-    </view>
-    <view class="field">
-      <text class="field-label">用药后反应</text>
-      <textarea class="textarea" data-field="reaction" value="{{form.reaction}}" bindinput="onInput"></textarea>
-    </view>
-    <view class="field">
-      <text class="field-label">备注</text>
-      <textarea class="textarea" data-field="note" value="{{form.note}}" bindinput="onInput"></textarea>
-    </view>
-    <button class="primary-btn" bindtap="save">保存并扣减库存</button>
-  </view>
-
-  <view class="card-list">
-    <view wx:if="{{!logs.length}}" class="empty">还没有用药记录</view>
-    <view class="record-card" wx:for="{{logs}}" wx:key="_id">
+    <view class="record-card {{item.isVoided ? 'voided-record' : ''}}" wx:for="{{filteredLogs}}" wx:key="_id">
       <view class="record-head">
-        <view>
+        <view class="record-main">
           <view class="record-title">{{item.medicineName}}</view>
           <view class="muted">{{item.memberName}} · {{item.timeText}}</view>
         </view>
-        <text class="pill">已扣库存</text>
+        <text class="pill {{item.isVoided ? 'voided-pill' : 'stock-pill'}}">{{item.stockText}}</text>
       </view>
-      <view>{{item.doseQuantity}}{{item.doseUnit}} · {{item.frequencyText || '未填频率'}}</view>
-      <view class="muted">{{item.reaction || '暂无反应记录'}}</view>
+      <view class="dose-line">本次服用：{{item.doseQuantity}}{{item.doseUnit}}</view>
+      <view class="muted illness-line">{{item.illnessName}}</view>
+      <view class="record-detail"><text>用药后反应：</text>{{item.reaction || '未填写'}}</view>
+      <view class="record-detail note-clamp" wx:if="{{item.note}}"><text>备注：</text>{{item.note}}</view>
+      <view class="voided-note" wx:if="{{item.isVoided}}">{{item.statusText}}</view>
+      <view class="card-actions" wx:if="{{canEdit && !item.isVoided}}">
+        <button class="ghost-btn edit-btn" data-id="{{item._id}}" catchtap="editMedication">修改</button>
+        <text class="void-action" data-id="{{item._id}}" catchtap="voidMedication">作废</text>
+      </view>
     </view>
+    <view class="list-end" wx:if="{{filteredLogs.length}}">到底了哦</view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

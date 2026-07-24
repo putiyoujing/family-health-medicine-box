@@ -6,7 +6,52 @@
   margin-top: 22rpx;
 }
 
+.report-scroll {
+  height: 640rpx;
+  background: #ffffff;
+  border: 1rpx solid #cfe7e1;
+  border-radius: 28rpx;
+  overflow: hidden;
+}
+
 .report-text {
-  min-height: 520rpx;
+  padding: 24rpx 28rpx 40rpx;
+  color: #18322d;
   font-size: 24rpx;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.question-text {
+  min-height: 180rpx;
+}
+
+.copy-warning {
+  margin-top: 14rpx;
+  line-height: 1.65;
+}
+
+.copy-report-btn {
+  margin-top: 18rpx;
+}
+
+.image-report-btn {
+  margin-top: 18rpx;
+}
+
+.image-status {
+  margin-top: 14rpx;
+  text-align: center;
+}
+
+.report-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0.01;
+  pointer-events: none;
+  z-index: -1;
 }

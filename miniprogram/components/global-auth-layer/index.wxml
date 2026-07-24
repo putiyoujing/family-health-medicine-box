@@ -1,0 +1,73 @@
+<mp-dialog
+  wx:if="{{privacyVisible}}"
+  show="{{privacyVisible}}"
+  root-portal="{{true}}"
+  mask="{{true}}"
+  mask-closable="{{false}}"
+  title="隐私保护提示"
+>
+  <view class="privacy-copy">
+    为完成登录，需要使用你的头像和昵称。我们只在你主动操作时收集，并用于账户资料与家庭协作展示。
+  </view>
+  <button class="privacy-contract" size="mini" type="default" bindtap="openPrivacyContract">查看隐私保护指引</button>
+  <view class="privacy-actions">
+    <button class="privacy-action" size="mini" type="default" bindtap="onPrivacyReject">暂不使用</button>
+    <button
+      id="privacy-agree-button"
+      class="privacy-action"
+      size="mini"
+      type="primary"
+      open-type="agreePrivacyAuthorization"
+      bindagreeprivacyauthorization="onPrivacyAgree"
+    >同意并继续</button>
+  </view>
+</mp-dialog>
+
+<mp-half-screen-dialog
+  wx:if="{{loginVisible}}"
+  show="{{loginVisible}}"
+  root-portal="{{true}}"
+  mask="{{true}}"
+  maskClosable="{{false}}"
+  closabled="{{!submitting}}"
+  title="家人健康记 申请"
+  subTitle="获取你的昵称、头像"
+  buttons="{{loginButtons}}"
+  bindbuttontap="onLoginButtonTap"
+  bindclose="cancelLogin"
+>
+  <view slot="desc" class="profile-fields">
+    <button
+      class="avatar-row"
+      style="width: 100%; display: flex; align-items: center; justify-content: space-between; margin: 0; padding: 0; border: 0; background: transparent;"
+      open-type="chooseAvatar"
+      bindchooseavatar="onChooseAvatar"
+      disabled="{{submitting}}"
+    >
+      <text class="field-label">头像</text>
+      <view class="avatar-value" style="margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 16rpx;">
+        <image
+          class="avatar-preview"
+          src="{{avatarUrl || '/assets/tabbar/user-default.png'}}"
+          mode="aspectFill"
+        ></image>
+        <text class="field-arrow">›</text>
+      </view>
+    </button>
+    <view class="nickname-row">
+      <text class="field-label">昵称</text>
+      <input
+        class="nickname-input"
+        name="nickname"
+        type="nickname"
+        value="{{nickname}}"
+        placeholder="点击填写"
+        maxlength="80"
+        cursor-spacing="24"
+        disabled="{{submitting}}"
+        bindinput="onNicknameInput"
+        bindnicknamereview="onNicknameReview"
+      />
+    </view>
+  </view>
+</mp-half-screen-dialog>

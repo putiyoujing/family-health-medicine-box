@@ -1,47 +1,115 @@
-<view class="page">
+<view class="page family-page">
   <view class="page-title">
-    <text class="eyebrow">家庭共享</text>
-    <view class="h1">{{family.name || '家庭管理'}}</view>
+    <text class="eyebrow">家庭空间</text>
+    <view class="h1">家庭管理</view>
   </view>
 
-  <view class="section">
+  <view class="section family-summary-card">
     <view class="section-title">当前家庭</view>
-    <view class="record-card">
-      <view class="record-title">{{family.name || '我的家庭健康记录'}}</view>
-      <view class="muted">我的角色：{{family.role || 'owner'}}</view>
-      <view class="muted" wx:if="{{entitlement}}">权益：{{entitlement.planName}} · 共享成员上限 {{entitlement.limits.maxSharedUsers}} 人</view>
+    <view class="family-summary">
+      <view>
+        <view class="record-title">{{family.name || '我的家庭健康记录'}}</view>
+        <view class="muted">{{entitlement.planName || '免费版'}} · 可关联账号 {{entitlement.limits.maxSharedUsers || 2}} 人</view>
+      </view>
+      <view class="family-role">{{family.role || 'owner'}}</view>
     </view>
     <view class="grid-2 action-grid">
-      <button class="ghost-btn" bindtap="openSwitch">切换家庭</button>
+      <button class="ghost-btn" bindtap="openSwitch">管理家庭</button>
       <button class="ghost-btn" bindtap="openMembership">会员权益</button>
+      <button class="ghost-btn join-family-btn" bindtap="openAcceptInvite">输入邀请码加入家庭</button>
     </view>
   </view>
 
   <view class="section">
-    <view class="section-title">
-      <text>共享成员</text>
-      <button class="mini-btn" bindtap="openInvite">邀请家人</button>
+    <view class="section-title member-section-title">
+      <view>
+        <view>家庭人员</view>
+        <view class="section-hint">成员档案与协作账号统一管理</view>
+      </view>
+      <button class="mini-btn" wx:if="{{canEditFamily}}" bindtap="openMemberModal">添加成员</button>
     </view>
-    <view class="empty" wx:if="{{!roles.length}}">还没有共享成员</view>
-    <view class="record-card" wx:for="{{roles}}" wx:key="_id">
-      <view class="record-head">
-        <view>
-          <view class="record-title">{{item.nickname}}</view>
-          <view class="muted">{{item.roleLabel}} · {{item.isCurrentUser ? '我自己' : '家庭成员'}}</view>
+    <view class="member-quota">
+      <text>已添加 {{members.length || 0}} 位</text>
+      <text>{{members.length || 0}} / {{memberLimit}}</text>
+    </view>
+    <view class="empty" wx:if="{{!members.length}}">还没有成员，点击“添加成员”建立第一份家庭档案</view>
+    <view class="member-list" wx:else>
+      <view class="member-row" wx:for="{{members}}" wx:key="_id" data-id="{{item._id}}" bindtap="editMember">
+        <view class="member-avatar">{{item.initial}}</view>
+        <view class="member-copy">
+          <view class="record-title">{{item.name}}</view>
+          <view class="muted">{{item.displayRelation}} · {{item.birthday || '生日未填写'}}</view>
+          <view class="member-account-status {{item.accountStatus}}">{{item.accountStatusText}}</view>
         </view>
-        <text class="pill">{{item.roleLabel}}</text>
-      </view>
-      <view class="role-actions" wx:if="{{item.canManage}}">
-        <button class="ghost-btn tiny-btn" data-openid="{{item.openid}}" data-role="admin" bindtap="changeRole">设管理员</button>
-        <button class="ghost-btn tiny-btn" data-openid="{{item.openid}}" data-role="member" bindtap="changeRole">设协作者</button>
-        <button class="ghost-btn tiny-btn" data-openid="{{item.openid}}" data-role="viewer" bindtap="changeRole">设查看</button>
-        <button class="delete-btn" data-openid="{{item.openid}}" bindtap="removeUser">移除</button>
+        <button class="member-invite-btn" wx:if="{{item.canInvite}}" data-id="{{item._id}}" catchtap="openMemberInvite">邀请本人</button>
+        <text class="row-arrow">›</text>
       </view>
     </view>
   </view>
 
-  <view class="section">
+  <view class="section privacy-card">
     <view class="section-title">隐私提醒</view>
-    <view class="muted">邀请家人后，对方将能够根据角色权限查看或编辑该家庭空间内的药箱记录、健康记录、用药记录和附件。请仅邀请你信任的家庭成员。</view>
+    <view class="muted">邀请家人后，对方将能够根据角色权限查看或编辑该家庭空间内的药箱、病程、用药和附件。请仅邀请你信任的家庭成员。</view>
+  </view>
+
+  <view class="modal-mask" wx:if="{{showMemberModal}}" catchtap="closeMemberModal" catchtouchmove="noop">
+    <view class="member-modal" catchtap="noop">
+      <view class="modal-head">
+        <view>
+          <text class="eyebrow">家庭成员</text>
+          <view class="modal-title">{{memberModalMode === 'edit' ? '修改成员' : '添加成员'}}</view>
+        </view>
+        <button class="modal-close" bindtap="closeMemberModal">×</button>
+      </view>
+
+      <scroll-view class="member-modal-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <view class="member-modal-body">
+      <view class="field">
+        <text class="field-label">昵称</text>
+        <input class="input" data-field="name" value="{{form.name}}" bindinput="onMemberInput" placeholder="例如：爸爸、妈妈、小宝" />
+        <view class="field-help">填写家里日常使用的称呼，方便快速识别。</view>
+      </view>
+      <view class="field">
+        <text class="field-label">关系</text>
+        <input class="input" data-field="relation" value="{{form.relation}}" bindinput="onMemberInput" placeholder="例如：儿子、女儿、爸爸、妈妈" />
+        <view class="field-help">按家庭主要记录对象的视角填写，也可以填爷爷、奶奶等。</view>
+      </view>
+      <view class="field">
+        <text class="field-label">生日（选填）</text>
+        <picker mode="date" value="{{form.birthday || today}}" start="1900-01-01" end="{{today}}" bindchange="onBirthdayChange">
+          <view class="input picker-input {{form.birthday ? '' : 'picker-placeholder'}}">
+            <text>{{form.birthday || '请选择生日'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+      <view class="field">
+        <text class="field-label">过敏史（选填）</text>
+        <input class="input" data-field="allergyHistory" value="{{form.allergyHistory}}" bindinput="onMemberInput" placeholder="没有可填“无”" />
+      </view>
+      <view class="field">
+        <text class="field-label">健康备注（选填）</text>
+        <textarea class="textarea" data-field="medicalHistory" value="{{form.medicalHistory}}" bindinput="onMemberInput" placeholder="记录重要健康信息、长期关注事项或医生提醒"></textarea>
+      </view>
+      <view class="member-account-panel" wx:if="{{memberModalMode === 'edit'}}">
+        <view class="field-label">账号关联</view>
+        <view class="member-account-status {{selectedMember.accountStatus}}">{{selectedMember.accountStatusText}}</view>
+        <button class="ghost-btn account-link-btn" wx:if="{{selectedMember.canInvite}}" data-id="{{selectedMember._id}}" bindtap="openMemberInvite">邀请本人关联微信</button>
+        <view class="role-actions" wx:if="{{selectedMember.linkedRole && selectedMember.linkedRole.canManage}}">
+          <button class="ghost-btn tiny-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" data-role="admin" bindtap="changeRole">设管理员</button>
+          <button class="ghost-btn tiny-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" data-role="member" bindtap="changeRole">设协作者</button>
+          <button class="ghost-btn tiny-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" data-role="viewer" bindtap="changeRole">设查看</button>
+          <button class="delete-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" bindtap="removeUser">移除账号</button>
+        </view>
+      </view>
+        </view>
+      </scroll-view>
+      <view class="modal-actions">
+        <button class="delete-member-btn" wx:if="{{memberModalMode === 'edit' && canManageFamily && (!selectedMember.linkedRole || selectedMember.linkedRole.role !== 'owner')}}" bindtap="deleteMember">归档这位成员</button>
+        <button class="cancel-member-btn" bindtap="closeMemberModal">取消</button>
+        <button class="save-member-btn" bindtap="saveMember">{{memberModalMode === 'edit' ? '保存修改' : '保存成员'}}</button>
+      </view>
+    </view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

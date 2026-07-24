@@ -1,85 +1,84 @@
-<view class="page">
+<view class="page membership-page">
   <view class="member-hero">
-    <text class="eyebrow">会员中心</text>
-    <view class="h1">给家人留一份清晰的健康记录</view>
-    <view class="muted">当前家庭：{{family.name || '我的家庭健康记录'}}</view>
-    <view class="pill plan-pill">{{entitlement.planName || '免费版'}}</view>
+    <view class="hero-orbit orbit-one"></view>
+    <view class="hero-orbit orbit-two"></view>
+    <view class="hero-topline">
+      <text class="hero-label">当前会员等级</text>
+      <text class="hero-status">{{isFreeMembership ? 'FREE' : 'MEMBER'}}</text>
+    </view>
+    <view class="hero-plan">{{entitlement.planName || '免费版'}}</view>
+    <view class="hero-expire" wx:if="{{!isFreeMembership && expireText}}">有效期至 {{expireText}}</view>
+    <view class="hero-slogan" wx:else>给家人留一份清晰、可协作的长期健康记录</view>
   </view>
 
-  <view class="section">
-    <view class="section-title">选择套餐</view>
-    <view
-      class="plan-card {{item.badge ? 'recommend-plan' : ''}} {{item.active ? 'active-plan' : ''}}"
-      wx:for="{{plans}}"
-      wx:key="planId"
-      data-id="{{item.planId}}"
-      bindtap="choosePlan"
-    >
-      <view class="plan-copy">
-        <view class="record-title">{{item.name}}</view>
-        <view class="muted">{{item.durationDays}} 天 · {{item.badge || '适合先体验'}}</view>
-        <view class="plan-benefits">{{item.benefitsText}}</view>
-      </view>
-      <view class="plan-price">
-        <text>¥</text>{{item.priceText}}
-      </view>
+  <view class="section membership-action-card">
+    <view class="section-title membership-action-title">
+      <view>会员套餐</view>
+      <view class="recommend-badge">兑换开通</view>
     </view>
-  </view>
 
-  <view class="section">
-    <view class="section-title">
-      <text>优惠券</text>
-      <text class="coupon-link" bindtap="openCoupons">选择优惠券</text>
-    </view>
-    <view class="coupon-form">
-      <input value="{{couponCode}}" placeholder="输入优惠码" bindinput="onCouponInput" />
-      <button bindtap="applyCoupon" loading="{{paying}}">使用</button>
-    </view>
-    <view class="coupon-list" wx:if="{{coupons.length}}">
-      <view
-        class="coupon-chip {{couponCode === item.code ? 'active-coupon' : ''}}"
-        wx:for="{{coupons}}"
-        wx:key="_id"
-        data-code="{{item.code}}"
-        bindtap="chooseCoupon"
-      >
-        <text>{{item.code}}</text>
-        <text>{{item.discountPreview}}</text>
+    <view class="plan-list">
+      <view class="plan-card {{item.badge ? 'recommend-plan' : ''}}" wx:for="{{plans}}" wx:key="planId">
+        <view class="plan-name-line">
+          <text class="record-title">{{item.name}}</text>
+          <text class="plan-badge" wx:if="{{item.badge}}">{{item.badge}}</text>
+        </view>
+        <view class="plan-price"><text>¥</text>{{item.priceText}}</view>
+        <view class="plan-audience">{{item.audienceText}}</view>
       </view>
     </view>
-    <view wx:if="{{couponCode}}" class="muted clear-coupon" bindtap="clearCoupon">清除当前优惠码</view>
+
+    <view class="redeem-panel" id="redeem-section">
+      <view class="redeem-heading">
+        <view>
+          <view class="section-title redeem-title">{{isFreeMembership ? '兑换会员' : '续费会员'}}</view>
+          <view class="muted">{{membershipPurchaseGuide}}</view>
+        </view>
+        <view class="redeem-mark">兑</view>
+      </view>
+      <view class="redeem-form">
+        <input value="{{redeemCode}}" placeholder="输入会员兑换码" bindinput="onRedeemInput" focus="{{redeemInputFocused}}" />
+        <button bindtap="redeemMembershipCode" loading="{{redeeming}}">{{redeeming ? '兑换中' : '立即兑换'}}</button>
+      </view>
+      <view wx:if="{{redeemResult}}" class="redeem-result">
+        已激活 {{redeemResult.plan.name || '会员版'}}，到期时间：{{redeemResult.expireAt || '以会员状态为准'}}
+      </view>
+    </view>
+
+    <view class="benefits-panel">
+      <view class="benefits-title">会员权益</view>
+      <view class="comparison-table">
+        <view class="comparison-row comparison-head">
+          <text>权益</text>
+          <text>免费版</text>
+          <text>会员版</text>
+        </view>
+        <view class="comparison-row" wx:for="{{comparisonRows}}" wx:key="label">
+          <text class="comparison-label">{{item.label}}</text>
+          <text class="comparison-free">{{item.free}}</text>
+          <text class="comparison-pro">{{item.pro}}</text>
+        </view>
+      </view>
+    </view>
   </view>
 
-  <view class="section checkout-card">
-    <view class="section-title">订单预览</view>
-    <view class="checkout-row">
-      <text>原价</text>
-      <text>¥{{preview.originalAmount ? (preview.originalAmount / 100) : '0'}}</text>
+  <view class="section usage-card">
+    <view class="section-title usage-title">
+      <view>
+        <view>当前权益使用量</view>
+        <view class="section-subtitle">家庭数量按账号统计，其他用量按当前家庭统计</view>
+      </view>
+      <view class="plan-chip">{{entitlement.planName || '免费版'}}</view>
     </view>
-    <view class="checkout-row">
-      <text>优惠</text>
-      <text>- ¥{{preview.discountAmount ? (preview.discountAmount / 100) : '0'}}</text>
+    <view class="usage-row" wx:for="{{benefitRows}}" wx:key="label">
+      <view class="usage-line">
+        <text>{{item.label}}</text>
+        <text class="usage-number">{{item.used}} / {{item.limit}}</text>
+      </view>
+      <view class="usage-track">
+        <view class="usage-progress" style="width: {{item.progress}}%;"></view>
+      </view>
     </view>
-    <view class="checkout-row total-row">
-      <text>应付</text>
-      <text>¥{{preview.payableAmount ? (preview.payableAmount / 100) : '0'}}</text>
-    </view>
-    <button class="primary-action" bindtap="createOrder" loading="{{paying}}">
-      {{paying ? '处理中' : '确认开通'}}
-    </button>
-    <view class="muted payment-note">支付完成后，会员权益将立即同步到当前家庭。</view>
-  </view>
-
-  <view class="section">
-    <view class="section-title">当前权益用量</view>
-    <view class="benefit-row" wx:for="{{benefitRows}}" wx:key="label">
-      <text>{{item.label}}</text>
-      <text>{{item.used}} / {{item.limit}}</text>
-    </view>
-  </view>
-
-  <view class="section">
-    <view class="section-title">会员价值</view>
-    <view class="muted">会员可获得更多家庭成员、共享成员、AI 图片识别、长期健康记录保存、导出和健康月报能力。</view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

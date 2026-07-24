@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 screenshots/
+.local-data/
 *.local
 project.private.config.json
 

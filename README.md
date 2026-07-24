@@ -2,15 +2,26 @@
 
 这是知识库项目“家人健康记”的微信小程序版本，定位为家庭健康管理与记录工具，目标是对外发布，而不是单独的 Web 页面。
 
+## 当前版本与入口
+
+- 当前版本：`1.0.12`
+- GitHub：<https://github.com/putiyoujing/family-health-medicine-box>
+- 生产管理后台：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
+- GitHub Pages：历史演示入口，不作为生产后台或真实数据入口。
+- 发布记录：[CHANGELOG.md](CHANGELOG.md)
+
 ## 当前架构
 
 - `miniprogram/`：微信原生小程序前端
 - `cloudfunctions/login`：用户登录、openid 获取、首次家庭初始化
 - `cloudfunctions/healthApi`：统一业务后台接口
+- `cloudfunctions/reminderDispatcher`：每分钟派发到期的微信订阅消息
 - `cloudfunctions/paymentApi`：会员、订单、优惠券和支付确认接口
 - `cloudfunctions/adminApi`：管理后台统计接口
 - `docs/`：数据库与发布说明
 - `src/`：产品管理者使用的独立 Web 管理后台
+
+完整文档地图见 [docs/README.md](docs/README.md)。
 
 ## 已实现
 
@@ -24,8 +35,8 @@
 - 检查单 / 处方 / 外包装 / 说明书图片上传到云存储，并生成附件记录
 - 图片整理确认页：图片解析结果必须经用户确认后保存
 - AI 查询助手安全版，先基于数据库检索，不做诊断或处方
-- 家庭数据导出与就医沟通记录导出
-- 提醒管理：用药提醒、复诊提醒、药箱检查提醒
+- 病程复诊摘要导出
+- 健康待办：关联家庭成员和病程，支持用药、复诊、药箱检查及微信订阅提醒
 - 按家庭 `familyId` 做数据隔离
 - 会员中心：套餐选择、优惠券选择、订单创建、支付确认开通
 - 管理后台：用户、家庭、订单、会员家庭、优惠券、AI 用量、药品、记录、附件统计与列表
@@ -34,11 +45,12 @@
 ## 微信开发者工具运行
 
 1. 用微信开发者工具打开本仓库根目录。
-2. 在 `project.config.json` 中替换正式 `appid`。
-3. 在 `miniprogram/app.js` 中填写云开发环境 `ENV_ID`。
+2. 确认 `project.config.json` 中的正式 `appid` 与目标小程序一致。
+3. 确认 `miniprogram/app.js` 中的云开发环境 `ENV_ID` 与目标环境一致。
 4. 在云开发控制台创建数据库集合，见 [docs/wechat-cloud-database.md](docs/wechat-cloud-database.md)。
-5. 上传并部署 `cloudfunctions/login`、`cloudfunctions/healthApi`、`cloudfunctions/paymentApi` 和 `cloudfunctions/adminApi`。
-6. 编译运行小程序。
+5. 上传并部署 `cloudfunctions/login`、`cloudfunctions/healthApi`、`cloudfunctions/paymentApi`、`cloudfunctions/adminApi` 和 `cloudfunctions/reminderDispatcher`，并上传定时触发器。
+6. 按 [docs/wechat-cloud-database.md](docs/wechat-cloud-database.md) 配置健康待办订阅模板和云函数环境变量。
+7. 编译运行小程序。
 
 ## 管理后台
 
@@ -46,17 +58,18 @@
 
 - 独立 Web 管理后台：见 [docs/web-admin.md](docs/web-admin.md)。
 
-管理后台需要在云数据库 `admins` 集合中添加管理员 openid：
+管理后台使用 CloudBase Web Auth。需要把管理员账号的认证 UID 写入云数据库 `admins` 集合：
 
 ```json
 {
-  "openid": "管理员 openid",
+  "authUid": "CloudBase Auth 用户 UID",
+  "role": "owner",
   "status": "active",
   "name": "管理员名称"
 }
 ```
 
-## Web 原型验证
+## Web 管理后台本地验证
 
 如果需要查看上一版 Web 原型：
 
@@ -73,12 +86,13 @@ npm run dev
 
 三角色评估见 [docs/role-review-and-gap-plan.md](docs/role-review-and-gap-plan.md)。
 
-## 仍需真实环境配置
+## 当前未开放或待补证据
 
-- 微信云开发环境、数据库集合、云存储权限。
-- DeepSeek 或 OCR 图片识别服务密钥。当前已完成图片上传、AI 任务、额度记录和确认保存闭环。
-- 微信支付或虚拟支付商户配置。当前已完成订单、优惠券、支付确认和会员开通闭环。
-- 微信订阅消息模板 ID。当前已完成提醒记录管理。
+- 图片识别默认关闭；当前保留图片上传、任务、额度记录和用户确认保存闭环。
+- 首发商业化采用兑换码；真实微信支付或虚拟支付尚未开放。
+- 生产环境、5 个云函数、24 个 `ADMINONLY` 集合、管理后台静态托管及提醒定时触发器已核验。
+- 隐私配置、双账号隔离、iOS/Android 真机和真实提醒触达目前只有本地发布门禁声明，仍需保存可审计的截图或测试记录。
+- 生产 WeChat AppSecret 需要在发布前轮换；仓库不保存其值。
 
 ## 医疗安全边界
 

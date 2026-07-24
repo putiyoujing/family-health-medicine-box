@@ -1,0 +1,82 @@
+.privacy-copy {
+  font-size: 28rpx;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.privacy-contract {
+  margin: 24rpx 0 0;
+}
+
+.privacy-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+
+.privacy-action {
+  flex: 1;
+  margin: 0;
+}
+
+.profile-fields {
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: 8rpx;
+}
+
+.avatar-row,
+.nickname-row {
+  width: 100%;
+  min-height: 104rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1rpx solid #e5e5e5;
+  background: transparent;
+  color: #191919;
+  font-size: 32rpx;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.field-label {
+  flex: none;
+}
+
+.avatar-row::after {
+  border: 0;
+}
+
+.avatar-value {
+  margin-left: auto;
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.avatar-preview {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+}
+
+.field-arrow {
+  color: #576b95;
+  font-size: 48rpx;
+  line-height: 1;
+}
+
+.nickname-input {
+  flex: 1;
+  min-height: 104rpx;
+  margin-left: 32rpx;
+  text-align: right;
+}

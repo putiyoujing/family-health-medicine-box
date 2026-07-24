@@ -1,7 +1,29 @@
 <view class="page">
   <view class="page-title">
     <text class="eyebrow">多家庭</text>
-    <view class="h1">切换家庭空间</view>
+    <view class="h1">管理家庭空间</view>
+  </view>
+
+  <view class="section create-section">
+    <view class="section-title">创建家庭</view>
+    <view class="creation-summary">
+      <view>
+        <view class="record-title">已创建 {{ownedFamilyCount}} / {{maxOwnedFamilies}} 个</view>
+        <view class="muted" wx:if="{{multiFamilyPlan === 'free'}}">免费版可创建 1 个家庭，会员最多可创建 3 个</view>
+        <view class="muted" wx:else>会员最多可创建 3 个家庭，每个家庭独立管理成员和记录</view>
+      </view>
+      <text class="pill">{{multiFamilyPlan === 'free' ? '免费版' : '会员'}}</text>
+    </view>
+    <button class="primary-btn create-family-btn" wx:if="{{canCreateFamily && !showCreateForm}}" bindtap="openCreate">创建新家庭</button>
+    <button class="ghost-btn create-family-btn" wx:elif="{{multiFamilyPlan === 'free' && !showCreateForm}}" bindtap="goMembership">升级会员后创建多个家庭</button>
+    <view class="muted limit-tip" wx:elif="{{!showCreateForm}}">已达到会员家庭创建上限</view>
+    <view class="create-form" wx:if="{{showCreateForm}}">
+      <input class="input" maxlength="30" value="{{familyName}}" bindinput="onFamilyNameInput" placeholder="例如：爸妈健康记录" />
+      <view class="create-actions">
+        <button class="ghost-btn" bindtap="closeCreate">取消</button>
+        <button class="primary-btn" bindtap="create" loading="{{creating}}">{{creating ? '创建中' : '确认创建'}}</button>
+      </view>
+    </view>
   </view>
 
   <view class="section">
@@ -17,3 +39,4 @@
     </view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

@@ -1,97 +1,72 @@
 <view class="page">
-  <view class="page-title">
-    <text class="eyebrow">家庭药箱记录</text>
-    <view class="h1">药箱管理</view>
+  <view class="section search-section">
+    <view class="search-row">
+      <input class="input search-input" placeholder="搜索药品名、位置、标签" value="{{query}}" bindinput="onSearch" />
+      <button class="filter-toggle {{showFilters ? 'active-toggle' : ''}}" bindtap="toggleFilters">{{activeFilterLabel}}</button>
+    </view>
+    <view class="active-filter-bar" wx:if="{{activeFilterText}}">
+      <text>{{activeFilterText}}</text>
+      <text class="clear-filter" bindtap="clearFilters">清除</text>
+    </view>
+    <view class="filter-panel" wx:if="{{showFilters}}">
+      <view class="filter-block">
+        <view class="filter-label">成员</view>
+        <scroll-view scroll-x class="filter-scroll">
+          <view class="filter-chip {{item.active ? 'active-filter' : ''}}" wx:for="{{memberFilters}}" wx:key="value" data-value="{{item.value}}" bindtap="selectMemberFilter">{{item.label}}</view>
+        </scroll-view>
+      </view>
+      <view class="filter-block">
+        <view class="filter-label">分类</view>
+        <scroll-view scroll-x class="filter-scroll">
+          <view class="filter-chip {{item.active ? 'active-filter' : ''}}" wx:for="{{categoryFilters}}" wx:key="value" data-value="{{item.value}}" bindtap="selectCategory">{{item.label}}</view>
+        </scroll-view>
+      </view>
+      <view class="filter-block">
+        <view class="filter-label">标签</view>
+        <scroll-view scroll-x class="filter-scroll">
+          <view class="filter-chip {{item.active ? 'active-filter' : ''}}" wx:for="{{tagFilters}}" wx:key="value" data-value="{{item.value}}" bindtap="selectTag">{{item.label}}</view>
+        </scroll-view>
+      </view>
+      <view class="filter-summary">
+        <text>当前显示 {{filteredMedicines.length}} 个药品</text>
+        <text class="clear-filter" bindtap="clearFilters">重置筛选</text>
+      </view>
+    </view>
   </view>
 
-  <view class="section">
-    <input class="input" placeholder="搜索药品名、分类、位置" value="{{query}}" bindinput="onSearch" />
-  </view>
-
-  <button class="primary-btn add-btn" bindtap="toggleForm">{{showForm ? '收起表单' : '添加药品'}}</button>
-
-  <view class="section" wx:if="{{showForm}}">
-    <view class="photo-panel">
-      <view>
-        <view class="record-title">外包装/说明书照片</view>
-        <view class="muted">拍照留存名称、有效期、说明书，后续可用 AI 辅助整理。</view>
-      </view>
-      <button class="photo-btn" bindtap="chooseMedicinePhoto">拍照</button>
-    </view>
-    <view class="photo-preview" wx:if="{{pendingAttachment}}">
-      <image src="{{pendingAttachment.tempFilePath}}" mode="aspectFill"></image>
-      <view class="photo-preview-copy">
-        <view class="record-title">图片已暂存</view>
-        <view class="muted">保存药品后会自动关联这张图片。</view>
-        <button class="ghost-btn parse-btn" bindtap="openParse">AI 整理图片</button>
-      </view>
-    </view>
-
-    <view class="field">
-      <text class="field-label">药品名称</text>
-      <input class="input" data-field="name" value="{{form.name}}" bindinput="onInput" placeholder="例如：对乙酰氨基酚混悬液" />
-    </view>
-    <view class="grid-2">
-      <view class="field">
-        <text class="field-label">分类</text>
-        <input class="input" data-field="category" value="{{form.category}}" bindinput="onInput" />
-      </view>
-      <view class="field">
-        <text class="field-label">规格</text>
-        <input class="input" data-field="specification" value="{{form.specification}}" bindinput="onInput" placeholder="100ml/瓶" />
-      </view>
-    </view>
-    <view class="grid-2">
-      <view class="field">
-        <text class="field-label">总量</text>
-        <input class="input" data-field="totalQuantity" value="{{form.totalQuantity}}" bindinput="onInput" type="digit" />
-      </view>
-      <view class="field">
-        <text class="field-label">剩余量</text>
-        <input class="input" data-field="remainingQuantity" value="{{form.remainingQuantity}}" bindinput="onInput" type="digit" />
-      </view>
-    </view>
-    <view class="grid-2">
-      <view class="field">
-        <text class="field-label">单位</text>
-        <input class="input" data-field="unit" value="{{form.unit}}" bindinput="onInput" />
-      </view>
-      <view class="field">
-        <text class="field-label">有效期</text>
-        <input class="input" data-field="expireDate" value="{{form.expireDate}}" bindinput="onInput" placeholder="2027-12-31" />
-      </view>
-    </view>
-    <view class="field">
-      <text class="field-label">存放位置</text>
-      <input class="input" data-field="location" value="{{form.location}}" bindinput="onInput" />
-    </view>
-    <view class="field">
-      <text class="field-label">适用说明</text>
-      <textarea class="textarea" data-field="indicationsText" value="{{form.indicationsText}}" bindinput="onInput" placeholder="只记录说明书、医嘱或历史信息"></textarea>
-    </view>
-    <view class="field">
-      <text class="field-label">用法说明</text>
-      <textarea class="textarea" data-field="instructionText" value="{{form.instructionText}}" bindinput="onInput" placeholder="按说明书或医生医嘱记录"></textarea>
-    </view>
-    <button class="primary-btn" bindtap="save">保存药品</button>
-  </view>
+  <button class="primary-btn add-btn" wx:if="{{showWriteEntries}}" bindtap="createMedicine">添加药品</button>
 
   <view class="card-list">
+    <view class="list-heading" wx:if="{{filteredMedicines.length}}">
+      <text>药箱中的药品</text>
+      <text class="muted">{{filteredMedicines.length}} 个</text>
+    </view>
     <view wx:if="{{!filteredMedicines.length}}" class="empty">还没有药品记录</view>
-    <view class="record-card" wx:for="{{filteredMedicines}}" wx:key="_id">
+    <view class="record-card" wx:for="{{filteredMedicines}}" wx:key="_id" data-id="{{item._id}}" bindtap="editMedicine">
       <view class="record-head">
         <view>
           <view class="record-title">{{item.name}}</view>
-          <view class="muted">{{item.category || '未分类'}} · {{item.specification || '未填规格'}}</view>
+          <view class="muted">{{item.memberName}} · {{item.category || '未分类'}} · {{item.specification || '未填规格'}}</view>
         </view>
-        <text class="pill {{item.expireWarn ? 'warn-pill' : ''}}">{{item.expireDate || '未填有效期'}}</text>
+        <text class="expire-text {{item.expireStatus === 'expired' ? 'expire-expired' : item.expireStatus === 'expiring' ? 'expire-expiring' : ''}}">{{item.expireLabel}}</text>
       </view>
       <view class="stock-row">
-        <text>剩余 {{item.remainingQuantity || 0}} / {{item.totalQuantity || 0}}{{item.unit}}</text>
+        <text>{{item.stockSummary}}</text>
         <text>{{item.location || '未记录位置'}}</text>
       </view>
-      <view class="muted">{{item.indicationsText || item.instructionText || '暂无说明记录'}}</view>
-      <button class="delete-btn" data-id="{{item._id}}" bindtap="remove">删除</button>
+      <view class="tag-row" wx:if="{{item.tagList.length}}">
+        <text class="tag-label" wx:for="{{item.tagList}}" wx:key="*this">#{{item}}</text>
+      </view>
+      <view class="medicine-indication" wx:if="{{item.indicationsText}}"><text>适用：</text>{{item.indicationsText}}</view>
+      <view class="medicine-instruction" wx:if="{{item.instructionText}}"><text>用法：</text>{{item.instructionText}}</view>
+      <view class="muted medicine-indication" wx:if="{{!item.indicationsText && !item.instructionText}}">暂无说明记录</view>
+      <view class="medicine-actions" wx:if="{{showWriteEntries}}">
+        <button class="ghost-btn use-btn" data-id="{{item._id}}" catchtap="useMedicine">使用</button>
+        <button class="ghost-btn edit-btn" data-id="{{item._id}}" catchtap="editMedicine">修改</button>
+        <button class="delete-btn" data-id="{{item._id}}" catchtap="remove">删除</button>
+      </view>
     </view>
+    <view class="list-end" wx:if="{{filteredMedicines.length}}">到底了哦</view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

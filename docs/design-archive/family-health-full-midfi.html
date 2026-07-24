@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家人健康记｜前台全量中保真</title>
+  <style>
+    :root{
+      --bg:#f4f1eb;--paper:#fffdf9;--ink:#20312c;--muted:#6f7b75;--line:#ded8cf;--soft:#f7f3ec;
+      --brand:#31584d;--brand-soft:#dfeae5;--warn:#c56a4a;--warn-soft:#f5e5dc;--blue:#52779b;--blue-soft:#e5edf5;
+      --shadow:0 20px 40px rgba(55,45,34,.08);
+    }
+    *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif}
+    body{width:1800px;padding:46px 56px 56px}
+    h1{margin:0;font-size:34px}.sub{margin-top:10px;color:var(--muted);font-size:18px}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:28px}
+    .title{font-size:20px;font-weight:700;margin:0 0 12px 8px}
+    .phone{width:390px;height:820px;background:var(--paper);border-radius:34px;border:1px solid rgba(74,66,57,.14);box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:12px}
+    .status,.row{display:flex;justify-content:space-between;align-items:center}.mini{font-size:12px;color:var(--muted)}
+    .ttl{font-size:24px;font-weight:700}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}
+    .hero{background:linear-gradient(135deg,#f0ebe2,#fbf7f1)} .blue{background:var(--blue-soft)}
+    .pill{display:inline-block;background:var(--brand-soft);color:var(--brand);padding:7px 10px;border-radius:999px;font-size:12px;font-weight:700}
+    .warn{background:var(--warn-soft);color:#8f4e38}
+    .btn{height:46px;border-radius:14px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+    .btn.light{background:var(--brand-soft);color:var(--brand)}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}.chip{padding:7px 10px;border-radius:999px;background:var(--soft);font-size:12px}.chip.on{background:var(--brand);color:#fff}
+    .stack{display:grid;gap:10px}.muted{color:var(--muted);font-size:13px;line-height:1.55}.strong{font-weight:700}
+    .timeline{display:grid;gap:10px}.timeline b{display:block;font-size:14px}.timeline span{font-size:12px;color:var(--muted)}
+    .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.kpi .card{padding:10px}.kpi b{display:block;font-size:17px}
+    .sheet{display:grid;gap:10px}.sheet .card h4{margin:0 0 6px;font-size:14px}.sheet .card p,.sheet li{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+    ul{margin:0;padding-left:18px}
+    .note{margin-top:auto;background:rgba(255,255,255,.72);border:1px solid rgba(109,101,89,.16);border-radius:16px;padding:12px;color:var(--muted);font-size:12px;line-height:1.55}
+  </style>
+  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+</head>
+<body>
+  <h1>家人健康记｜前台全量中保真</h1>
+  <div class="sub">所有页面都围绕同一条系统主线展开：病程主表 + 病程事件 + 附件确认 + 复诊摘要快照。</div>
+
+  <div class="grid">
+    <section>
+      <div class="title">01 首页</div>
+      <div class="phone">
+        <div class="status"><span class="mini">9:41</span><span class="mini">100%</span></div>
+        <div class="mini">宝宝家庭</div><div class="ttl">晚上好，宝宝妈妈</div>
+        <div class="card hero"><span class="pill">今天最该做的事</span><h3>先记下一次关键变化</h3><div class="btn">＋ 记一次生病</div></div>
+        <div class="card"><div class="row"><b>进行中病程</b><span class="pill warn">第 2 天</span></div><h3>宝宝｜发烧 + 咳嗽</h3><p class="muted">最高 39.1℃｜最近更新 20:10</p><div class="btn light">继续记录</div></div>
+        <div class="card"><b>最近记录</b><p class="muted">08:20　38.6℃<br>12:10　布洛芬 5ml</p></div>
+        <div class="note">来源：`getHome` 返回进行中病程、最近事件、最近摘要。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">02 快速记录</div>
+      <div class="phone">
+        <div class="mini">20 秒快速记录</div><div class="ttl">先记关键变化</div>
+        <div class="card"><div class="row"><span class="mini">记录时间</span><b>今天 20:10</b></div><p class="muted">自动归入当前病程</p></div>
+        <div class="card"><div class="mini">症状</div><div class="chips"><span class="chip on">发烧</span><span class="chip on">咳嗽</span><span class="chip">流涕</span></div></div>
+        <div class="card"><div class="row"><span class="mini">体温</span><b>38.5 ℃</b></div></div>
+        <div class="card"><div class="mini">备注</div><p>夜里咳嗽明显，精神一般</p></div>
+        <div class="btn light">再记一条相似的</div><div class="btn">保存并继续病程</div>
+        <div class="note">保存后生成 `symptom / temperature / note` 事件。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">03 上传资料</div>
+      <div class="phone">
+        <div class="mini">附件暂存</div><div class="ttl">上传资料</div>
+        <div class="card hero"><b>＋ 上传检查单 / 处方 / 药盒照片</b><p class="muted">先暂存，不直接写入病程</p></div>
+        <div class="card"><b>检查单.jpg</b><p class="muted">状态：已上传，待解析</p></div>
+        <div class="btn">开始识别</div>
+        <div class="note">上传后只产生 `attachments.status = uploaded`。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">04 OCR 确认</div>
+      <div class="phone">
+        <div class="mini">人工确认</div><div class="ttl">请确认识别内容</div>
+        <div class="card blue"><b>识别为：检查单</b><p class="muted">采样时间：5 月 15 日 19:20<br>项目：血常规</p></div>
+        <div class="card"><b>关联到本次病程？</b><p class="muted">确认后生成“检查事件”</p></div>
+        <div class="btn light">仅保留附件</div><div class="btn">确认并写入病程</div>
+        <div class="note">经 `confirmAiParseResult` 后，才可派生正式事件。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">05 病程列表</div>
+      <div class="phone">
+        <div class="ttl">病程</div><div class="mini">宝宝 ▼　进行中 ▼</div>
+        <div class="card"><b>进行中</b><h3>宝宝｜发烧 + 咳嗽</h3><p class="muted">5 月 15 日开始｜最近更新 20:10</p></div>
+        <div class="card"><b>已恢复</b><h3>宝宝｜腹泻</h3><p class="muted">4 月 28 日｜持续 2 天</p></div>
+        <div class="card"><b>已恢复</b><h3>妈妈｜偏头痛</h3><p class="muted">4 月 11 日｜持续 1 天</p></div>
+        <div class="btn">＋ 新建病程</div>
+        <div class="note">列表展示的是病程主表 `illness_records`。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">06 病程详情</div>
+      <div class="phone">
+        <div class="mini">本次病程</div><div class="ttl">宝宝｜发烧咳嗽</div>
+        <div class="card blue"><span class="pill">5 月 15 日开始</span><h3>一次病程，已经自动串起来</h3><div class="kpi"><div class="card"><b>39.1℃</b><span class="mini">最高体温</span></div><div class="card"><b>5 条</b><span class="mini">事件</span></div><div class="card"><b>2 天</b><span class="mini">持续</span></div></div></div>
+        <div class="timeline">
+          <div><b>20:10　症状事件：咳嗽</b><span>来源：快速记录</span></div>
+          <div><b>20:10　体温事件：38.5℃</b><span>来源：快速记录</span></div>
+          <div><b>19:20　检查事件：血常规</b><span>来源：已确认附件</span></div>
+          <div><b>19:30　就诊事件：上呼吸道感染</b><span>来源：用户补充</span></div>
+        </div>
+        <div class="btn light">＋ 快速追加记录</div><div class="btn">生成复诊摘要</div>
+        <div class="note">时间线只消费 `course_events`，不直接显示未确认附件。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">07 追加事件</div>
+      <div class="phone">
+        <div class="mini">病程内补充</div><div class="ttl">追加一条事件</div>
+        <div class="card"><b>事件类型</b><div class="chips"><span class="chip on">症状</span><span class="chip">体温</span><span class="chip">就诊</span><span class="chip">备注</span></div></div>
+        <div class="card"><div class="row"><span class="mini">记录时间</span><b>今天 21:30</b></div></div>
+        <div class="card"><b>内容</b><p>夜间咳嗽再次加重</p></div>
+        <div class="btn light">取消</div><div class="btn">保存到本次病程</div>
+        <div class="note">用于病程详情里的“继续追加”，保存后生成单条 `course_events`。</div>
+      </div>
+    </section>
+
+
+    <section>
+      <div class="title">07 月视图</div>
+      <div class="phone">
+        <div class="ttl">2026 年 5 月</div><div class="mini">宝宝 ▼</div>
+        <div class="card"><b>月历</b><p>12　13　14　15●　16●　17　18</p><p class="muted">● 代表有记录，不表达医疗判断</p></div>
+        <div class="card"><b>5 月 15 日</b><p class="muted">08:20　38.6℃<br>12:10　布洛芬 5ml</p></div>
+        <div class="card"><b>最近病程摘要</b><p class="muted">本月共 2 次病程｜最近一次仍在进行</p></div>
+        <div class="note">月视图来自 `illness_records + course_events` 的日期聚合。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">08 生成前补充</div>
+      <div class="phone">
+        <div class="mini">生成摘要前</div><div class="ttl">想问医生什么？</div>
+        <div class="card"><b>手动输入</b><p>夜里咳嗽频繁，是否需要复查？</p></div>
+        <div class="card"><b>可选模板</b><p class="muted">是否需要复诊 / 这几种症状是否需要重点观察</p></div>
+        <div class="btn">加入摘要并继续</div>
+        <div class="note">来源：用户手动输入，写入 `followup_summaries.questions`。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">09 复诊摘要</div>
+      <div class="phone">
+        <div class="mini">医生友好型整理</div><div class="ttl">本次复诊摘要</div>
+        <div class="sheet">
+          <div class="card"><h4>基础信息</h4><p>宝宝｜3 岁｜无已知过敏</p></div>
+          <div class="card"><h4>关键时间线</h4><ul><li>20:10 咳嗽</li><li>20:10 38.5℃</li><li>19:20 血常规</li></ul></div>
+          <div class="card"><h4>想问医生的问题</h4><p>夜里咳嗽频繁，是否需要复查？</p></div>
+        </div>
+        <div class="btn light">复制文本</div><div class="btn">截图友好版</div>
+        <div class="note">摘要只读取已确认事件 + 用户补充问题。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">10 药箱</div>
+      <div class="phone">
+        <div class="ttl">药箱</div>
+        <div class="card"><b>布洛芬混悬液</b><p class="muted">剩余 60ml｜客厅药箱</p></div>
+        <div class="card"><b>对乙酰氨基酚滴剂</b><p class="muted">剩余 20ml｜卧室抽屉</p></div>
+        <div class="btn">＋ 添加药品</div>
+        <div class="note">来源：`medicines`；被 `saveMedication` 反向扣减库存。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">11 用药</div>
+      <div class="phone">
+        <div class="ttl">记录一次用药</div>
+        <div class="card"><b>成员</b><p class="muted">宝宝</p></div>
+        <div class="card"><b>所属病程</b><p class="muted">当前发烧病程</p></div>
+        <div class="card"><b>药品 / 剂量</b><p class="muted">布洛芬混悬液｜5ml</p></div>
+        <div class="card"><b>反应</b><p class="muted">1 小时后体温降至 37.8℃</p></div>
+        <div class="btn">保存用药</div>
+        <div class="note">保存后写入 `medication_logs`，并生成 `medication event`。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="title">12 我的 / 家庭</div>
+      <div class="phone">
+        <div class="ttl">我的</div>
+        <div class="card"><b>家庭成员</b><p class="muted">宝宝｜妈妈｜爸爸</p></div>
+        <div class="card"><b>家庭共享</b><p class="muted">邀请成员 / 权限管理</p></div>
+        <div class="card"><b>提醒</b><p class="muted">复诊 / 用药 / 临期</p></div>
+        <div class="card"><b>隐私与安全</b><p class="muted">AI 只整理，不诊断</p></div>
+        <div class="note">对应家庭、角色、提醒与导出能力。</div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

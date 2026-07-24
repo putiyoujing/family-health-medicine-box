@@ -1,74 +1,36 @@
 <view class="page">
   <view class="page-title">
-    <text class="eyebrow">健康记录</text>
-    <view class="h1">记录一次健康情况</view>
+    <view class="h1">家人的病程记录</view>
+    <view class="page-subtitle">按时间查看症状、体温、就诊和恢复过程</view>
   </view>
 
-  <button class="primary-btn add-btn" bindtap="toggleForm">{{showForm ? '收起表单' : '新增健康记录'}}</button>
-
-  <view class="section" wx:if="{{showForm}}">
-    <view class="field">
-      <text class="field-label">家庭成员</text>
-      <picker mode="selector" range="{{members}}" range-key="name" bindchange="onMemberChange">
-        <view class="picker-value">{{form.memberId ? '已选择成员' : '请选择成员'}}</view>
-      </picker>
-    </view>
-    <view class="field">
-      <text class="field-label">记录时间</text>
-      <input class="input" data-field="startedAt" value="{{form.startedAt}}" bindinput="onInput" placeholder="2026-05-11 20:30" />
-    </view>
-    <view class="field">
-      <text class="field-label">症状标签</text>
-      <input class="input" data-field="symptomsText" value="{{form.symptomsText}}" bindinput="onInput" placeholder="发热、咳嗽、鼻塞" />
-    </view>
-    <view class="grid-2">
-      <view class="field">
-        <text class="field-label">最高体温</text>
-        <input class="input" data-field="temperatureMax" value="{{form.temperatureMax}}" bindinput="onInput" type="digit" />
-      </view>
-      <view class="field">
-        <text class="field-label">状态</text>
-        <picker mode="selector" range="{{['观察中','已就医','已恢复']}}" bindchange="onStatusChange">
-          <view class="picker-value">{{form.status}}</view>
-        </picker>
-      </view>
-    </view>
-    <view class="field">
-      <text class="field-label">症状描述</text>
-      <textarea class="textarea" data-field="symptomDescription" value="{{form.symptomDescription}}" bindinput="onInput"></textarea>
-    </view>
-    <view class="field">
-      <text class="field-label">医生诊断</text>
-      <input class="input" data-field="doctorDiagnosis" value="{{form.doctorDiagnosis}}" bindinput="onInput" placeholder="按医生记录或原话记录" />
-    </view>
-    <view class="field">
-      <text class="field-label">医嘱</text>
-      <textarea class="textarea" data-field="doctorAdvice" value="{{form.doctorAdvice}}" bindinput="onInput"></textarea>
-    </view>
-    <view class="field">
-      <text class="field-label">本次总结</text>
-      <textarea class="textarea" data-field="summary" value="{{form.summary}}" bindinput="onInput"></textarea>
-    </view>
-    <view class="attachment-row">
-      <button class="ghost-btn" bindtap="chooseAttachment">上传检查单 / 处方图片</button>
-      <view class="muted" wx:if="{{pendingAttachment}}">已暂存 1 张图片，保存记录后关联。</view>
-    </view>
-    <button class="primary-btn" bindtap="save">保存健康记录</button>
-  </view>
+  <button class="primary-btn add-btn" wx:if="{{showWriteEntries}}" loading="{{loading}}" disabled="{{loading}}" bindtap="createRecord">记一次生病</button>
 
   <view class="card-list">
-    <view wx:if="{{!records.length}}" class="empty">还没有健康记录</view>
-    <view class="record-card" wx:for="{{records}}" wx:key="_id">
-      <view class="record-head">
-        <view>
-          <view class="record-title">{{item.memberName}} · {{item.symptomText}}</view>
-          <view class="muted">{{item.timeText}}</view>
-        </view>
-        <text class="pill">{{item.status}}</text>
-      </view>
-      <view>{{item.summary || item.symptomDescription || '暂无总结'}}</view>
-      <view class="muted">最高体温：{{item.temperatureMax || '未记录'}} · 医嘱：{{item.doctorAdvice || '未记录'}}</view>
-      <button class="delete-btn" data-id="{{item._id}}" bindtap="remove">删除</button>
+    <view class="list-heading" wx:if="{{records.length}}">
+      <text>全部病程</text>
+      <text class="muted">{{records.length}} 次</text>
     </view>
+    <view wx:if="{{!records.length}}" class="empty">还没有病程记录</view>
+    <view class="record-card {{item.completed ? 'record-card-completed' : ''}}" wx:for="{{records}}" wx:key="_id">
+      <view class="record-main" data-id="{{item._id}}" bindtap="openDetail">
+        <view class="record-head">
+          <view>
+            <view class="record-title">{{item.memberName}} · {{item.symptomText}}</view>
+            <view class="muted">{{item.timeText}}</view>
+          </view>
+          <text class="pill">{{item.statusText}}</text>
+        </view>
+        <view>{{item.summary || item.symptomDescription || '暂无总结'}}</view>
+        <view class="muted">最高体温：{{item.temperatureText}} · 医嘱：{{item.doctorAdvice || '未记录'}}</view>
+      </view>
+      <view class="card-actions" wx:if="{{showWriteEntries}}">
+        <button class="append-btn" wx:if="{{!item.completed}}" data-id="{{item._id}}" bindtap="appendRecord">追加记录</button>
+        <button class="ghost-btn edit-btn" data-id="{{item._id}}" bindtap="editRecord">修改</button>
+        <button class="ghost-btn mini-btn" data-id="{{item._id}}" bindtap="quickSimilar">再记一条相似的</button>
+      </view>
+    </view>
+    <view class="list-end" wx:if="{{records.length}}">到底了哦</view>
   </view>
 </view>
+<global-auth-layer id="global-auth-layer" />

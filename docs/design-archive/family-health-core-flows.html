@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家人健康记｜核心交互闭环</title>
+  <style>
+    :root {
+      --bg:#f4f1eb; --paper:#fffdf9; --ink:#20312c; --muted:#6f7b75; --line:#ded8cf;
+      --soft:#f7f3ec; --brand:#31584d; --brand-soft:#dfeae5; --warn:#c56a4a; --warn-soft:#f5e5dc;
+      --blue:#52779b; --blue-soft:#e5edf5; --shadow:0 20px 40px rgba(55,45,34,.08);
+    }
+    *{box-sizing:border-box} html,body{margin:0;background:var(--bg);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;color:var(--ink)}
+    body{width:1800px;padding:44px 56px 52px}
+    h1{font-size:34px;margin:0}.sub{color:var(--muted);font-size:18px;margin-top:10px}
+    .section{margin-top:28px}.section h2{font-size:22px;margin:0 0 14px}
+    .flow{display:flex;align-items:flex-start;gap:18px}
+    .arrow{font-size:28px;color:var(--muted);padding-top:300px}
+    .phone{width:320px;height:690px;background:var(--paper);border-radius:30px;padding:16px;border:1px solid rgba(74,66,57,.14);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+    .ttl{font-size:20px;font-weight:700}.mini{font-size:12px;color:var(--muted)}
+    .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}
+    .hero{background:linear-gradient(135deg,#f0ebe2,#fbf7f1)}
+    .soft{background:var(--soft)}
+    .blue{background:var(--blue-soft)}
+    .pill{display:inline-block;background:var(--brand-soft);color:var(--brand);padding:7px 10px;border-radius:999px;font-size:12px;font-weight:700}
+    .btn{height:44px;border-radius:14px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+    .btn.light{background:var(--brand-soft);color:var(--brand)}
+    .warn{background:var(--warn-soft);color:#8f4e38}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}.chip{padding:7px 10px;border-radius:999px;background:var(--soft);font-size:12px}.chip.on{background:var(--brand);color:#fff}
+    .rows{display:grid;gap:10px}.row{font-size:13px;color:var(--muted)} .row b{display:block;color:var(--ink);font-size:14px;margin-bottom:3px}
+    .timeline{display:grid;gap:10px}.event b{display:block;font-size:14px}.event span{font-size:12px;color:var(--muted)}
+    .source{margin-top:auto;background:rgba(255,255,255,.72);border:1px solid rgba(109,101,89,.16);border-radius:16px;padding:12px;font-size:12px;color:var(--muted);line-height:1.55}
+    .map{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
+    .map .card h3{margin:0 0 8px;font-size:16px}.map .card p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+  </style>
+  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+</head>
+<body>
+  <h1>家人健康记｜核心交互闭环</h1>
+  <div class="sub">重点不是“页面长什么样”，而是每条数据如何进入系统、如何被时间线和摘要消费。</div>
+
+  <div class="section">
+    <h2>Flow A｜快速记录如何进入病程时间线</h2>
+    <div class="flow">
+      <div class="phone">
+        <div class="mini">首页</div><div class="ttl">宝宝正在生病</div>
+        <div class="card hero"><span class="pill">今天最该做的事</span><h3>先记下一次关键变化</h3><div class="btn">＋ 记一次生病</div></div>
+        <div class="source">入口：用户点击主 CTA。此时还没有新增事件，只是进入记录流程。</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="phone">
+        <div class="mini">快速记录</div><div class="ttl">先记关键变化</div>
+        <div class="card"><div class="mini">症状</div><div class="chips"><span class="chip on">发烧</span><span class="chip on">咳嗽</span></div></div>
+        <div class="card"><div class="mini">体温</div><b>38.5 ℃</b></div>
+        <div class="card"><div class="mini">备注</div><span>夜里咳嗽明显，精神一般</span></div>
+        <div class="btn">保存并继续病程</div>
+        <div class="source">保存后生成 1 条或多条“病程事件”：症状事件、体温事件、备注事件。</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="phone">
+        <div class="mini">病程详情</div><div class="ttl">宝宝｜发烧咳嗽</div>
+        <div class="timeline">
+          <div class="event"><b>20:10　症状事件：咳嗽</b><span>来自快速记录</span></div>
+          <div class="event"><b>20:10　体温事件：38.5℃</b><span>来自快速记录</span></div>
+          <div class="event"><b>20:10　备注事件</b><span>夜里咳嗽明显，精神一般</span></div>
+        </div>
+        <div class="source">时间线只展示“事件”。页面上的每一行都必须能追溯到具体来源。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Flow B｜上传资料如何变成正式事件</h2>
+    <div class="flow">
+      <div class="phone">
+        <div class="mini">快速记录 / 病程详情</div><div class="ttl">上传资料</div>
+        <div class="card"><b>＋ 上传检查单 / 处方 / 药盒照片</b><p class="mini">先暂存，不直接写入病程</p></div>
+        <div class="source">上传后只生成“待确认附件”，还不是正式病程事件。</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="phone">
+        <div class="mini">OCR 结果确认</div><div class="ttl">请确认识别内容</div>
+        <div class="card blue"><b>识别为：检查单</b><p class="mini">采样时间：5 月 15 日 19:20</p><p class="mini">项目：血常规</p></div>
+        <div class="card"><b>关联到本次病程？</b><p class="mini">用户确认后，写入“检查事件”</p></div>
+        <div class="btn">确认并写入病程</div>
+        <div class="source">这一步是关键闸门：未经确认，不进入正式时间线。</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="phone">
+        <div class="mini">病程详情</div><div class="ttl">宝宝｜发烧咳嗽</div>
+        <div class="timeline">
+          <div class="event"><b>19:20　检查事件：血常规</b><span>来源：已确认附件</span></div>
+          <div class="event"><b>19:30　就诊事件：上呼吸道感染</b><span>来源：用户补充 / 医嘱确认</span></div>
+        </div>
+        <div class="source">“上传检查单”不再作为正式事件出现；正式出现的是被确认后的“检查事件”。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Flow C｜想问医生的问题如何进入复诊摘要</h2>
+    <div class="flow">
+      <div class="phone">
+        <div class="mini">病程详情</div><div class="ttl">准备复诊</div>
+        <div class="card hero"><b>本次病程已记录 5 条事件</b><p class="mini">可以先整理成复诊摘要</p></div>
+        <div class="btn">生成复诊摘要</div>
+        <div class="source">系统先整理已有事件，但不会凭空生成“想问医生的问题”。</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="phone">
+        <div class="mini">生成前补充</div><div class="ttl">想问医生什么？</div>
+        <div class="card"><b>手动输入</b><p>夜里咳嗽频繁，是否需要复查？</p></div>
+        <div class="card soft"><b>可选模板</b><p class="mini">是否需要复诊 / 这几种症状是否需要重点观察</p></div>
+        <div class="btn">加入摘要并继续</div>
+        <div class="source">来源：用户手动填写；可为空，也可从模板选择。</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="phone">
+        <div class="mini">复诊摘要</div><div class="ttl">本次复诊摘要</div>
+        <div class="card">
+          <b>想问医生的问题</b>
+          <p>夜里咳嗽频繁，是否需要复查？</p>
+        </div>
+        <div class="btn light">复制文本</div>
+        <div class="btn">截图友好版</div>
+        <div class="source">摘要只消费“已确认事件 + 用户补充问题”，不消费未确认附件。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="map">
+    <div class="card">
+      <h3>时间线规则</h3>
+      <p>只展示事件，不展示模糊状态。每一行都能追溯到来源。</p>
+    </div>
+    <div class="card">
+      <h3>附件规则</h3>
+      <p>上传只是暂存；确认后才转化为检查 / 就诊 / 药品等正式数据。</p>
+    </div>
+    <div class="card">
+      <h3>摘要规则</h3>
+      <p>只使用已确认数据；用户问题必须由用户补充，不由系统凭空创造。</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">病程详情</text>
+    <view class="h1">{{record.memberName || '家人'}} · {{record.symptomText || '本次病程'}}</view>
+  </view>
+
+  <view class="section" wx:if="{{record}}">
+    <view class="record-head">
+      <view>
+        <view class="record-title">{{record.timeText}} 开始</view>
+        <view class="muted">状态：{{record.statusText}} · 最高体温：{{record.temperatureText}}</view>
+      </view>
+      <text class="pill">{{record.statusText}}</text>
+    </view>
+    <view>{{record.summary || record.symptomDescription || '暂无总结'}}</view>
+    <view class="muted detail-line">诊断：{{record.doctorDiagnosis || '未记录'}} · 医嘱：{{record.doctorAdvice || '未记录'}}</view>
+  </view>
+
+  <view class="action-grid">
+    <button class="primary-btn" wx:if="{{!record.completed}}" bindtap="toggleEventForm">{{showEventForm ? '收起追加' : '追加病程记录'}}</button>
+    <button class="ghost-btn" wx:if="{{!record.completed}}" bindtap="goMedication">记录用药</button>
+    <button class="ghost-btn" bindtap="goReport">复诊摘要</button>
+    <button class="ghost-btn" wx:if="{{!record.completed}}" bindtap="goHealthTodo">添加健康待办</button>
+  </view>
+
+  <view class="section" wx:if="{{showEventForm && !record.completed}}">
+    <view class="field">
+      <text class="field-label">记录类型</text>
+      <view class="event-type-options">
+        <button
+          class="event-type-option {{eventForm.eventType === item.value ? 'event-type-option-active' : ''}}"
+          wx:for="{{eventTypes}}"
+          wx:key="value"
+          data-type="{{item.value}}"
+          bindtap="selectEventType"
+        >{{item.label}}</button>
+      </view>
+    </view>
+    <view class="field">
+      <text class="field-label">记录时间</text>
+      <view class="recorded-time-grid">
+        <picker mode="date" value="{{eventForm.recordedDate}}" bindchange="onRecordedDateChange">
+          <view class="picker-value">{{eventForm.recordedDate}}</view>
+        </picker>
+        <picker mode="time" value="{{eventForm.recordedTime}}" bindchange="onRecordedTimeChange">
+          <view class="picker-value">{{eventForm.recordedTime}}</view>
+        </picker>
+      </view>
+    </view>
+    <view wx:if="{{eventForm.eventType === 'symptom'}}">
+      <view class="field">
+        <text class="field-label">体温</text>
+        <view class="temperature-input-shell">
+          <input class="temperature-input" data-field="temperature" value="{{eventForm.temperature}}" bindinput="onInput" type="digit" placeholder="37.8" />
+          <text class="temperature-unit">℃</text>
+        </view>
+      </view>
+      <view class="field">
+        <text class="field-label">症状</text>
+        <textarea class="textarea symptom-textarea" data-field="symptomsText" value="{{eventForm.symptomsText}}" bindinput="onInput" placeholder="例如：仍在咳嗽，夜间更明显，伴有鼻塞"></textarea>
+      </view>
+    </view>
+    <view class="field" wx:if="{{eventForm.eventType === 'symptom'}}">
+      <text class="field-label">备注</text>
+      <textarea class="textarea" data-field="note" value="{{eventForm.note}}" bindinput="onInput" placeholder="精神状态、吃喝、睡眠或症状变化"></textarea>
+    </view>
+    <view class="prescription-panel" wx:if="{{eventForm.eventType === 'visit'}}">
+      <view class="field">
+        <text class="field-label">医院 / 机构</text>
+        <input class="input" data-field="hospitalName" value="{{eventForm.hospitalName}}" bindinput="onInput" placeholder="例如：市儿童医院呼吸科" />
+      </view>
+      <view class="field">
+        <text class="field-label">医生诊断</text>
+        <textarea class="textarea" data-field="doctorDiagnosis" value="{{eventForm.doctorDiagnosis}}" bindinput="onInput" placeholder="按病历或医生原话记录，可分行填写"></textarea>
+      </view>
+      <view class="field">
+        <text class="field-label">检查结果</text>
+        <textarea class="textarea" data-field="examinationResult" value="{{eventForm.examinationResult}}" bindinput="onInput" placeholder="化验、影像或医生说明的关键结果"></textarea>
+      </view>
+      <view class="field">
+        <text class="field-label">医嘱</text>
+        <textarea class="textarea" data-field="doctorAdvice" value="{{eventForm.doctorAdvice}}" bindinput="onInput" placeholder="用药、复查和注意事项"></textarea>
+      </view>
+      <view class="attachment-section">
+        <view>
+          <view class="attachment-title">检查单或处方附件</view>
+          <view class="muted">上传前请遮挡无关姓名、证件号等信息</view>
+        </view>
+        <button class="ghost-btn attachment-btn" wx:if="{{pendingAttachments.length < 5}}" bindtap="chooseAttachment">{{pendingAttachments.length ? '继续上传' : '上传图片'}}</button>
+        <view class="attachment-ready" wx:if="{{pendingAttachments.length}}">已选 {{pendingAttachments.length}}/5 张，保存记录后自动关联</view>
+        <view class="attachment-preview-grid" wx:if="{{pendingAttachments.length}}">
+          <view class="attachment-preview" wx:for="{{pendingAttachments}}" wx:key="fileID">
+            <image src="{{item.tempFilePath || item.fileID}}" mode="aspectFill"></image>
+            <button class="attachment-remove" data-index="{{index}}" bindtap="removeAttachment">删除</button>
+          </view>
+        </view>
+      </view>
+      <view class="prescription-head">
+        <view>
+          <view class="field-label">本次开药（选填）</view>
+          <view class="muted">仅显示这次就诊新加入药箱的药品，不会扣减库存或记为已服用</view>
+        </view>
+        <button class="ghost-btn add-medicine-btn" bindtap="goAddPrescriptionMedicine">添加药品</button>
+      </view>
+      <view class="visit-medicine-list" wx:if="{{prescribedMedicines.length}}">
+      <view class="visit-medicine-item" wx:for="{{prescribedMedicines}}" wx:key="medicineId">
+          <view class="record-title">药品名称：{{item.medicineNameSnapshot}}</view>
+          <view class="muted" wx:if="{{item.specificationSnapshot}}">规格：{{item.specificationSnapshot}}</view>
+          <view class="muted" wx:if="{{item.quantitySnapshot}}">数量：{{item.quantitySnapshot}}{{item.unitSnapshot || ''}}</view>
+      </view>
+      </view>
+      <view class="empty prescription-empty" wx:else>尚未添加本次就诊开药。</view>
+    </view>
+    <button class="primary-btn" loading="{{savingEvent}}" disabled="{{savingEvent}}" bindtap="saveEvent">保存到时间线</button>
+  </view>
+
+  <view class="section">
+    <view class="section-title">本次病程时间线</view>
+    <view wx:if="{{!timeline.length}}" class="empty">暂无时间线记录</view>
+    <view class="timeline" wx:else>
+      <view class="timeline-item" wx:for="{{timeline}}" wx:key="_id">
+        <view class="timeline-dot"></view>
+        <view class="timeline-content">
+          <view class="timeline-head">
+            <text class="record-title">{{item.typeLabel}}</text>
+            <text class="muted">{{item.timeText}}</text>
+          </view>
+          <view>{{item.displayText}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">本次病程待办</view>
+    <view wx:if="{{!healthTodos.length}}" class="empty">还没有关联本病程的健康待办</view>
+    <view class="illness-todo-list" wx:else>
+      <view class="illness-todo {{item.completed ? 'illness-todo-completed' : ''}}" wx:for="{{healthTodos}}" wx:key="_id">
+        <view class="record-head">
+          <view class="record-title">{{item.title}}</view>
+          <text class="todo-state">{{item.statusText}}</text>
+        </view>
+        <view class="muted">{{item.typeLabel}} · {{item.remindAtText}}</view>
+        <view class="todo-note" wx:if="{{item.note}}">{{item.note}}</view>
+        <view class="illness-todo-actions">
+          <button class="illness-todo-action edit-action" wx:if="{{!item.completed}}" data-id="{{item._id}}" bindtap="editHealthTodo">编辑</button>
+          <button class="illness-todo-action complete-action" wx:if="{{!item.completed}}" data-id="{{item._id}}" bindtap="completeHealthTodo">完成</button>
+          <button class="illness-todo-action delete-action" data-id="{{item._id}}" bindtap="deleteHealthTodo">删除</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">复诊前核对</view>
+    <view class="check-list">
+      <view>开始时间：{{record.startedAt || '未记录'}}</view>
+      <view>最高体温：{{record.temperatureText}}</view>
+      <view>用药记录：{{medicationLogs.length}} 条</view>
+      <view>检查/处方附件：{{attachments.length}} 张</view>
+    </view>
+  </view>
+
+  <view class="section completion-section" wx:if="{{record && showCompletionForm && !record.completed}}">
+    <view class="section-title">关闭病程</view>
+    <view class="muted">关闭后将不能再追加跟踪记录，但仍可在列表中查看。</view>
+    <view class="field">
+      <text class="field-label">恢复总结（建议填写）</text>
+      <textarea class="textarea completion-textarea" value="{{completionReviewNote}}" bindinput="onCompletionReviewInput" maxlength="1000" placeholder="例如：症状已消退，已恢复正常作息；后续注意观察是否复发"></textarea>
+      <view class="field-help">会作为“恢复复盘”保存到本次病程时间线。</view>
+    </view>
+    <view class="completion-actions">
+      <button class="cancel-completion-btn" disabled="{{completing}}" bindtap="cancelCloseCourse">暂不关闭</button>
+      <button class="close-course-btn" loading="{{completing}}" disabled="{{completing}}" bindtap="submitCloseCourse">确认关闭</button>
+    </view>
+  </view>
+
+  <view class="course-actions" wx:if="{{record}}">
+    <button class="close-course-btn" wx:if="{{!record.completed && !showCompletionForm}}" loading="{{completing}}" disabled="{{completing}}" bindtap="closeCourse">关闭病程</button>
+    <button class="delete-record-btn" bindtap="remove">删除病程</button>
+  </view>
+</view>
+<global-auth-layer id="global-auth-layer" />

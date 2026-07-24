@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家人健康记｜核心 4 屏中保真</title>
+  <style>
+    :root {
+      --bg: #f4f1eb;
+      --paper: #fffdf9;
+      --ink: #20312c;
+      --muted: #6f7b75;
+      --line: #ded8cf;
+      --soft: #f7f3ec;
+      --brand: #4f776b;
+      --brand-strong: #31584d;
+      --brand-soft: #dfeae5;
+      --warn: #c56a4a;
+      --warn-soft: #f5e5dc;
+      --blue: #52779b;
+      --blue-soft: #e5edf5;
+      --shadow: 0 20px 40px rgba(55, 45, 34, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+    body {
+      width: 1800px;
+      min-height: 1320px;
+      padding: 48px 56px 56px;
+    }
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 28px;
+    }
+    .eyebrow {
+      font-size: 16px;
+      color: var(--brand);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-size: 34px;
+      line-height: 1.2;
+      margin: 0;
+    }
+    .sub {
+      margin-top: 10px;
+      font-size: 18px;
+      color: var(--muted);
+    }
+    .legend {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .legend span {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+    .dot.green { background: var(--brand); }
+    .dot.orange { background: var(--warn); }
+    .dot.blue { background: var(--blue); }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+    .col-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 14px 8px;
+    }
+    .phone {
+      width: 390px;
+      height: 844px;
+      background: var(--paper);
+      border-radius: 34px;
+      border: 1px solid rgba(74, 66, 57, 0.14);
+      box-shadow: var(--shadow);
+      padding: 18px 18px 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+    .screen-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .screen-title {
+      font-size: 24px;
+      line-height: 1.15;
+      font-weight: 700;
+      margin: 0;
+    }
+    .mini {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 7px 11px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--brand-strong);
+      background: var(--brand-soft);
+    }
+    .pill.warn {
+      color: #8f4e38;
+      background: var(--warn-soft);
+    }
+    .hero-card {
+      background: linear-gradient(135deg, #f0ebe2, #fbf7f1);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .hero-card h3 {
+      margin: 8px 0 10px;
+      font-size: 21px;
+      line-height: 1.3;
+    }
+    .hero-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .cta {
+      height: 52px;
+      border-radius: 16px;
+      background: var(--brand-strong);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      font-weight: 700;
+      margin-top: 14px;
+    }
+    .secondary-cta {
+      height: 46px;
+      border-radius: 14px;
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .small-card,
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+    }
+    .small-card h4,
+    .card h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+    .small-card p,
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .section {
+      margin-top: 14px;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .records {
+      display: grid;
+      gap: 10px;
+    }
+    .record {
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      gap: 12px;
+      align-items: start;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .record strong {
+      color: var(--ink);
+      display: block;
+      margin-bottom: 3px;
+      font-size: 14px;
+    }
+    .nav {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 16px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .nav .active {
+      color: var(--brand-strong);
+      font-weight: 700;
+    }
+    .field {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .field-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .field-label {
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .field-value {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      padding: 8px 11px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--ink);
+      font-size: 13px;
+    }
+    .chip.active {
+      background: var(--brand-strong);
+      color: #fff;
+      font-weight: 700;
+    }
+    .mini-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .muted-box {
+      background: var(--soft);
+      border: 1px dashed #c9c2b7;
+      border-radius: 16px;
+      padding: 13px 14px;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .sticky-actions {
+      margin-top: auto;
+      display: grid;
+      gap: 10px;
+    }
+    .episode-summary {
+      background: linear-gradient(135deg, #eff4f1, #fbfdfc);
+      border: 1px solid #d5e2dc;
+      border-radius: 22px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .episode-summary h3 {
+      margin: 10px 0 8px;
+      font-size: 21px;
+    }
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .metric {
+      background: #fff;
+      border-radius: 14px;
+      padding: 10px;
+      border: 1px solid var(--line);
+    }
+    .metric b {
+      display: block;
+      font-size: 17px;
+      margin-bottom: 2px;
+    }
+    .metric span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .timeline {
+      position: relative;
+      margin-left: 7px;
+      padding-left: 18px;
+      display: grid;
+      gap: 12px;
+    }
+    .timeline:before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 5px;
+      bottom: 8px;
+      width: 2px;
+      background: #d5ded9;
+    }
+    .event {
+      position: relative;
+    }
+    .event:before {
+      content: "";
+      position: absolute;
+      left: -18px;
+      top: 6px;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--brand);
+      border: 2px solid var(--paper);
+    }
+    .event.warn:before { background: var(--warn); }
+    .event.blue:before { background: var(--blue); }
+    .event strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+    .event span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .summary-sheet {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 15px;
+      display: grid;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .summary-block {
+      border-bottom: 1px solid #eee8df;
+      padding-bottom: 11px;
+    }
+    .summary-block:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .summary-block h4 {
+      margin: 0 0 6px;
+      font-size: 14px;
+    }
+    .summary-block p,
+    .summary-block li {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .note {
+      margin-top: 28px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+    .note-card {
+      background: rgba(255,255,255,0.66);
+      border: 1px solid rgba(109, 101, 89, 0.16);
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .note-card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    .note-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+  </style>
+  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+</head>
+<body>
+  <div class="hero">
+    <div>
+      <div class="eyebrow">MID-FI / CORE LOOP</div>
+      <h1>家人健康记｜核心 4 屏中保真</h1>
+      <div class="sub">首页先给方向，快速记录先给速度，病程详情负责秩序，复诊摘要给出真正的差异化。</div>
+    </div>
+    <div class="legend">
+      <span><i class="dot green"></i>主行动</span>
+      <span><i class="dot orange"></i>需关注</span>
+      <span><i class="dot blue"></i>就诊信息</span>
+    </div>
+  </div>
+
+  <div class="board">
+    <section>
+      <div class="col-title">01 首页</div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>●●●　100%</span></div>
+        <div class="screen-head">
+          <div>
+            <div class="mini">宝宝家庭</div>
+            <h2 class="screen-title">晚上好，宝宝妈妈</h2>
+          </div>
+          <span class="pill">切换家庭</span>
+        </div>
+
+        <div class="hero-card">
+          <span class="pill">今天最该做的事</span>
+          <h3>孩子生病不用靠回忆，<br>先记下一次关键变化</h3>
+          <p>20 秒完成一条有效记录，后面自动长成病程时间线。</p>
+          <div class="cta">＋ 记一次生病</div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px;">
+          <div class="section-head">
+            <span class="section-title">进行中病程</span>
+            <span class="pill warn">第 2 天</span>
+          </div>
+          <h4 style="font-size:18px;margin-bottom:6px;">宝宝｜发烧 + 咳嗽</h4>
+          <p>最高 39.1℃　·　最近更新 20:10</p>
+          <div class="secondary-cta" style="margin-top:12px;">继续记录</div>
+        </div>
+
+        <div class="grid-2">
+          <div class="small-card">
+            <h4>复诊摘要</h4>
+            <p>最近一次已生成<br>可直接给医生看</p>
+          </div>
+          <div class="small-card">
+            <h4>轻提醒</h4>
+            <p>2 个药品临期<br>1 个库存偏低</p>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <span class="section-title">最近记录</span>
+            <span class="mini">查看全部</span>
+          </div>
+          <div class="records">
+            <div class="record">
+              <span>08:20</span>
+              <div><strong>38.6℃</strong><span>体温</span></div>
+            </div>
+            <div class="record">
+              <span>12:10</span>
+              <div><strong>布洛芬 5ml</strong><span>用药</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav">
+          <div class="active">首页</div>
+          <div>病程</div>
+          <div>药箱</div>
+          <div>用药</div>
+          <div>我的</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="col-title">02 快速记录</div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>●●●　100%</span></div>
+        <div class="screen-head">
+          <div>
+            <div class="mini">20 秒快速记录</div>
+            <h2 class="screen-title">先记关键变化</h2>
+          </div>
+          <span class="pill">宝宝</span>
+        </div>
+
+        <div class="field">
+          <div class="field-top">
+            <span class="field-label">记录时间</span>
+            <span class="field-value">今天 20:10</span>
+          </div>
+          <div class="mini-row"><span>已自动归入当前病程</span><span>修改</span></div>
+        </div>
+
+        <div class="field">
+          <div class="field-top">
+            <span class="field-label">症状</span>
+            <span class="mini">最近常用</span>
+          </div>
+          <div class="chips">
+            <span class="chip active">发烧</span>
+            <span class="chip active">咳嗽</span>
+            <span class="chip">流涕</span>
+            <span class="chip">鼻塞</span>
+            <span class="chip">腹泻</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-top">
+            <span class="field-label">体温</span>
+            <span class="field-value">38.5 ℃</span>
+          </div>
+          <div class="mini-row"><span>可滑动调整</span><span>最近 38.6℃</span></div>
+        </div>
+
+        <div class="field">
+          <div class="field-top">
+            <span class="field-label">用药快选</span>
+            <span class="mini">最近使用</span>
+          </div>
+          <div class="chips">
+            <span class="chip">布洛芬 5ml</span>
+            <span class="chip">氨溴索</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-top">
+            <span class="field-label">备注</span>
+            <span class="mini">可选</span>
+          </div>
+          <div class="field-value" style="font-size:15px;font-weight:500;">夜里咳嗽明显，精神一般</div>
+        </div>
+
+        <div class="muted-box">＋ 上传资料（先暂存，后确认）　　补充就诊信息（稍后再填）</div>
+
+        <div class="sticky-actions">
+          <div class="secondary-cta">再记一条相似的</div>
+          <div class="cta" style="margin-top:0;">保存并继续病程</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="col-title">03 病程详情</div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>●●●　100%</span></div>
+        <div class="screen-head">
+          <div>
+            <div class="mini">本次病程</div>
+            <h2 class="screen-title">宝宝｜发烧咳嗽</h2>
+          </div>
+          <span class="pill warn">进行中</span>
+        </div>
+
+        <div class="episode-summary">
+          <span class="pill">5 月 15 日开始</span>
+          <h3>一次病程，已经自动串起来</h3>
+          <p>系统把体温、症状、用药和就诊信息按时间组织，复诊前不用再翻相册和聊天记录。</p>
+          <div class="metric-row">
+            <div class="metric"><b>39.1℃</b><span>最高体温</span></div>
+            <div class="metric"><b>5 条</b><span>事件记录</span></div>
+            <div class="metric"><b>2 天</b><span>持续时间</span></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <span class="section-title">时间线</span>
+            <span class="mini">今天</span>
+          </div>
+          <div class="timeline">
+            <div class="event">
+              <strong>08:20　体温 38.6℃</strong>
+              <span>晨起发热，精神一般</span>
+            </div>
+            <div class="event warn">
+              <strong>12:10　用药：布洛芬 5ml</strong>
+              <span>1 小时后体温降至 37.8℃</span>
+            </div>
+            <div class="event">
+              <strong>15:40　症状事件：咳嗽加重</strong>
+              <span>来源：快速记录 / 手动追加</span>
+            </div>
+            <div class="event blue">
+              <strong>19:30　就诊事件：上呼吸道感染</strong>
+              <span>来源：用户补充 / 医嘱确认</span>
+            </div>
+            <div class="event blue">
+              <strong>20:10　附件待确认：检查单已上传</strong>
+              <span>确认前不进入正式摘要</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:16px;">
+          <div class="small-card">
+            <h4>关联用药</h4>
+            <p>布洛芬<br>氨溴索</p>
+          </div>
+          <div class="small-card">
+            <h4>附件</h4>
+            <p>检查单 1<br>药盒图 1</p>
+          </div>
+        </div>
+
+        <div class="sticky-actions">
+          <div class="secondary-cta">＋ 快速追加记录</div>
+          <div class="cta" style="margin-top:0;">生成复诊摘要</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="col-title">04 复诊摘要</div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>●●●　100%</span></div>
+        <div class="screen-head">
+          <div>
+            <div class="mini">医生友好型整理</div>
+            <h2 class="screen-title">本次复诊摘要</h2>
+          </div>
+          <span class="pill">可截图</span>
+        </div>
+
+        <div class="summary-sheet">
+          <div class="summary-block">
+            <h4>基础信息</h4>
+            <p>宝宝｜3 岁｜无已知过敏｜既往史未补充</p>
+          </div>
+          <div class="summary-block">
+            <h4>病程概览</h4>
+            <p>5 月 15 日开始，主要症状为发烧、咳嗽，最高体温 39.1℃。</p>
+          </div>
+          <div class="summary-block">
+            <h4>关键时间线</h4>
+            <ul>
+              <li>08:20　38.6℃</li>
+              <li>12:10　布洛芬 5ml</li>
+              <li>15:40　咳嗽加重</li>
+              <li>19:30　已就诊</li>
+            </ul>
+          </div>
+          <div class="summary-block">
+            <h4>用药记录</h4>
+            <p>布洛芬 5ml｜12:10；氨溴索｜已记录</p>
+          </div>
+          <div class="summary-block">
+            <h4>检查 / 诊断 / 医嘱</h4>
+            <p>医生诊断：上呼吸道感染；检查单已上传，待人工确认。</p>
+          </div>
+          <div class="summary-block">
+            <h4>想问医生的问题（手动补充）</h4>
+            <p>夜里咳嗽频繁，是否需要复查？</p>
+          </div>
+        </div>
+
+        <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fbf7f1;">
+          <p>以下内容仅基于已记录信息整理，不构成诊断或用药建议。</p>
+        </div>
+
+        <div class="action-row">
+          <div class="secondary-cta">复制文本</div>
+          <div class="cta" style="margin-top:0;height:46px;">截图友好版</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="note">
+    <div class="note-card">
+      <h3>首页</h3>
+      <p>先给方向，不先给统计。主 CTA 和进行中病程占据首屏。</p>
+    </div>
+    <div class="note-card">
+      <h3>快速记录</h3>
+      <p>像一张轻表单卡，而不是医疗后台；默认只保留最必要字段。</p>
+    </div>
+    <div class="note-card">
+      <h3>病程详情</h3>
+      <p>让“时间线”成为产品核心，不让信息碎成一地卡片。</p>
+    </div>
+    <div class="note-card">
+      <h3>复诊摘要</h3>
+      <p>少装饰，多秩序；医生能快速扫读，家长能放心转发。</p>
+    </div>
+  </div>
+</body>
+</html>

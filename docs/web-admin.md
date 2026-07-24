@@ -1,88 +1,83 @@
 # Web 管理后台
 
-本项目包含一个独立 Web 管理后台，用于产品管理者查看整体运营数据。
+更新时间：2026-07-24
 
-## 本地打开
+本项目包含面向产品运营人员的独立 Web 后台。生产环境使用 CloudBase Web Auth 用户名密码会话，并通过 CloudBase Event Function 调用 `adminApi`。真实健康数据不会由浏览器直接查询数据库。
+
+生产入口：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
+
+GitHub Pages 仅用于历史演示，不是生产后台，也不能作为真实数据与鉴权验收依据。
+
+## 本地运行
 
 ```bash
 npm install
 npm run dev
 ```
 
-默认会显示演示数据。要连接真实数据，需要配置 `.env`：
+未配置 CloudBase 环境变量时，开发模式使用 `/api/admin` 本地接口和 `.local-data/admin-store.json`。配置 CloudBase 环境变量后，开发模式也会进入真实管理员登录流程。
+
+如本机已经配置 CloudBase，但只想使用可逆的本地模拟数据做界面测试：
 
 ```bash
-copy .env.example .env
+npm run dev:local
 ```
 
-然后填写：
+`local-admin` 模式只有在 Vite 开发环境中生效，生产构建仍强制使用 CloudBase 登录配置。
+
+## 生产连接方式
+
+前端使用以下公开配置：
 
 ```env
-VITE_ADMIN_API_BASE=https://你的管理接口地址
-VITE_ADMIN_API_TOKEN=你的管理后台 token
+VITE_CLOUDBASE_ENV_ID=family-health-prod-d9csm29f27d75
+VITE_CLOUDBASE_REGION=ap-shanghai
+VITE_CLOUDBASE_PUBLISHABLE_KEY=从云开发身份认证获取的-Publishable-Key
 ```
 
-## 后台可看什么
+`Publishable Key` 是浏览器公开配置，不是服务端密钥。严禁把 SecretId、SecretKey、API Key、管理员密码或共享管理 token 放进任何 `VITE_*` 变量。
 
-左侧菜单已按独立页面组织，方便后续扩展：
+生产调用链：
 
-- 总览：用户、家庭、会员家庭、订单、药品、健康记录等核心指标。
-- 运营中心：会员收入、付费订单、待支付订单、优惠券核销、AI 用量、套餐结构。
-- 风险关注：快过期药品、低库存药品、成员档案缺口、待 OCR 附件。
-- 趋势分析：7 天新增用户、订单、付费订单、AI 用量、健康记录、用药记录。
-- 数据总表：所有业务数据表的总量、当前已载入行数和分表入口。
-- 分表详情：用户表、家庭表、订单表、会员家庭表、优惠券表、AI 用量表、药品表、健康记录表、用药记录表、附件表。
+1. 浏览器调用 `auth.signInWithPassword({ username, password })`。
+2. 页面使用 `auth.getSession()` 判断是否存在真实、非匿名登录会话。
+3. 登录成功后使用 `cloudbaseApp.callFunction()` 调用 `adminApi` Event Function。
+4. `adminApi` 从调用上下文读取认证 UID，并查询 `admins` 集合。
+5. 仅 `status=active` 的管理员记录可以继续访问业务数据。
 
-每个分表都是独立页面，后续可以分别增加筛选、分页、导出、详情弹窗和运营操作。
+不得用请求参数传入 UID、OpenID 或角色来替代服务端身份判断。
 
-## 后端接口
+## 云函数权限
 
-Web 后台调用 `cloudfunctions/adminApi`。
-
-为了让 Web 后台安全访问，需要给 `adminApi` 配置环境变量：
-
-```env
-ADMIN_WEB_TOKEN=一个足够长的随机密钥
-```
-
-Web 请求会携带：
+`cloudfunctions/adminApi` 不接受浏览器共享 token。Web 管理员以 `authUid` 授权；小程序 OpenID 仅保留为兼容迁移路径：
 
 ```json
 {
-  "action": "getDashboard",
-  "adminToken": "同一个 ADMIN_WEB_TOKEN",
-  "payload": {}
+  "authUid": "CloudBase Auth 用户 UID",
+  "role": "owner",
+  "status": "active",
+  "name": "管理员名称"
 }
 ```
 
-已支持的核心 action：
+每次管理接口调用会向 `admin_operation_logs` 写入最小化审计信息，包括管理员、动作、目标 ID、家庭 ID、是否查看敏感健康字段和时间；用户、反馈、家庭、兑换码批次及订单动作都必须能定位目标。日志不得保存完整健康内容、兑换码明文或密钥。
 
-- `getDashboard`
-- `getDataOverview`
-- `listUsers`
-- `listFamilies`
-- `listOrders`
-- `listSubscriptions`
-- `listCoupons`
-- `listAiUsage`
-- `listMedicines`
-- `listIllness`
-- `listMedication`
-- `listAttachments`
+运营中心可编辑会员中心的购买提示文案。配置保存在 `app_configs/membership` 文档的 `membershipPurchaseGuide` 字段中，不能为空且最多 120 字；审计日志只记录配置目标和操作动作，不保存完整文案。
 
-各分表接口会返回 `list`、`skip`、`limit`、`total`、`hasMore`，用于后续分页和导出扩展。
+## 当前模块
 
-也可以通过请求头传：
+- 总览：用户、家庭、会员、记录、药箱、附件和趋势。
+- 运营中心：会员、兑换码和 AI 用量。
+- 风险关注：临期、低库存、资料缺口、待确认附件。
+- 数据总表与分表：用户、家庭、订单、会员、优惠券、兑换码、AI、药品、病程、用药和附件。
+- 分表列表支持服务端分页；统计异常会明确报错，不再伪装成零数据。
 
-```http
-X-Admin-Token: 同一个 ADMIN_WEB_TOKEN
-```
+## 上线前验收
 
-## 部署建议
-
-微信云函数本身不是传统 Web API。实际部署时推荐二选一：
-
-1. 使用云开发 HTTP 触发器/云托管网关暴露 `adminApi`。
-2. 单独部署一个轻量 Node.js 管理网关，再由网关调用云开发环境。
-
-不要把云数据库权限直接暴露给浏览器。
+- 浏览器构建产物中不存在管理密钥、服务端 secret 或共享管理 token。
+- 未登录、会话过期、非管理员账号均无法读取真实数据。
+- 真实管理员可以分页查看授权范围内的数据。
+- 每次敏感查看、导出和写操作都有审计记录。
+- 用户列表和家庭详情不返回 OpenID；家庭成员默认隐藏过敏史和既往病史，仅 Owner 二次确认后临时查看。
+- 在桌面和 390px 移动宽度验证导航与表格可用。
+- `ADMIN_WEB_AUTH_E2E_PASSED=true` 只能在 Owner 登录、非管理员拒绝和真实 Event Function 调用全部通过后填写。

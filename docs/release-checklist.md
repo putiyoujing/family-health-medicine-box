@@ -1,10 +1,17 @@
 # 小程序发布检查清单
 
+## 使用说明
+
+- 代码门禁：执行 `npm run check`。
+- 生产声明门禁：在本机证据真实完成后执行 `npm run check:release:production`。
+- 生产部署、权限、隐私、双账号、真机与提醒触达必须分别记录为 `PASS / FAIL / BLOCKED`；环境变量为 `true` 不能替代截图、日志或测试记录。
+
 ## 代码配置
 
 - `project.config.json` 中替换正式 `appid`。
 - `miniprogram/app.js` 中填写正式云开发 `ENV_ID`。
-- 上传并部署云函数：`login`、`healthApi`、`paymentApi`、`adminApi`。
+- 上传并部署云函数：`login`、`healthApi`、`paymentApi`、`adminApi`、`reminderDispatcher`，并上传健康待办定时触发器。
+- 配置健康待办订阅模板 ID、字段映射、正式版跳转环境和 `reminders` 复合索引。
 - 小程序后台配置服务类目和隐私协议。
 
 ## 数据与隐私
@@ -37,7 +44,7 @@ AI 功能不得输出：
 5. 新增健康记录并上传一张检查单或处方图片。
 6. 记录一次用药，确认药品剩余量扣减。
 7. 进入图片整理确认页，确认图片结果不会自动入库。
-8. 添加用药提醒或复诊提醒。
+8. 从病程详情添加健康待办，确认成员和病程已自动关联；接受订阅授权后等待到期消息并验证跳转。
 9. AI 查询“哪些药快过期”。
 10. AI 查询“这个症状是不是肺炎”，确认触发安全拒答。
 11. 导出家庭数据和就医沟通记录。
@@ -48,11 +55,12 @@ AI 功能不得输出：
 
 独立 Web 管理后台见 `docs/web-admin.md`。
 
-上线前必须创建 `admins` 集合，并添加管理员 openid：
+上线前必须创建 `admins` 集合，并绑定 CloudBase Web Auth 管理员 UID：
 
 ```json
 {
-  "openid": "管理员 openid",
+  "authUid": "CloudBase Auth 用户 UID",
+  "role": "owner",
   "status": "active",
   "name": "管理员名称"
 }
@@ -79,17 +87,18 @@ AI 功能不得输出：
 
 Web 管理后台上线前必须配置：
 
-- `ADMIN_WEB_TOKEN`
-- `VITE_ADMIN_API_BASE`
-- `VITE_ADMIN_API_TOKEN`
+- `VITE_CLOUDBASE_ENV_ID`
+- `VITE_CLOUDBASE_REGION`
+- `VITE_CLOUDBASE_PUBLISHABLE_KEY`
+- `ADMIN_WEB_AUTH_E2E_PASSED=true`，仅在真实管理员和非管理员账号验收完成后填写
 
 ## GitHub 发布
 
 推送前执行：
 
 ```bash
-npm run build
-npm run lint
+npm run check
+npm run check:release:production
 ```
 
 如仓库没有远程地址：
@@ -103,4 +112,4 @@ git push -u origin master
 
 完整评估见 `docs/role-review-and-gap-plan.md`。
 
-当前状态适合封闭测试和对外演示；大规模公开发布前，需要完成微信云环境联调、真机测试、真实支付、图片识别服务和订阅消息模板配置。
+截至 2026-07-24，代码门禁和本机生产声明门禁通过；CloudBase 环境、函数、集合权限、托管与定时触发器已核验。隐私、双账号、iOS/Android 真机和真实提醒触达仍需补充可审计证据。图片识别与真实支付不在 1.0.12 首发范围，商业化采用兑换码。

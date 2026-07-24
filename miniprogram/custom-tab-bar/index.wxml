@@ -1,0 +1,20 @@
+<view class="tab-bar">
+  <view
+    class="tab-bar-item {{selected === index ? 'active' : ''}}"
+    wx:for="{{list}}"
+    wx:key="pagePath"
+    data-index="{{index}}"
+    data-path="{{item.pagePath}}"
+    bindtap="switchTab"
+    aria-label="{{item.text}}"
+  >
+    <image class="tab-bar-icon" src="{{selected === index ? item.selectedIconPath : item.iconPath}}" mode="aspectFit"></image>
+    <text>{{item.text}}</text>
+  </view>
+  <view
+    class="auth-mask"
+    wx:if="{{authMaskVisible}}"
+    catchtap="noop"
+    catchtouchmove="noop"
+  ></view>
+</view>

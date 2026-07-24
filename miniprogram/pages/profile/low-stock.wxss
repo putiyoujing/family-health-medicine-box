@@ -1,0 +1,101 @@
+.low-stock-page {
+  padding-top: 28rpx;
+}
+
+.threshold-card {
+  padding: 30rpx 28rpx;
+}
+
+.threshold-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding-bottom: 28rpx;
+  border-bottom: 1rpx solid #e5efec;
+}
+
+.threshold-summary .section-title {
+  margin-bottom: 8rpx;
+}
+
+.threshold-hint {
+  color: #71837e;
+  font-size: 23rpx;
+  line-height: 1.5;
+}
+
+.threshold-value {
+  flex: 0 0 auto;
+  color: #168875;
+  font-family: "STSong", "Songti SC", serif;
+  font-size: 62rpx;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.threshold-value text {
+  margin-left: 2rpx;
+  font-size: 28rpx;
+}
+
+.threshold-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12rpx;
+  margin-top: 28rpx;
+}
+
+.threshold-option {
+  height: 68rpx;
+  margin: 0;
+  padding: 0;
+  color: #52716a;
+  background: #f4f8f7;
+  border: 1rpx solid #d9e8e3;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 68rpx;
+}
+
+.threshold-option::after {
+  border: 0;
+}
+
+.threshold-option.is-selected {
+  color: #ffffff;
+  background: #259f8e;
+  border-color: #259f8e;
+  box-shadow: 0 8rpx 18rpx rgba(37, 159, 142, 0.2);
+}
+
+.setting-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+  margin: 26rpx 10rpx 34rpx;
+  color: #6d817c;
+  font-size: 23rpx;
+  line-height: 1.6;
+}
+
+.setting-note-mark {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34rpx;
+  height: 34rpx;
+  margin-top: 2rpx;
+  color: #176f61;
+  background: #daf1e9;
+  border-radius: 50%;
+  font-family: Georgia, serif;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.save-btn {
+  margin-top: 0;
+}

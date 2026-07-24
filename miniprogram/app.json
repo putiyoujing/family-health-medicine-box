@@ -2,10 +2,19 @@
   "pages": [
     "pages/dashboard/index",
     "pages/medicines/index",
+    "pages/medicines/form",
     "pages/illness/index",
+    "pages/illness/form",
+    "pages/illness/detail",
     "pages/medication/index",
+    "pages/medication/form",
     "pages/assistant/index",
     "pages/profile/index",
+    "pages/profile/info",
+    "pages/profile/low-stock",
+    "pages/profile/expiry-reminder",
+    "pages/legal/index",
+    "pages/feedback/index",
     "pages/family/index",
     "pages/family/invite",
     "pages/family/accept",
@@ -19,16 +28,17 @@
   ],
   "window": {
     "navigationBarTitleText": "家人健康记",
-    "navigationBarBackgroundColor": "#24352e",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#f5f7f2",
+    "navigationBarBackgroundColor": "#f4fbf8",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f4fbf8",
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
-    "color": "#66726c",
-    "selectedColor": "#2f7d57",
+    "custom": true,
+    "color": "#8ea19c",
+    "selectedColor": "#259f8e",
     "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/dashboard/index",
@@ -37,16 +47,16 @@
         "selectedIconPath": "assets/tabbar/home-active.png"
       },
       {
+        "pagePath": "pages/illness/index",
+        "text": "病程",
+        "iconPath": "assets/tabbar/health-default.png",
+        "selectedIconPath": "assets/tabbar/health-active.png"
+      },
+      {
         "pagePath": "pages/medicines/index",
         "text": "药箱",
         "iconPath": "assets/tabbar/box-default.png",
         "selectedIconPath": "assets/tabbar/box-active.png"
-      },
-      {
-        "pagePath": "pages/illness/index",
-        "text": "健康",
-        "iconPath": "assets/tabbar/health-default.png",
-        "selectedIconPath": "assets/tabbar/health-active.png"
       },
       {
         "pagePath": "pages/medication/index",
@@ -63,6 +73,13 @@
     ]
   },
   "sitemapLocation": "sitemap.json",
+  "useExtendedLib": {
+    "weui": true
+  },
+  "usingComponents": {
+    "global-auth-layer": "/components/global-auth-layer/index"
+  },
+  "__usePrivacyCheck__": true,
   "style": "v2",
   "lazyCodeLoading": "requiredComponents"
 }
