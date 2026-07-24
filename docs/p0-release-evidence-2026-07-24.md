@@ -25,6 +25,8 @@
 | CloudBase 对象核验 | PASS | 新 JS 的 ETag 为 `2aa7da62a965d21ec30d4fcc85fa8ac4`；入口 ETag 为 `95c846286d87f21bdc3eb35c7e4c6ee0` |
 | 公网入口与资源 | PASS | `/admin/` 返回 200 且引用 `index-BCuvfXR-.js`；该资源返回 200，长度 975821 字节 |
 | 已登录浏览器渲染 | PASS | 生产后台完成实际渲染；未记录真实业务数据 |
+| 匿名管理后台拒绝 | PASS | 无管理员会话的隔离浏览器只显示登录表单；等待后仍未出现导航、统计或业务数据 |
+| Git 全历史密钥扫描 | PASS | 官方 Gitleaks 8.30.1；校验和匹配；扫描 24 个提交、约 2.41 MB，0 泄漏 |
 
 首次全量回归在 Windows CRLF 工作区暴露了两个测试源码片段提取断言只接受 LF 的问题。测试正则已改为同时接受 LF/CRLF，定向测试 23/23、全量测试 154/154 均通过；业务实现未改动。
 
@@ -32,9 +34,8 @@
 
 | 项目 | 状态 | 阻塞与完成条件 |
 |---|---|---|
-| 生产 WeChat AppSecret 轮换 | BLOCKED | 必须由管理员在微信公众平台重置，并直接写入 CloudBase `reminderDispatcher` 的 `WECHAT_MINIPROGRAM_APP_SECRET`；密钥不得发送到聊天、仓库或知识库 |
-| AppSecret 轮换后函数回归 | BLOCKED | 保存配置并重新部署函数后，确认函数 Active、定时触发器启用、访问令牌无错误，再完成一条真实提醒 |
-| 匿名管理后台拒绝 | BLOCKED | 本轮浏览器已有管理员会话；需使用无会话浏览器确认未登录用户无法读取任何业务数据 |
+| 生产 WeChat AppSecret 轮换 | DEFERRED | Git 历史未发现泄漏；密钥曾在 Codex 管理工具返回中可见，项目负责人决定后续自行轮换 |
+| AppSecret 轮换后函数回归 | DEFERRED | 轮换后确认函数 Active、定时触发器启用、访问令牌无错误，再完成一条真实提醒 |
 | 微信隐私保护指引 | BLOCKED | 保存后台配置或审核记录截图，覆盖实际使用的隐私接口 |
 | 双账号家庭共享与跨家庭隔离 | BLOCKED | 两个真实微信账号执行邀请、角色权限、移除权限和跨家庭越权用例，并保存时间、步骤、结果与截图 |
 | iOS 真机 | BLOCKED | 记录机型、系统、微信版本和 P0 黄金流程结果 |
@@ -42,7 +43,14 @@
 | 真实订阅消息触达 | BLOCKED | 保存授权、计划时间、实际送达、单次发送、点击跳转及数据库状态证据 |
 | 微信审核与正式发布 | BLOCKED | 上述 P0 证据齐全后再提交审核 |
 
-## AppSecret 安全交接步骤
+## AppSecret 延期决定与安全交接
+
+2026-07-24，项目负责人决定暂不轮换 AppSecret，后续自行处理。该决定不影响其余 P0 验收继续进行。风险边界：
+
+- Gitleaks 扫描全部 24 个 Git 提交，未发现密钥泄漏。
+- 工作目录扫描命中的两个 JWT 候选均为浏览器端 `VITE_CLOUDBASE_PUBLISHABLE_KEY`，分别位于被忽略的 `.env.local` 和 `dist`；两者未被 Git 跟踪，不是 AppSecret。
+- 密钥未写入本页、仓库或知识库。
+- 密钥曾在 Codex 管理工具返回中可见，因此仍建议在正式公开发布前轮换。
 
 1. 管理员登录微信公众平台，在开发配置中重置小程序 AppSecret。
 2. 不复制到聊天或文档；直接在 CloudBase 控制台更新 `reminderDispatcher` 的 `WECHAT_MINIPROGRAM_APP_SECRET`。
@@ -51,4 +59,4 @@
 
 ## 当前发布结论
 
-管理后台已经达到 `deployed + live verified（已登录会话）`。小程序公开发布仍为 `NO-GO`：AppSecret、匿名拒绝、隐私、双账号、iOS/Android 真机和真实提醒触达尚未形成闭环证据。
+管理后台已经达到 `deployed + live verified（已登录和无会话两种状态）`。小程序公开发布仍为 `NO-GO`：隐私、双账号、iOS/Android 真机和真实提醒触达尚未形成闭环证据；AppSecret 轮换为负责人延期事项。
