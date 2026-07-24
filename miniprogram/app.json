@@ -20,8 +20,6 @@
     "pages/family/accept",
     "pages/family/switch",
     "pages/membership/index",
-    "pages/payment/checkout",
-    "pages/coupon/index",
     "pages/attachment/parse",
     "pages/report/export",
     "pages/reminders/index"

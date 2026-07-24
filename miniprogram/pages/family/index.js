@@ -132,7 +132,7 @@ Page({
       wx.showModal({
         title: '成员数量已达上限',
         content: isFreeMembership
-          ? `当前免费版最多 ${this.data.memberLimit} 位成员，升级会员后可添加至 10 位。`
+          ? `当前免费版最多 ${this.data.memberLimit} 位成员，兑换会员后可添加至 10 位。`
           : `当前家庭最多可添加 ${this.data.memberLimit} 位成员。`,
         confirmText: isFreeMembership ? '去升级' : '知道了',
         showCancel: isFreeMembership,

@@ -22,10 +22,6 @@
         placeholder="请描述你遇到的问题、希望优化的功能，或哪个页面不好操作。"
       ></textarea>
     </view>
-    <view class="field">
-      <text class="field-label">联系方式（选填）</text>
-      <input class="input" data-field="contact" value="{{form.contact}}" bindinput="onInput" placeholder="微信号 / 手机 / 邮箱，方便后续联系" />
-    </view>
     <button class="primary-btn" bindtap="submit" loading="{{submitting}}">
       {{submitting ? '提交中' : '提交反馈'}}
     </button>

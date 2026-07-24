@@ -73,21 +73,31 @@
       <view class="starter-title">可以从这里开始</view>
       <view class="starter-grid">
         <view class="starter-item starter-photo" bindtap="goMedicinePhoto">
-          <view class="starter-icon"></view>
+          <view class="starter-icon">
+            <view class="camera-icon"><view class="camera-lens"></view></view>
+          </view>
           <view>拍照录入药品</view>
         </view>
         <view class="starter-item starter-note" bindtap="goQuickIllness">
-          <view class="starter-icon"></view>
+          <view class="starter-icon">
+            <view class="note-icon">
+              <view></view>
+              <view></view>
+              <view></view>
+            </view>
+          </view>
           <view>手动记录</view>
         </view>
         <view class="starter-item starter-box" bindtap="goMedicines">
-          <view class="starter-icon"></view>
+          <view class="starter-icon">
+            <view class="box-icon">
+              <view class="box-cross"></view>
+            </view>
+          </view>
           <view>管理药箱</view>
         </view>
       </view>
     </view>
-
-    <view class="default-footnote">所有记录先保存在你自己的小程序空间，确认后再生成摘要。</view>
   </view>
 
   <block wx:else>
@@ -223,4 +233,4 @@
 
   </block>
 </view>
-<global-auth-layer id="global-auth-layer" />
+<global-auth-layer id="global-auth-layer" bindloginsuccess="handleLoginSuccess" />

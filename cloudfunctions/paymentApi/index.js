@@ -9,7 +9,7 @@ const db = cloud.database({
   throwOnNotFound: false,
 })
 const _ = db.command
-const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
 
 const PRO_LIMITS = {
   maxOwnedFamilies: 3,

@@ -16,17 +16,17 @@
 - `medication_logs`：用药记录。
 - `attachments`：检查单、处方、外包装、说明书等附件。
 - `reminders`：健康待办，关联成员和可选病程，并记录微信订阅授权与发送状态。
-- `feedback`：用户反馈，记录类型、内容、联系方式、来源页面和处理状态。
+- `feedback`：用户反馈，记录类型、内容、来源页面和处理状态；1.0.13 起不再新增联系方式字段。
 - `plans`：会员套餐。
 - `orders`：会员订单。
 - `subscriptions`：会员订阅记录。
 - `coupons`：优惠券。
-- `coupon_code_batches`：会员兑换码批次，用于小红书成交后批量发码。
+- `coupon_code_batches`：会员兑换码批次，用于后台批量生成和发放。
 - `coupon_codes`：单个会员兑换码，记录发放、兑换、外部订单号和激活订阅。
 - `coupon_redemptions`：优惠券使用记录。
 - `ai_tasks`：AI 图片解析任务。
 - `ai_usage_logs`：AI 使用额度记录。
-- `app_configs`：面向应用的后台配置；`membership` 文档保存会员购买提示文案。
+- `app_configs`：面向应用的后台配置；`membership` 文档保存会员兑换提示文案。
 - `admin_operation_logs`：后台敏感查看和管理操作的最小化审计日志。
 
 ## 权限原则
@@ -188,12 +188,12 @@
 - `listCouponCodeBatches` / `adminListCouponCodeBatches`：会员兑换码批次列表。
 - `listCouponCodes` / `adminListCouponCodes`：会员兑换码列表。
 - `listAiUsage` / `adminListAiUsage`：AI 用量列表。
-- `getMembershipSettings`：读取会员中心购买提示配置。
-- `updateMembershipSettings`：修改会员中心购买提示配置，文案非空且不超过 120 字。
+- `getMembershipSettings`：读取会员中心兑换提示配置。
+- `updateMembershipSettings`：修改会员中心兑换提示配置，文案非空且不超过 120 字。
 - `createCoupon` / `adminCreateCoupon`：创建优惠券。
 - `updateCoupon` / `adminUpdateCoupon`：更新优惠券。
-- `batchGenerateCouponCodes` / `adminBatchGenerateCouponCodes`：批量生成小红书发码用的会员兑换码。
-- `markCouponCodeIssued` / `adminMarkCouponCodeIssued`：标记单个兑换码已发放，并记录小红书订单号或用户备注。
+- `batchGenerateCouponCodes` / `adminBatchGenerateCouponCodes`：后台批量生成会员兑换码。
+- `markCouponCodeIssued` / `adminMarkCouponCodeIssued`：标记单个兑换码已发放，并记录运营备注。
 - `exportCouponCodes` / `adminExportCouponCodes`：按批次导出兑换码。
 - `disableCouponCodeBatch` / `adminDisableCouponCodeBatch`：禁用整个兑换码批次及未兑换券码。
 
@@ -201,15 +201,15 @@
 
 会员与订单入口：
 
-- `getPlans`：读取会员套餐及会员购买提示文案；配置缺失时返回内置默认文案。
+- `getPlans`：读取会员配置及会员兑换提示文案；小程序 1.0.13 只使用兑换提示，不展示套餐价格。
 - `previewOrder`：预览订单金额和优惠。
 - `createOrder`：创建待支付订单。
 - `applyCoupon`：校验并应用优惠券。
-- `redeemMembershipCode`：用户输入小红书发放的会员兑换码后，激活当前家庭会员。
+- `redeemMembershipCode`：用户输入已有会员兑换码后，激活当前家庭会员。
 - `listCouponsForUser`：列出当前家庭可用优惠券。
 - `mockPaymentSuccess`：仅限本地/测试/预发布联调；默认拒绝，且必须同时设置 `ALLOW_MOCK_PAYMENT=true` 和非生产 `NODE_ENV` 才可调用。生产环境严禁启用。
 
-当前优先完成“小红书成交 + 后台发会员兑换码 + 小程序兑换激活”闭环；正式上线小程序内购买前再接入微信官方支付或虚拟支付能力。
+当前小程序只保留“后台管理兑换码 + 小程序兑换激活”闭环，不展示购买渠道、套餐价格或支付入口。
 
 ## 管理员配置
 

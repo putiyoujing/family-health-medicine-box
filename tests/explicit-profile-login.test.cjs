@@ -276,6 +276,22 @@ test('profile login entry waits for the global layer and refreshes the current p
   assert.doesNotMatch(script, /pages\/login\/index/)
 })
 
+test('dashboard refreshes immediately after the global login layer succeeds', () => {
+  const authLayerScript = read('miniprogram/components/global-auth-layer/index.js')
+  const dashboardTemplate = read('miniprogram/pages/dashboard/index.wxml')
+  const dashboardScript = read('miniprogram/pages/dashboard/index.js')
+
+  assert.match(authLayerScript, /this\.triggerEvent\('loginsuccess'\)/)
+  assert.match(
+    dashboardTemplate,
+    /<global-auth-layer id="global-auth-layer" bindloginsuccess="handleLoginSuccess" \/>/,
+  )
+  assert.match(
+    dashboardScript,
+    /async handleLoginSuccess\(\)\s*\{\s*await this\.loadHome\(\{ force: true \}\)\s*\}/,
+  )
+})
+
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8')
 }

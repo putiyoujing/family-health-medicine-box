@@ -11,7 +11,6 @@ Page({
     form: {
       type: typeOptions[0],
       content: '',
-      contact: '',
     },
   },
 
@@ -53,7 +52,8 @@ Page({
     wx.showLoading({ title: '提交中' })
     try {
       await api.saveFeedback({
-        ...form,
+        type: form.type,
+        content: form.content,
         page: 'profile',
       })
       wx.hideLoading()

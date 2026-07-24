@@ -8,7 +8,7 @@ cloud.init({
 const db = cloud.database()
 const _ = db.command
 const auth = tcb.init({ env: cloud.DYNAMIC_CURRENT_ENV }).auth()
-const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
 const DEFAULT_ADMIN_AUTH_UID = String(process.env.DEFAULT_ADMIN_AUTH_UID || '').trim()
 
 const DATA_TABLES = [
@@ -678,10 +678,10 @@ async function getMembershipSettings() {
 async function updateMembershipSettings(payload = {}, admin = {}) {
   const membershipPurchaseGuide = String(payload.membershipPurchaseGuide || '').trim()
   if (!membershipPurchaseGuide) {
-    throw new Error('会员购买提示不能为空')
+    throw new Error('会员兑换提示不能为空')
   }
   if (membershipPurchaseGuide.length > 120) {
-    throw new Error('会员购买提示不能超过 120 个字')
+    throw new Error('会员兑换提示不能超过 120 个字')
   }
   await db.collection('app_configs').doc('membership').set({
     data: {

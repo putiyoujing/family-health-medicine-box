@@ -155,6 +155,9 @@ Component({
           return false
         }
         this.finish(true)
+        if (typeof this.triggerEvent === 'function') {
+          this.triggerEvent('loginsuccess')
+        }
         return true
       } catch (error) {
         console.error('login profile submission failed', error)

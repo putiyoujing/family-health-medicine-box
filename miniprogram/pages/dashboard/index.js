@@ -35,6 +35,10 @@ Page({
     this.loadHome({ silent: this.homeLoaded, force: true })
   },
 
+  async handleLoginSuccess() {
+    await this.loadHome({ force: true })
+  },
+
   async loadHome(options = {}) {
     if (!options.silent) {
       this.setData({ loading: true, loadError: '' })

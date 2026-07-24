@@ -16,7 +16,7 @@ interface AdminRequest {
 const DATA_FILE = fileURLToPath(new URL('../.local-data/admin-api.json', import.meta.url))
 const LOCAL_ADMIN_TOKEN = 'local-dev-token'
 const DAY_MS = 24 * 60 * 60 * 1000
-const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '可通过小红书搜索账号【XXlifelab】店铺购买兑换码。'
+const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
 
 const DATA_TABLES = [
   { id: 'users', name: 'Users', collection: 'users', statKey: 'users' },
@@ -917,10 +917,10 @@ function getMembershipSettings(store: Store) {
 async function updateMembershipSettings(store: Store, payload: Row) {
   const membershipPurchaseGuide = stringValue(payload.membershipPurchaseGuide)
   if (!membershipPurchaseGuide) {
-    throw new Error('会员购买提示不能为空')
+    throw new Error('会员兑换提示不能为空')
   }
   if (membershipPurchaseGuide.length > 120) {
-    throw new Error('会员购买提示不能超过 120 个字')
+    throw new Error('会员兑换提示不能超过 120 个字')
   }
   const current = store.app_configs.find((item) => item._id === 'membership')
   const next = {

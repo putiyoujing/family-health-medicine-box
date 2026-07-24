@@ -97,11 +97,11 @@ async function callPaymentApi(action, payload = {}) {
     })
   } catch (error) {
     console.error('paymentApi call failed', action, error)
-    throw new Error(normalizeCloudError(error, '支付服务暂不可用'))
+    throw new Error(normalizeCloudError(error, '会员服务暂不可用'))
   }
 
   if (!result.result || !result.result.ok) {
-    throw new Error((result.result && result.result.message) || '支付服务暂不可用，请稍后再试')
+    throw new Error((result.result && result.result.message) || '会员服务暂不可用，请稍后再试')
   }
 
   return result.result.data
