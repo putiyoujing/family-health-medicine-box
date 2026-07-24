@@ -1,6 +1,6 @@
 # P0 发布证据记录（2026-07-24）
 
-本页记录 `1.0.12` 在 2026-07-24 的实际发布证据。结论只覆盖已经执行并可回查的层级；本机环境变量中的 `true` 不替代微信平台、真实账号或真机证据。
+本页记录 `1.0.12` 在 2026-07-24 的实际发布证据，以及同日完成的 `1.0.13` 管理后台部署跟进。结论只覆盖已经执行并可回查的层级；本机环境变量中的 `true` 不替代微信平台、真实账号或真机证据。
 
 ## 发布对象
 
@@ -8,7 +8,7 @@
 - CloudBase 环境：`family-health-prod-d9csm29f27d75`
 - 生产管理后台：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
 - 构建入口：`admin/index.html`
-- 当前 JS：`admin/assets/index-BCuvfXR-.js`
+- 当前 JS：`admin/assets/index-By3rh1sH.js`
 - 当前 CSS：`admin/assets/index-C7NKJGpi.css`
 
 ## 已完成证据
@@ -46,6 +46,20 @@
 ### 1.0.13 审核状态跟进
 
 2026-07-24，项目负责人确认 1.0.13 小程序已提交微信审核。该状态记为 `SUBMITTED / PENDING REVIEW`，只证明已经进入审核流程，不代表审核通过或正式发布。上表是 1.0.12 收口时的历史门禁记录；隐私、双账号、iOS/Android 真机和真实提醒证据仍需补齐。
+
+### 1.0.13 管理后台部署跟进
+
+2026-07-24 23:34（Asia/Shanghai），在 PR #5 合并且两次 CI 均通过后，将 `master` 的 1.0.13 构建产物部署到既有 CloudBase `admin/` 目录。上传前完整下载现网目录作为本地回滚备份，未删除旧哈希资源。
+
+| 项目 | 状态 | 证据 |
+|---|---|---|
+| 主分支全量检查 | PASS | `npm run check`：160/160 自动化测试、22 项静态发布保护通过 |
+| CloudBase 上传 | PASS | `admin/index.html`、`index-By3rh1sH.js`、`index-C7NKJGpi.css` 与图标上传均返回 200 |
+| CloudBase 对象核验 | PASS | 入口 ETag `8b3c106e4c816defbb904131d782cd0a`；JS ETag `6d4d6871eeb550ee6924fb38aa95a6df` |
+| 公网入口与资源 | PASS | `/admin/` 与活动 JS 均返回 200；站点根路径仍按既有配置返回 404 |
+| 构建一致性 | PASS | 线上活动 JS SHA-256 与本地 `dist` 完全一致 |
+| 合规文案 | PASS | 线上包含“会员兑换提示”和中性兑换说明，不包含“会员购买提示” |
+| 浏览器渲染 | PASS | 刷新生产 `/admin/` 后显示管理员登录页，标题与 URL 正确，控制台无新增警告或错误 |
 
 ## AppSecret 延期决定与安全交接
 
