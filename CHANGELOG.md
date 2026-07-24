@@ -24,7 +24,7 @@ All notable changes are recorded here. Versions follow the mini-program upload v
 
 ### Known follow-ups
 
-- Redeploy the 1.0.12 Web admin build to CloudBase Hosting; the GitHub release does not automatically update production hosting.
+- Verify the deployed 1.0.12 Web admin in a browser without an administrator session; the production build was uploaded on 2026-07-24.
 - Rotate the production WeChat AppSecret because it was exposed through an administrative inspection response; no secret value is stored in this repository.
 - Add durable evidence artifacts for privacy, two-account isolation, iOS/Android real-device coverage, and real reminder delivery.
 - Split the large Web admin bundle and paginate queries that currently cap results at 100.

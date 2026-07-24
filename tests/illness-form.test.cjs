@@ -227,7 +227,7 @@ test('initial visit event snapshots newly added medicines in demo and cloud path
 
   assert.deepEqual(Array.from(event.prescribedMedicineIds), [medicine.id])
   assert.equal(event.prescribedMedicines[0].medicineNameSnapshot, '医生新开药')
-  assert.match(cloudSource.match(/async function saveIllness[\s\S]*?\n}\n\nasync function syncInitialCourseEvent/)[0], /prescribedMedicineIds: payload\.prescribedMedicineIds \|\| \[\]/)
+  assert.match(cloudSource.match(/async function saveIllness[\s\S]*?\r?\n}\r?\n\r?\nasync function syncInitialCourseEvent/)[0], /prescribedMedicineIds: payload\.prescribedMedicineIds \|\| \[\]/)
 })
 
 test('legacy illness dates are normalized for the date and time pickers', () => {
