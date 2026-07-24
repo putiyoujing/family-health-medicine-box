@@ -14,6 +14,7 @@
 - 24 个生产集合均已逐项核验为 `ADMINONLY`；生产管理后台 `/admin/` 可访问；提醒定时触发器已启用。
 - `npm run check` 与本机 `npm run check:release:production` 通过。
 - 本机声明显示管理员 E2E、隐私、双账号、真机和提醒触达已完成，但仓库尚无对应截图、日志或测试记录，因此只记为“已声明，待留证”。
+- 1.0.12 GitHub Release 已发布，但 CloudBase Web 静态托管尚未重新部署；生产 `/admin/` 当前仍是旧资源。
 - 图片识别与真实支付不在 1.0.12 首发范围；首发商业化采用兑换码。
 - 生产 WeChat AppSecret 需要轮换，且不得写入仓库或文档。
 
@@ -144,6 +145,8 @@
 
 - 生产：`https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/`
 - 历史演示：`https://putiyoujing.github.io/family-health-medicine-box/`，不作为生产或鉴权证据
+
+当前部署状态：生产入口可访问，但 1.0.12 管理后台资源尚未重新部署。部署后必须再次比对线上资源与本次构建。
 
 上线前必须配置：
 
