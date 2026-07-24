@@ -2,7 +2,7 @@
 
 更新时间：2026-07-24
 
-本文基于 `README.md`、`docs/release-checklist.md`、`docs/wechat-cloud-database.md`、`docs/web-admin.md` 和 `docs/role-review-and-gap-plan.md` 整理。代码与生产云资源已形成 1.0.12 候选基线；正式公开上线前，重点是补齐可审计的合规、双账号、真机与提醒触达证据。
+本文基于 `README.md`、`docs/release-checklist.md`、`docs/wechat-cloud-database.md`、`docs/web-admin.md` 和 `docs/role-review-and-gap-plan.md` 整理。代码与生产云资源已形成 1.0.13 审核候选基线；正式公开上线前，重点是补齐可审计的合规、双账号、真机与提醒触达证据。
 
 ## 0. 当前状态与阻塞项
 
@@ -14,8 +14,8 @@
 - 24 个生产集合均已逐项核验为 `ADMINONLY`；生产管理后台 `/admin/` 可访问；提醒定时触发器已启用。
 - `npm run check` 与本机 `npm run check:release:production` 通过。
 - 本机声明显示管理员 E2E、隐私、双账号、真机和提醒触达已完成，但仓库尚无对应截图、日志或测试记录，因此只记为“已声明，待留证”。
-- 1.0.12 GitHub Release 已发布，CloudBase Web 静态托管已于 2026-07-24 部署；已登录页面正常，无管理员会话的隔离浏览器只显示登录表单。
-- 图片识别与真实支付不在 1.0.12 首发范围；首发商业化采用兑换码。
+- 1.0.13 审核修订 PR 已合并，CloudBase Web 静态托管已于 2026-07-24 更新并完成公网与浏览器核验；小程序已提交微信审核、结果待定。GitHub Release 仍以 1.0.12 为最新正式发布记录。
+- 图片识别与真实支付不在 1.0.13 审核候选范围；首发商业化采用兑换码。
 - Git 全历史扫描未发现 AppSecret 泄漏；项目负责人决定延期轮换，且密钥不得写入仓库或文档。
 
 ## 1. 账号与平台准备
@@ -146,7 +146,7 @@
 - 生产：`https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/`
 - 历史演示：`https://putiyoujing.github.io/family-health-medicine-box/`，不作为生产或鉴权证据
 
-当前部署状态：1.0.12 已部署，生产入口引用 `index-BCuvfXR-.js`；入口与资源均返回 200。无管理员会话的隔离浏览器只显示管理员登录表单，等待后未加载任何业务数据。
+当前部署状态：1.0.13 已部署，生产入口引用 `index-By3rh1sH.js`；入口与资源均返回 200，线上资源哈希与本地构建一致。无管理员会话的浏览器只显示管理员登录表单，未加载任何业务数据，控制台无新增错误。
 
 上线前必须配置：
 
