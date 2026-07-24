@@ -6,7 +6,7 @@
 
 - 当前版本：`1.0.12`
 - GitHub：<https://github.com/putiyoujing/family-health-medicine-box>
-- 生产管理后台：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
+- 生产管理后台入口：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>；1.0.12 源码已发布，当前静态托管仍待重新部署。
 - GitHub Pages：历史演示入口，不作为生产后台或真实数据入口。
 - 发布记录：[CHANGELOG.md](CHANGELOG.md)
 
@@ -91,6 +91,7 @@ npm run dev
 - 图片识别默认关闭；当前保留图片上传、任务、额度记录和用户确认保存闭环。
 - 首发商业化采用兑换码；真实微信支付或虚拟支付尚未开放。
 - 生产环境、5 个云函数、24 个 `ADMINONLY` 集合、管理后台静态托管及提醒定时触发器已核验。
+- 1.0.12 新增的匿名管理会话拒绝逻辑尚未重新部署到 CloudBase 静态托管。
 - 隐私配置、双账号隔离、iOS/Android 真机和真实提醒触达目前只有本地发布门禁声明，仍需保存可审计的截图或测试记录。
 - 生产 WeChat AppSecret 需要在发布前轮换；仓库不保存其值。
 
