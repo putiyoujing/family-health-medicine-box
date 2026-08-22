@@ -41,7 +41,7 @@
           <view class="muted">{{item.displayRelation}} · {{item.birthday || '生日未填写'}}</view>
           <view class="member-account-status {{item.accountStatus}}">{{item.accountStatusText}}</view>
         </view>
-        <button class="member-invite-btn" wx:if="{{item.canInvite}}" data-id="{{item._id}}" catchtap="openMemberInvite">邀请本人</button>
+        <button class="member-invite-btn" wx:if="{{item.canInvite}}" data-id="{{item._id}}" catchtap="openMemberInvite">{{item.inviteActionText}}</button>
         <text class="row-arrow">›</text>
       </view>
     </view>
@@ -94,7 +94,7 @@
       <view class="member-account-panel" wx:if="{{memberModalMode === 'edit'}}">
         <view class="field-label">账号关联</view>
         <view class="member-account-status {{selectedMember.accountStatus}}">{{selectedMember.accountStatusText}}</view>
-        <button class="ghost-btn account-link-btn" wx:if="{{selectedMember.canInvite}}" data-id="{{selectedMember._id}}" bindtap="openMemberInvite">邀请本人关联微信</button>
+        <button class="ghost-btn account-link-btn" wx:if="{{selectedMember.canInvite}}" data-id="{{selectedMember._id}}" bindtap="openMemberInvite">{{selectedMember.inviteActionText}}</button>
         <view class="role-actions" wx:if="{{selectedMember.linkedRole && selectedMember.linkedRole.canManage}}">
           <button class="ghost-btn tiny-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" data-role="admin" bindtap="changeRole">设管理员</button>
           <button class="ghost-btn tiny-btn" data-role-id="{{selectedMember.linkedRole.roleId}}" data-role="member" bindtap="changeRole">设协作者</button>

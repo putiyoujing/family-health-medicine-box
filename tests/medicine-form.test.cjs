@@ -24,6 +24,8 @@ test('medicine create and edit use a dedicated form page', () => {
   assert.match(formTemplate, /bindtap="chooseMedicinePhoto"/)
   assert.match(formTemplate, /pendingAttachments\.length}}\/5/)
   assert.match(formTemplate, /bindtap="removeMedicinePhoto"/)
+  assert.match(formTemplate, /class="ghost-btn parse-btn" wx:if="\{\{imageParsingEnabled\}\}"/)
+  assert.doesNotMatch(formTemplate, /图片整理暂未开放/)
   assert.match(formTemplate, /class="save-bar"/)
   assert.match(formTemplate, /errors\.name/)
   assert.match(formTemplate, /药品规格（选填）/)
@@ -96,6 +98,13 @@ test('medicine form loads an existing medicine and keeps its custom category sel
         expireDate: '2027-12-31',
         location: '卧室药箱',
       }],
+      attachments: [{
+        _id: 'attachment-a',
+        relatedType: 'medicine',
+        relatedId: 'medicine-a',
+        fileId: 'cloud://package-a.jpg',
+        imageKind: 'medicine_box',
+      }],
     },
   })
   const page = createPageInstance(pageDefinition)
@@ -108,6 +117,10 @@ test('medicine form loads an existing medicine and keeps its custom category sel
   assert.equal(page.data.form.expireDate, '2027-12-31')
   assert.equal(page.data.categoryOptions[page.data.categoryIndex], '自定义分类')
   assert.equal(page.data.unitOptions[page.data.unitIndex], '瓶')
+  assert.deepEqual(Array.from(page.data.pendingAttachments, (item) => ({
+    attachmentId: item.attachmentId,
+    fileID: item.fileID,
+  })), [{ attachmentId: 'attachment-a', fileID: 'cloud://package-a.jpg' }])
 })
 
 test('medicine form reports field errors before saving invalid quantities', async () => {

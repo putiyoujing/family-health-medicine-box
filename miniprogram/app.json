@@ -8,7 +8,6 @@
     "pages/illness/detail",
     "pages/medication/index",
     "pages/medication/form",
-    "pages/assistant/index",
     "pages/profile/index",
     "pages/profile/info",
     "pages/profile/low-stock",

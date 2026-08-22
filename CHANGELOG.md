@@ -2,6 +2,39 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
+## [1.0.15] - Unreleased
+
+### Changed
+
+- Reuse the shared family-data cache when returning to the dashboard, illness, medicine, family, and profile pages instead of forcing a full refresh on every page show.
+- Keep explicit login, pull-down, mutation, and targeted-action refresh paths so newly changed data still reloads when required.
+- Make the medication-record “修改” and “作废” actions compact and right-aligned while preserving their existing behavior.
+- Hide the unavailable image-organization entry until the feature is enabled.
+- Keep coupons and membership redemption codes as separate admin-managed assets, and preserve the selected admin page during the current browser session.
+- Complete the source cleanup for the retired AI-query page and action; this does not enable or deploy a replacement AI workflow.
+
+### Fixed
+
+- Restore persisted medicine attachments when reopening an existing medicine, including normalization between stored `fileId` and the view model's `fileID`.
+- Allow a pending family invitation to be shared again with its original invitation code.
+
+### Verification
+
+- Pass the complete project gate with 165 automated tests and 22 static release safeguards.
+- No cloud-function deployment, database migration, permission change, or production-data rewrite has been performed while preparing this version.
+- The mini-program performance, image, button, and invitation changes do not require a database migration; the admin and cloud-function source changes remain undeployed pending their own production verification.
+- Experience upload, WeChat review, and public release remain pending.
+
+## [1.0.14] - 2026-07-27
+
+### Changed
+
+- Remove the AI-query frontend page and its mini-program navigation entry.
+
+### Release
+
+- Release the mini-program to production as `1.0.14`; the official version-management screenshot supplied by the project owner records the release on 2026-07-27.
+
 ## [1.0.13] - 2026-07-24
 
 ### Changed

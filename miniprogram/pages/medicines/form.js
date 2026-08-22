@@ -92,6 +92,17 @@ Page({
 
       const memberPickerOptions = [{ _id: '', name: '全家通用' }, ...(home.members || [])]
       const preferredMember = memberPickerOptions.find((item) => item._id === this.preferredMemberId)
+      const pendingAttachments = this.recordId
+        ? (home.attachments || [])
+          .filter((attachment) => (
+            attachment
+            && attachment.relatedType === 'medicine'
+            && attachment.relatedId === this.recordId
+            && !attachment.deletedAt
+          ))
+          .map(normalizeMedicineAttachment)
+          .filter((attachment) => attachment.fileID)
+        : []
       const form = medicine
         ? formFromMedicine(medicine)
         : {
@@ -130,6 +141,7 @@ Page({
         packageUnitOptions,
         packageUnitIndex,
         ...buildPackageState(form),
+        pendingAttachments,
         formTagOptions: buildFormTagOptions(form.tagsText),
         imageParsingEnabled: !!(getApp().globalData && getApp().globalData.imageParsingEnabled),
         fromPrescription: this.fromPrescription,
@@ -511,6 +523,16 @@ Page({
     }
   },
 })
+
+function normalizeMedicineAttachment(attachment) {
+  return {
+    ...attachment,
+    attachmentId: attachment.attachmentId || attachment._id || attachment.id || '',
+    fileID: attachment.fileID || attachment.fileId || '',
+    tempFilePath: attachment.tempFilePath || '',
+    imageKind: attachment.imageKind || 'medicine_box',
+  }
+}
 
 function validateForm(form) {
   const errors = {}

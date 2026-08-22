@@ -178,14 +178,11 @@ async function redeemMembershipCode(openid, payload) {
   }
 
   const initialCodeRecord = await findMembershipCode(code)
-  const [initialCoupon, initialBatch] = await Promise.all([
-    safeGetDoc('coupons', initialCodeRecord.couponId),
-    safeGetDoc('coupon_code_batches', initialCodeRecord.batchId),
-  ])
+  const initialBatch = await safeGetDoc('coupon_code_batches', initialCodeRecord.batchId)
   const codeRecord = initialCodeRecord
   validateMembershipCode(codeRecord)
-  validateMembershipCodeRule(initialCoupon, initialBatch)
-  const initialPlanConfig = resolveMembershipCodePlan(initialCodeRecord, initialCoupon, initialBatch)
+  validateMembershipCodeBatch(initialBatch)
+  const initialPlanConfig = resolveMembershipCodePlan(initialCodeRecord, initialBatch)
   const redeemDurationDays = initialPlanConfig.durationDays
   const plan = {
     ...(await getPlan(initialPlanConfig.planId)),
@@ -233,7 +230,6 @@ async function redeemMembershipCode(openid, payload) {
 
   await db.collection('coupon_redemptions').add({
     data: {
-      couponId: codeRecord.couponId || '',
       codeId: codeRecord._id,
       batchId: codeRecord.batchId || '',
       code,
@@ -252,14 +248,6 @@ async function redeemMembershipCode(openid, payload) {
     },
   })
 
-  if (codeRecord.couponId) {
-    await db.collection('coupons').doc(codeRecord.couponId).update({
-      data: {
-        usedQuantity: _.inc(1),
-        updatedAt: db.serverDate(),
-      },
-    })
-  }
   if (codeRecord.batchId) {
     await db.collection('coupon_code_batches').doc(codeRecord.batchId).update({
       data: {
@@ -539,16 +527,13 @@ function validateMembershipCode(codeRecord) {
   }
 }
 
-function validateMembershipCodeRule(coupon, batch) {
+function validateMembershipCodeBatch(batch) {
   if (batch && batch.status && batch.status !== 'active') {
     throw new Error('这个兑换码批次已停用')
   }
-  if (coupon && coupon.status && coupon.status !== 'active') {
-    throw new Error('这个会员兑换规则已停用')
-  }
   const now = Date.now()
-  const startAt = (coupon && coupon.startAt) || (batch && batch.startAt)
-  const endAt = (coupon && coupon.endAt) || (batch && batch.endAt)
+  const startAt = batch && batch.startAt
+  const endAt = batch && batch.endAt
   if (startAt && new Date(startAt).getTime() > now) {
     throw new Error('这个会员兑换码尚未开始使用')
   }
@@ -557,18 +542,15 @@ function validateMembershipCodeRule(coupon, batch) {
   }
 }
 
-function resolveMembershipCodePlan(codeRecord, coupon, batch) {
+function resolveMembershipCodePlan(codeRecord, batch) {
   const planId =
     codeRecord.redeemPlanId ||
     (batch && batch.redeemPlanId) ||
-    (coupon && coupon.redeemPlanId) ||
     'yearly_pro'
   const defaultPlan = PLANS.find((item) => item.planId === planId) || PLANS[0]
   const requestedDurationDays = Number(
     codeRecord.redeemDurationDays ||
       (batch && batch.redeemDurationDays) ||
-      (coupon && coupon.redeemDurationDays) ||
-      (coupon && coupon.value) ||
       defaultPlan.durationDays,
   )
   if (!Number.isFinite(requestedDurationDays) || requestedDurationDays < 1 || requestedDurationDays > 3650) {

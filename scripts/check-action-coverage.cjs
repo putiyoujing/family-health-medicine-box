@@ -35,7 +35,6 @@ const expected = {
     parseAttachment: ['parseAttachment'],
     getAiTask: ['getAiTask'],
     confirmAiParseResult: ['confirmAiParseResult'],
-    assistantQuery: ['assistantQuery'],
     exportReport: ['exportReport'],
   },
   'cloudfunctions/paymentApi/index.js': {

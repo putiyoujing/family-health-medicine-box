@@ -873,11 +873,9 @@ async function batchGenerateCouponCodes(adminId, payload = {}) {
   const redeemPlanId = payload.redeemPlanId || payload.planId || 'yearly_pro'
   const redeemDurationDays = Number(payload.redeemDurationDays || 365)
   const now = db.serverDate()
-  const couponId = payload.couponId || (await createMembershipRedeemCoupon(payload, prefix, redeemPlanId, redeemDurationDays))
 
   const batchResult = await db.collection('coupon_code_batches').add({
     data: {
-      couponId,
       name: payload.name || `${prefix} 会员兑换码批次`,
       prefix,
       purpose: payload.purpose || 'membership_redeem',
@@ -900,7 +898,6 @@ async function batchGenerateCouponCodes(adminId, payload = {}) {
     const code = await createUniqueCouponCode(prefix, codeLength, codes)
     const addResult = await db.collection('coupon_codes').add({
       data: {
-        couponId,
         batchId: batchResult._id,
         code,
         status: 'active',
@@ -932,69 +929,11 @@ async function batchGenerateCouponCodes(adminId, payload = {}) {
     },
   })
 
-  await db.collection('coupons').doc(couponId).update({
-    data: {
-      totalQuantity: _.inc(codes.length),
-      updatedAt: db.serverDate(),
-    },
-  })
-
   return {
     batchId: batchResult._id,
-    couponId,
     generatedCount: codes.length,
     codes,
   }
-}
-
-async function createMembershipRedeemCoupon(payload, prefix, redeemPlanId, redeemDurationDays) {
-  const code = await createUniqueCouponRuleCode(prefix)
-  const now = db.serverDate()
-  const result = await db.collection('coupons').add({
-    data: {
-      name: payload.couponName || payload.name || `${prefix} 会员兑换规则`,
-      code,
-      codeMode: 'unique_codes',
-      codePurpose: 'membership_redeem',
-      type: 'trial_days',
-      value: redeemDurationDays,
-      redeemPlanId,
-      redeemDurationDays,
-      applicablePlans: [redeemPlanId],
-      minAmount: 0,
-      maxDiscountAmount: 0,
-      totalQuantity: 0,
-      usedQuantity: 0,
-      perUserLimit: 1,
-      perFamilyLimit: 1,
-      startAt: payload.startAt || null,
-      endAt: payload.endAt || null,
-      familyId: '',
-      channel: payload.channel || 'xiaohongshu',
-      status: 'active',
-      createdAt: now,
-      updatedAt: now,
-    },
-  })
-  return result._id
-}
-
-async function createUniqueCouponRuleCode(prefix) {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const code = `${prefix}_RULE_${randomCode(6)}`
-    const existing = await db
-      .collection('coupons')
-      .where({
-        code,
-        deletedAt: _.exists(false),
-      })
-      .limit(1)
-      .get()
-    if (!existing.data.length) {
-      return code
-    }
-  }
-  throw new Error('cannot generate unique coupon rule code')
 }
 
 async function createUniqueCouponCode(prefix, codeLength, pendingCodes) {
@@ -1149,14 +1088,16 @@ async function disableCouponCodeBatch(payload = {}) {
 async function disableCoupon(payload = {}) {
   const couponId = String(payload.id || payload._id || payload.couponId || '').trim()
   if (!couponId) throw new Error('coupon id is required')
-  const coupon = await safeGetDoc('coupons', couponId)
+  let coupon
+  try {
+    coupon = (await db.collection('coupons').doc(couponId).get()).data
+  } catch (error) {
+    throw new Error('coupon not found')
+  }
   if (!coupon || coupon.deletedAt) throw new Error('coupon not found')
   const now = db.serverDate()
   await db.collection('coupons').doc(couponId).update({
     data: { status: 'disabled', disabledReason: payload.reason || 'manual_disabled', disabledAt: now, updatedAt: now },
-  })
-  await db.collection('coupon_codes').where({ couponId, status: 'active', deletedAt: _.exists(false) }).update({
-    data: { status: 'disabled', disabledReason: 'coupon_disabled', updatedAt: now },
   })
   return { id: couponId, status: 'disabled' }
 }

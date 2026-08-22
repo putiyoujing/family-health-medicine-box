@@ -688,19 +688,12 @@ async function batchGenerateCouponCodes(store: Store, payload: Row) {
   const channel = stringValue(payload.channel) || 'xiaohongshu'
   const redeemPlanId = stringValue(payload.redeemPlanId || payload.planId) || 'yearly_pro'
   const redeemDurationDays = toNumber(payload.redeemDurationDays, 365)
-  const couponId = stringValue(payload.couponId) || createMembershipRedeemCoupon(store, payload, prefix, redeemPlanId, redeemDurationDays)
-  const coupon = store.coupons.find((item) => item._id === couponId)
-
-  if (!coupon) {
-    throw new Error('coupon not found')
-  }
 
   const now = new Date().toISOString()
   const batch = {
     _id: createId('batch'),
     channel,
     codeLength,
-    couponId,
     createdAt: now,
     exportedAt: null,
     generatedByAdminId: 'local-admin',
@@ -726,7 +719,6 @@ async function batchGenerateCouponCodes(store: Store, payload: Row) {
       activatedSubscriptionId: '',
       batchId: batch._id,
       code,
-      couponId,
       createdAt: now,
       externalOrderId: '',
       issueStatus: 'unissued',
@@ -746,54 +738,14 @@ async function batchGenerateCouponCodes(store: Store, payload: Row) {
   }
 
   batch.generatedCount = codes.length
-  coupon.totalQuantity = toNumber(coupon.totalQuantity, 0) + codes.length
-  coupon.updatedAt = now
   store.coupon_code_batches.push(batch)
   await saveStore(store)
 
   return {
     batchId: batch._id,
     codes,
-    couponId,
     generatedCount: codes.length,
   }
-}
-
-function createMembershipRedeemCoupon(
-  store: Store,
-  payload: Row,
-  prefix: string,
-  redeemPlanId: string,
-  redeemDurationDays: number,
-) {
-  const now = new Date().toISOString()
-  const coupon = {
-    _id: createId('coupon'),
-    applicablePlans: [redeemPlanId],
-    code: createUniqueCouponRuleCode(store, prefix),
-    codeMode: 'unique_codes',
-    codePurpose: 'membership_redeem',
-    createdAt: now,
-    endAt: payload.endAt || null,
-    familyId: '',
-    channel: stringValue(payload.channel) || 'xiaohongshu',
-    maxDiscountAmount: 0,
-    minAmount: 0,
-    name: stringValue(payload.couponName || payload.name) || `${prefix} membership redeem rule`,
-    perFamilyLimit: 1,
-    perUserLimit: 1,
-    redeemDurationDays,
-    redeemPlanId,
-    startAt: payload.startAt || null,
-    status: 'active',
-    totalQuantity: 0,
-    type: 'trial_days',
-    updatedAt: now,
-    usedQuantity: 0,
-    value: redeemDurationDays,
-  }
-  store.coupons.push(coupon)
-  return stringValue(coupon._id)
 }
 
 async function exportCouponCodes(store: Store, payload: Row) {
@@ -887,11 +839,6 @@ async function disableCoupon(store: Store, payload: Row) {
   if (!coupon) throw new Error('coupon not found')
   const now = new Date().toISOString()
   Object.assign(coupon, { disabledAt: now, disabledReason: stringValue(payload.reason) || 'manual_disabled', status: 'disabled', updatedAt: now })
-  store.coupon_codes.forEach((code) => {
-    if (code.couponId === couponId && code.status === 'active') {
-      Object.assign(code, { disabledReason: 'coupon_disabled', status: 'disabled', updatedAt: now })
-    }
-  })
   await saveStore(store)
   return { id: couponId, status: 'disabled' }
 }
@@ -1041,16 +988,6 @@ function createUniqueCouponCode(store: Store, prefix: string, codeLength: number
     }
   }
   throw new Error('cannot generate unique coupon code')
-}
-
-function createUniqueCouponRuleCode(store: Store, prefix: string) {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    const code = `${prefix}_RULE_${randomCode(6)}`
-    if (!store.coupons.some((item) => item.code === code)) {
-      return code
-    }
-  }
-  throw new Error('cannot generate unique coupon rule code')
 }
 
 function buildCodesCsv(rows: Row[]) {

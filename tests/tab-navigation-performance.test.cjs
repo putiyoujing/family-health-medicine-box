@@ -67,7 +67,7 @@ test('getHome reuses recent data and invalidates it after a successful mutation'
   assert.equal(getHomeCalls, 4)
 })
 
-test('loaded tabs silently request fresh data so changes from another account appear on return', () => {
+test('loaded tabs reuse the shared cache on return instead of forcing a full reload', () => {
   for (const relativeFile of tabPages) {
     let pageDefinition
     let loadCalls = 0
@@ -102,7 +102,7 @@ test('loaded tabs silently request fresh data so changes from another account ap
     assert.equal(loadCalls, shouldReload ? 1 : 0, relativeFile)
     if (shouldReload) {
       assert.equal(page.loadOptions && page.loadOptions.silent, true, relativeFile)
-      assert.equal(page.loadOptions && page.loadOptions.force, true, relativeFile)
+      assert.notEqual(page.loadOptions && page.loadOptions.force, true, relativeFile)
     }
   }
 })

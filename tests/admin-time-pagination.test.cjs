@@ -37,6 +37,18 @@ test('admin table UI sends the selected page size and exposes complete page cont
   assert.match(source, /TABLE_PAGE_SIZE_OPTIONS\.map/)
 })
 
+test('coupon and membership-code generators are independent and refresh restores the active page', () => {
+  const source = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+
+  assert.match(source, /function CouponGenerator/)
+  assert.match(source, /生成优惠券码/)
+  assert.match(source, /只写入“优惠券表”/)
+  assert.match(source, /人工批量生成会员兑换码/)
+  assert.match(source, /只写入“兑换码批次表”和“会员兑换码表”/)
+  assert.match(source, /useState<PageId>\(getInitialActivePage\)/)
+  assert.match(source, /window\.sessionStorage\.setItem\(ADMIN_ACTIVE_PAGE_STORAGE_KEY, activePage\)/)
+})
+
 test('admin APIs cap normal list pages at 100 rows', () => {
   const cloudSource = fs.readFileSync(path.join(root, 'cloudfunctions/adminApi/index.js'), 'utf8')
   const localSource = fs.readFileSync(path.join(root, 'scripts/local-admin-api.ts'), 'utf8')

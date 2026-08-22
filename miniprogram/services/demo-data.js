@@ -1215,82 +1215,6 @@ function confirmAiParseResult(payload = {}) {
   })
 }
 
-function assistantQuery(question) {
-  const normalized = String(question || '').trim().toLowerCase()
-  if (hasAny(normalized, ['肺炎', '诊断', '是不是', '该吃', '剂量', '换药', '停药'])) {
-    return clone({
-      intent: '医疗诊断或处方风险',
-      answer: '这个问题涉及诊断、处方或剂量判断，系统不能替代医生回答。你可以补充医生医嘱、检查单或历史记录，我可以帮你整理成复诊沟通摘要。',
-      facts: ['已触发医疗安全边界，未给出诊断或用药建议。'],
-      safetyNotice: SAFETY_NOTICE,
-    })
-  }
-
-  if (hasAny(normalized, ['过期', '到期', '有效期'])) {
-    const medicines = state.medicines.filter((medicine) => daysUntil(medicine.expireDate) <= 60)
-    return clone({
-      intent: '药品有效期查询',
-      answer: medicines.length ? `当前有 ${medicines.length} 个药品在 60 天内到期或已过期。` : '当前没有 60 天内到期的药品记录。',
-      facts: medicines.map(formatMedicineFact),
-      safetyNotice: SAFETY_NOTICE,
-    })
-  }
-
-  if (hasAny(normalized, ['药箱', '退烧', '退热', '有没有药', '还剩什么药'])) {
-    const medicines = findMentionedMedicines(normalized)
-    return clone({
-      intent: '药箱记录查询',
-      answer: medicines.length ? `根据家庭药箱记录，找到 ${medicines.length} 个相关药品。` : '没有找到相关药品记录，请检查药品名称或分类。',
-      facts: medicines.map(formatMedicineFact),
-      safetyNotice: SAFETY_NOTICE,
-    })
-  }
-
-  const member = findMentionedMember(normalized)
-  const illnessRecords = state.illnessRecords
-    .filter((record) => !member || record.memberId === member._id)
-    .sort((left, right) => String(right.startedAt || '').localeCompare(String(left.startedAt || '')))
-  const latest = illnessRecords[0]
-
-  if (member) {
-    if (!latest) {
-      return clone({
-        intent: '成员病程查询',
-        answer: `没有找到${member.name}的健康记录。`,
-        facts: [],
-        safetyNotice: SAFETY_NOTICE,
-      })
-    }
-    const facts = [
-      `记录时间：${latest.startedAt || '未记录时间'}`,
-      `主要症状：${(latest.symptoms || []).join('、') || '未填写'}`,
-      `当前状态：${latest.status || '未填写'}${latest.temperatureMax ? `，最高体温 ${latest.temperatureMax}℃` : ''}`,
-    ]
-    if (latest.doctorDiagnosis) {
-      facts.push(`就诊记录：${latest.hospitalName || '未记录医院'}，医生诊断 ${latest.doctorDiagnosis}`)
-    }
-    state.medicationLogs
-      .filter((log) => log.illnessRecordId === latest._id && !log.deletedAt)
-      .forEach((log) => facts.push(`关联用药：${log.takenAt || '未记录时间'} 使用 ${log.medicineNameSnapshot || '未命名药品'} ${log.doseQuantity || 0}${log.doseUnit || ''}`))
-
-    return clone({
-      intent: `${member.name}的病程记录`,
-      answer: `${member.name}上次记录是 ${latest.startedAt || '未记录时间'}：${(latest.symptoms || []).join('、') || '症状未填写'}。${latest.symptomDescription || ''}`,
-      facts,
-      safetyNotice: SAFETY_NOTICE,
-    })
-  }
-
-  return clone({
-    intent: '家庭健康记录检索',
-    answer: latest
-      ? `最近一条健康记录是 ${latest.startedAt || '未记录时间'}：${(latest.symptoms || []).join('、') || '症状未填写'}。`
-      : '当前还没有健康记录。',
-    facts: latest ? [`状态：${latest.status || '未填写'}，最高体温：${latest.temperatureMax || '未记录'}`] : [],
-    safetyNotice: SAFETY_NOTICE,
-  })
-}
-
 function exportReport(payload = {}) {
   if (!payload.illnessRecordId) {
     throw new Error('请从病程详情中生成复诊摘要')
@@ -1839,7 +1763,6 @@ function clone(value) {
 module.exports = {
   acceptFamilyInvite,
   applyCoupon,
-  assistantQuery,
   completeIllness,
   completeReminder,
   confirmAiParseResult,

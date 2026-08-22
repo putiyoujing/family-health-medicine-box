@@ -1,7 +1,7 @@
 {
   "name": "jiaren-health-note-admin",
   "private": true,
-  "version": "1.0.13",
+  "version": "1.0.15",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -26,8 +26,8 @@
           <button class="photo-remove" data-index="{{index}}" bindtap="removeMedicinePhoto">删除</button>
         </view>
         <view class="photo-count">已添加 {{pendingAttachments.length}}/5 张，保存药品后自动关联</view>
-        <button class="ghost-btn parse-btn" bindtap="openParse">
-          {{imageParsingEnabled ? '整理第一张图片信息' : '图片整理暂未开放'}}
+        <button class="ghost-btn parse-btn" wx:if="{{imageParsingEnabled}}" bindtap="openParse">
+          整理第一张图片信息
         </button>
       </view>
     </view>

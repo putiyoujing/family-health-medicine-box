@@ -14,7 +14,6 @@ test('membership code redemption activates the family and cannot be redeemed twi
         _id: 'code-1',
         code: 'FAMILY2026',
         status: 'active',
-        couponId: 'coupon-1',
         batchId: 'batch-1',
         externalOrderId: 'xhs-order-1',
       },
@@ -41,7 +40,8 @@ test('membership code redemption activates the family and cannot be redeemed twi
   assert.equal(store.subscriptions[0].externalOrderId, 'xhs-order-1')
   assert.equal(store.coupon_codes[0].status, 'used')
   assert.equal(store.coupon_redemptions.length, 1)
-  assert.equal(store.coupons[0].usedQuantity, 1)
+  assert.equal('couponId' in store.coupon_redemptions[0], false)
+  assert.equal(store.coupons[0].usedQuantity, 0)
   assert.equal(store.coupon_code_batches[0].usedQuantity, 1)
   assert.equal(store.families[0].plan, 'pro')
 

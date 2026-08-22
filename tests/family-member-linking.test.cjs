@@ -146,6 +146,55 @@ test('family management labels 本人 relative to the invited account', async ()
   )
 })
 
+test('family management keeps the share entry for a pending invite', async () => {
+  let pageDefinition
+  loadCjsModule(path.join(root, 'miniprogram/pages/family/index.js'), {
+    stubs: {
+      '../../services/api': {
+        async getMembershipStatus() {
+          return {
+            family: { _id: 'family-a', role: 'owner' },
+            entitlement: { limits: { maxMembers: 3, maxSharedUsers: 2 } },
+          }
+        },
+        async listFamilyRoles() {
+          return {
+            roles: [{ roleId: 'owner-role', role: 'owner', memberId: 'owner-member', isCurrentUser: true }],
+            pendingInvites: [{ inviteCode: 'TEST01', targetMemberId: 'child-member', role: 'viewer' }],
+          }
+        },
+        async getHome() {
+          return {
+            members: [
+              { _id: 'owner-member', name: '我', relation: '本人', isOwnerProfile: true },
+              { _id: 'child-member', name: '孩子', relation: '孩子' },
+            ],
+          }
+        },
+      },
+      '../../utils/operation-guards': { ensureLoginReady: async () => true },
+    },
+    globals: {
+      getApp: () => ({ globalData: {} }),
+      Page(definition) {
+        pageDefinition = definition
+      },
+      wx: { showToast() {} },
+    },
+  })
+
+  const page = createPageInstance(pageDefinition)
+  await page.load()
+
+  const pendingMember = page.data.members.find((member) => member._id === 'child-member')
+  assert.equal(pendingMember.canInvite, true)
+  assert.equal(pendingMember.inviteActionText, '继续分享')
+  assert.match(
+    fs.readFileSync(path.join(root, 'miniprogram/pages/family/index.wxml'), 'utf8'),
+    /{{item\.inviteActionText}}/,
+  )
+})
+
 test('an account already in the family cannot accept its own member invite', () => {
   const demo = loadDemo()
   const member = demo.saveMember({ name: '妈妈', relation: '妈妈' })
@@ -238,6 +287,58 @@ test('invite page loads the selected member when legacy limits omit sharedRoles'
   assert.equal(page.data.roleOptions.length, 1)
   assert.equal(page.data.entitlement.sharedRolesText, '查看者')
   assert.deepEqual(toastMessages, [])
+})
+
+test('invite page restores a pending invite for sharing again', async () => {
+  let pageDefinition
+  loadCjsModule(path.join(root, 'miniprogram/pages/family/invite.js'), {
+    stubs: {
+      '../../services/api': {
+        async getMembershipStatus() {
+          return {
+            entitlement: {
+              planName: '免费版',
+              limits: { maxSharedUsers: 2, sharedRoles: ['viewer', 'member', 'admin'] },
+            },
+          }
+        },
+        async getHome() {
+          return { members: [{ _id: 'child-member', name: '孩子' }] }
+        },
+        async listFamilyRoles() {
+          return {
+            roles: [],
+            pendingInvites: [{
+              inviteCode: 'TEST01',
+              targetMemberId: 'child-member',
+              targetMemberNameSnapshot: '孩子',
+              role: 'member',
+              expiresAt: '2026-08-19T00:00:00.000Z',
+            }],
+          }
+        },
+      },
+      '../../utils/operation-guards': { ensureLoginReady: async () => true },
+    },
+    globals: {
+      Page(definition) {
+        pageDefinition = definition
+      },
+      wx: { showToast() {} },
+    },
+  })
+
+  const page = createPageInstance(pageDefinition)
+  await page.onLoad({ memberId: 'child-member' })
+
+  assert.equal(page.data.invite.inviteCode, 'TEST01')
+  assert.equal(page.data.invite.path, '/pages/family/accept?code=TEST01')
+  assert.equal(page.data.role, 'member')
+  assert.equal(page.onShareAppMessage().path, '/pages/family/accept?code=TEST01')
+  assert.match(
+    fs.readFileSync(path.join(root, 'miniprogram/pages/family/invite.wxml'), 'utf8'),
+    /wx:if="{{targetMemberId && !invite}}"/,
+  )
 })
 
 test('copying an invite copies only its code and reports success', () => {
