@@ -143,8 +143,6 @@ exports.main = async (event = {}) => {
         return ok(await getAiTask(openid, familyId, payload.taskId))
       case 'confirmAiParseResult':
         return ok(await confirmAiParseResult(openid, familyId, payload))
-      case 'assistantQuery':
-        return ok(await assistantQuery(openid, familyId, payload.question || ''))
       case 'exportReport':
         return ok(await exportReport(openid, familyId, payload))
       default:
@@ -2174,90 +2172,6 @@ async function removeFamilyUser(openid, familyId, payload) {
   return {
     roleId: targetRole._id,
     mode: 'removed',
-  }
-}
-
-async function assistantQuery(openid, familyId, question) {
-  const home = await getHome(openid, familyId)
-  await assertAiQuota(home.family._id, 'assistant_query')
-  const normalized = String(question || '').trim().toLowerCase()
-
-  if (!normalized) {
-    return {
-      intent: '等待问题',
-      answer: '请输入问题，我会只基于当前家庭记录做检索和整理。',
-      facts: [],
-      safetyNotice: SAFETY_NOTICE,
-    }
-  }
-
-  await recordAiUsage(home.family._id, openid, 'assistant_query')
-
-  if (hasAny(normalized, ['肺炎', '诊断', '是不是', '该吃', '剂量', '换药', '停药'])) {
-    return {
-      intent: '医疗诊断或处方风险',
-      answer:
-        '这个问题涉及诊断、处方或剂量判断，系统不能替代医生回答。你可以补充医生医嘱、检查单或历史记录，我可以帮你整理成复诊沟通摘要。',
-      facts: ['已触发医疗安全边界，未给出诊断或用药建议。'],
-      safetyNotice: SAFETY_NOTICE,
-    }
-  }
-
-  if (hasAny(normalized, ['过期', '快过期', '有效期'])) {
-    const facts = home.medicines
-      .filter((medicine) => daysUntil(medicine.expireDate) <= 60)
-      .map(
-        (medicine) =>
-          `${medicine.name}：有效期 ${medicine.expireDate || '未记录'}，剩余 ${medicine.remainingQuantity || 0}${medicine.unit || ''}`,
-      )
-    return {
-      intent: '药品有效期查询',
-      answer: facts.length ? `当前有 ${facts.length} 个药品在 60 天内到期或已过期。` : '当前没有 60 天内到期的药品记录。',
-      facts,
-      safetyNotice: SAFETY_NOTICE,
-    }
-  }
-
-  if (hasAny(normalized, ['药', '有没有', '还剩', '药箱', '退烧', '咳嗽', '鼻炎', '腹泻'])) {
-    const keyword = normalized.replace('家里有没有', '').replace('？', '').trim()
-    const facts = home.medicines
-      .filter((medicine) =>
-        [medicine.name, medicine.category, medicine.location, medicine.indicationsText]
-          .join(' ')
-          .toLowerCase()
-          .includes(keyword),
-      )
-      .map(
-        (medicine) =>
-          `${medicine.name}：${medicine.category || '未分类'}，剩余 ${medicine.remainingQuantity || 0}${medicine.unit || ''}，位置 ${medicine.location || '未记录'}`,
-      )
-    return {
-      intent: '药箱记录查询',
-      answer: facts.length ? `根据家庭药箱记录，找到 ${facts.length} 个相关记录。` : '没有精确匹配记录，请检查名称或分类记录。',
-      facts,
-      safetyNotice: SAFETY_NOTICE,
-    }
-  }
-
-  const latest = home.illnessRecords[0]
-  const logs = latest
-    ? home.medicationLogs.filter((log) => log.illnessRecordId === latest._id)
-    : []
-
-  return {
-    intent: '历史记录整理',
-    answer: latest ? '我按最近一条健康记录整理了历史情况和关联用药。' : '当前还没有健康记录。',
-    facts: latest
-      ? [
-          `最近记录：${latest.startedAt || '未记录时间'}，症状 ${(latest.symptoms || []).join('、') || '未填'}`,
-          `状态：${latest.status || '未填'}，最高体温：${latest.temperatureMax || '未记录'}`,
-          ...logs.map(
-            (log) =>
-              `${log.takenAt || '未记录时间'} 使用 ${log.medicineNameSnapshot || '未命名药品'} ${log.doseQuantity || 0}${log.doseUnit || ''}`,
-          ),
-        ]
-      : [],
-    safetyNotice: SAFETY_NOTICE,
   }
 }
 

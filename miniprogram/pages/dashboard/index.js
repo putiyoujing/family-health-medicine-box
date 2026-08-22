@@ -32,7 +32,7 @@ Page({
 
   onShow() {
     syncTabBar(this, 0)
-    this.loadHome({ silent: this.homeLoaded, force: true })
+    this.loadHome({ silent: this.homeLoaded })
   },
 
   async handleLoginSuccess() {

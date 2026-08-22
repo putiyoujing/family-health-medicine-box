@@ -179,9 +179,12 @@ async function getHome(options = {}) {
   const generation = homeCacheGeneration
   const promise = callHealthOrDemo('getHome', {}, demo.getHome)
     .then((data) => {
-      if (generation === homeCacheGeneration && familyId === getCurrentFamilyId()) {
+      const resolvedFamilyId = (data && data.currentFamilyId)
+        || (data && data.family && data.family._id)
+        || familyId
+      if (generation === homeCacheGeneration && resolvedFamilyId === getCurrentFamilyId()) {
         homeCache = data
-        homeCacheFamilyId = familyId
+        homeCacheFamilyId = resolvedFamilyId
         homeCacheTime = Date.now()
       }
       return data
@@ -338,10 +341,6 @@ async function confirmAiParseResult(payload) {
   return callHealthOrDemo('confirmAiParseResult', payload, demo.confirmAiParseResult)
 }
 
-async function assistantQuery(question) {
-  return callHealthOrDemo('assistantQuery', { question }, () => demo.assistantQuery(question))
-}
-
 async function exportReport(payload = {}) {
   return callHealthOrDemo('exportReport', payload, demo.exportReport)
 }
@@ -371,7 +370,6 @@ async function redeemMembershipCode(payload) {
 }
 
 module.exports = {
-  assistantQuery,
   acceptFamilyInvite,
   applyCoupon,
   completeIllness,

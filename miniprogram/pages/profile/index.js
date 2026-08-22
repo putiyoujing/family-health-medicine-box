@@ -29,7 +29,7 @@ Page({
     syncTabBar(this, 4)
     const app = getApp()
     const hasPendingAction = !!(app.globalData && app.globalData.openMemberModal)
-    await this.load({ silent: this.homeLoaded && !hasPendingAction, force: true })
+    await this.load({ silent: this.homeLoaded && !hasPendingAction, force: hasPendingAction })
   },
 
   async load(options = {}) {

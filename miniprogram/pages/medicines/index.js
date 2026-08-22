@@ -41,7 +41,7 @@ Page({
     globalData.openMedicineForm = false
     globalData.focusMedicineId = ''
     globalData.focusMedicineReason = ''
-    this.load({ silent: this.homeLoaded, force: true })
+    this.load({ silent: this.homeLoaded })
   },
 
   async load(options = {}) {

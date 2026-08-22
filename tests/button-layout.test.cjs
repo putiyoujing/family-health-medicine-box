@@ -45,3 +45,10 @@ test('existing multi-action pages retain equal-sized action grids', () => {
     /\.prescription-save-bar\s*\{[\s\S]*repeat\(2,\s*minmax\(0,\s*1fr\)\)[\s\S]*\.prescription-save-bar \.save-btn\s*\{[\s\S]*height:\s*88rpx/,
   )
 })
+
+test('medication record actions stay compact and right aligned', () => {
+  expectStyle(
+    'miniprogram/pages/medication/index.wxss',
+    /\.card-actions\s*\{[\s\S]*justify-content:\s*flex-end[\s\S]*\.edit-btn,[\s\S]*flex:\s*0\s+0\s+auto[\s\S]*height:\s*64rpx[\s\S]*\.void-action\s*\{[\s\S]*min-width:\s*112rpx[\s\S]*min-height:\s*64rpx/,
+  )
+})

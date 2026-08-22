@@ -81,14 +81,22 @@
 
 .edit-btn,
 .delete-btn {
-  flex: 1 1 128rpx;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: 112rpx;
+  height: 64rpx;
+  padding: 0 20rpx;
   margin: 0;
+  font-size: 24rpx;
 }
 
 .void-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
-  padding: 18rpx 12rpx;
+  min-width: 112rpx;
+  min-height: 64rpx;
+  padding: 0 20rpx;
   color: #9a625e;
   font-size: 24rpx;
   font-weight: 700;

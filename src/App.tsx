@@ -189,6 +189,15 @@ interface CouponBatchForm {
   channel: string
 }
 
+interface CouponForm {
+  name: string
+  code: string
+  type: string
+  value: string
+  totalQuantity: string
+  channel: string
+}
+
 interface TableSearch {
   keyword: string
   status: string
@@ -213,7 +222,12 @@ interface MembershipSettings {
 const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
 const DEV_ADMIN_API_BASE = import.meta.env.DEV && !cloudbaseApp ? '/api/admin' : ''
 const DEV_ADMIN_API_TOKEN = DEV_ADMIN_API_BASE ? 'local-dev-token' : ''
+
+function createCouponCode() {
+  return `COUPON-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+}
 const API_BASE = DEV_ADMIN_API_BASE
+const ADMIN_ACTIVE_PAGE_STORAGE_KEY = 'family-health-admin-active-page'
 
 const dataTables: Array<{
   id: ListType
@@ -253,7 +267,7 @@ const pageMenu: Array<{ id: PageId; label: string; icon: typeof Home; group: 'da
 
 function App() {
   const [dashboard, setDashboard] = useState<AdminDashboardData>(() => mockDashboard())
-  const [activePage, setActivePage] = useState<PageId>('overview')
+  const [activePage, setActivePage] = useState<PageId>(getInitialActivePage)
   const [tableData, setTableData] = useState<Record<ListType, Record<string, unknown>[]>>(() => createInitialTableData())
   const [tableTotals, setTableTotals] = useState<Record<ListType, number>>(() => createInitialTableTotals(mockDashboard()))
   const [tableOffsets, setTableOffsets] = useState<Record<ListType, number>>(() => createInitialTableOffsets())
@@ -270,6 +284,16 @@ function App() {
     redeemDurationDays: '365',
     channel: 'xiaohongshu',
   })
+  const [couponForm, setCouponForm] = useState<CouponForm>({
+    name: '新优惠券',
+    code: createCouponCode(),
+    type: 'fixed_amount',
+    value: '10',
+    totalQuantity: '100',
+    channel: 'manual',
+  })
+  const [creatingCoupon, setCreatingCoupon] = useState(false)
+  const [couponMessage, setCouponMessage] = useState('')
   const [generatingCodes, setGeneratingCodes] = useState(false)
   const [batchMessage, setBatchMessage] = useState('')
   const [latestCouponBatchId, setLatestCouponBatchId] = useState('')
@@ -384,6 +408,10 @@ function App() {
   }, [refreshDashboard])
 
   useEffect(() => {
+    window.sessionStorage.setItem(ADMIN_ACTIVE_PAGE_STORAGE_KEY, activePage)
+  }, [activePage])
+
+  useEffect(() => {
     if (activePage !== 'commerce' || !isConfigured) return
     void callAdminApi<MembershipSettings>('getMembershipSettings')
       .then(setMembershipSettings)
@@ -473,7 +501,7 @@ function App() {
 
   async function disableCouponRecord(type: 'coupons' | 'couponCodes', row: Record<string, unknown>) {
     const id = String(row._id || '')
-    if (!id || !window.confirm(type === 'coupons' ? '失效该优惠券规则？未使用的关联兑换码也会失效。' : '失效该兑换码？此操作不可恢复。')) return
+    if (!id || !window.confirm(type === 'coupons' ? '设为失效该优惠券吗？此操作不会影响会员兑换码。' : '设为失效该兑换码吗？此操作不可恢复。')) return
     setDisablingRecordId(id)
     setError('')
     try {
@@ -539,6 +567,45 @@ function App() {
       ...current,
       [key]: value,
     }))
+  }
+
+  function updateCouponForm(key: keyof CouponForm, value: string) {
+    setCouponForm((current) => ({
+      ...current,
+      [key]: value,
+    }))
+  }
+
+  async function generateCoupon() {
+    setCouponMessage('')
+    if (!isConfigured) {
+      setCouponMessage('当前是演示数据模式，配置真实管理接口后可以生成优惠券码。')
+      return
+    }
+    const code = couponForm.code.trim().toUpperCase()
+    if (!code) {
+      setCouponMessage('请输入优惠券码。')
+      return
+    }
+    setCreatingCoupon(true)
+    setError('')
+    try {
+      const result = await callAdminApi<{ id: string; code: string }>('createCoupon', {
+        ...couponForm,
+        code,
+        codeMode: 'shared_code',
+        codePurpose: 'discount',
+        value: Number(couponForm.value || 0),
+        totalQuantity: Number(couponForm.totalQuantity || 0),
+      })
+      setCouponMessage(`已生成优惠券码 ${result.code}`)
+      setCouponForm((current) => ({ ...current, code: createCouponCode() }))
+      await Promise.all([loadTable('coupons'), refreshDashboard()])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '优惠券生成失败')
+    } finally {
+      setCreatingCoupon(false)
+    }
   }
 
   async function generateCouponCodes() {
@@ -714,6 +781,9 @@ function App() {
           <DetailTablePage
             batchForm={couponBatchForm}
             batchMessage={batchMessage}
+            couponForm={couponForm}
+            couponMessage={couponMessage}
+            creatingCoupon={creatingCoupon}
             generatingCodes={generatingCodes}
             isConfigured={isConfigured}
             offset={tableOffsets[activeTable] || 0}
@@ -722,6 +792,8 @@ function App() {
             total={tableTotals[activeTable] || 0}
             type={activeTable}
             onBatchFormChange={updateCouponBatchForm}
+            onCouponFormChange={updateCouponForm}
+            onGenerateCoupon={() => void generateCoupon()}
             onGenerateCodes={() => void generateCouponCodes()}
             onCopyCouponCode={(code) => void copyCouponCode(code)}
             onDownloadBatch={(batchId) => void downloadCouponCodes(batchId)}
@@ -990,6 +1062,64 @@ function CommercePage({
   )
 }
 
+function CouponGenerator({
+  couponForm,
+  couponMessage,
+  creatingCoupon,
+  isConfigured,
+  onCouponFormChange,
+  onGenerateCoupon,
+}: {
+  couponForm: CouponForm
+  couponMessage: string
+  creatingCoupon: boolean
+  isConfigured: boolean
+  onCouponFormChange: (key: keyof CouponForm, value: string) => void
+  onGenerateCoupon: () => void
+}) {
+  return (
+    <section className="panel coupon-generator-panel">
+      <PanelTitle title="生成优惠券码" subtitle="只写入“优惠券表”，用于订单抵扣；不会生成、读取或核销会员兑换码。" />
+      <div className="batch-toolbar">
+        {!isConfigured && <span className="batch-state">演示模式不会写入真实优惠券</span>}
+      </div>
+      <div className="batch-form">
+        <label>
+          <span>优惠券名称</span>
+          <input value={couponForm.name} onChange={(event) => onCouponFormChange('name', event.target.value)} />
+        </label>
+        <label>
+          <span>优惠券码</span>
+          <input value={couponForm.code} onChange={(event) => onCouponFormChange('code', event.target.value.toUpperCase())} />
+        </label>
+        <label>
+          <span>优惠类型</span>
+          <select value={couponForm.type} onChange={(event) => onCouponFormChange('type', event.target.value)}>
+            <option value="fixed_amount">立减金额</option>
+            <option value="percentage">折扣</option>
+          </select>
+        </label>
+        <label>
+          <span>{couponForm.type === 'percentage' ? '折扣（%）' : '优惠金额（元）'}</span>
+          <input min="0" step="0.01" type="number" value={couponForm.value} onChange={(event) => onCouponFormChange('value', event.target.value)} />
+        </label>
+        <label>
+          <span>可用总量</span>
+          <input min="0" type="number" value={couponForm.totalQuantity} onChange={(event) => onCouponFormChange('totalQuantity', event.target.value)} />
+        </label>
+        <label>
+          <span>发放渠道</span>
+          <input value={couponForm.channel} onChange={(event) => onCouponFormChange('channel', event.target.value)} />
+        </label>
+        <button disabled={creatingCoupon} onClick={onGenerateCoupon} type="button">
+          {creatingCoupon ? '生成中…' : '生成优惠券码'}
+        </button>
+      </div>
+      {couponMessage && <div className="batch-message">{couponMessage}</div>}
+    </section>
+  )
+}
+
 function CouponBatchGenerator({
   batchForm,
   batchMessage,
@@ -1015,7 +1145,10 @@ function CouponBatchGenerator({
   const quantityValue = Number.isFinite(parsedQuantity) ? parsedQuantity : 0
   return (
     <section className="panel coupon-generator-panel">
-      <PanelTitle title="人工批量生成兑换码" subtitle="后台人工生成 50 或 100 个会员兑换码，用于小红书订单逐个发码" />
+      <PanelTitle
+        title="人工批量生成会员兑换码"
+        subtitle="只写入“兑换码批次表”和“会员兑换码表”，用于小红书订单逐个发码。"
+      />
       <div className="batch-toolbar">
         <div className="batch-presets">
           <span>常用数量</span>
@@ -1086,7 +1219,7 @@ function CouponBatchGenerator({
           {generatingCodes ? '生成中' : `生成 ${quantityValue || ''} 个`}
         </button>
       </div>
-      {!isConfigured && <p className="batch-helper">完成 CloudBase Web Auth 配置并以管理员身份登录后，才会写入优惠券规则、兑换码批次和单个兑换码。</p>}
+      {!isConfigured && <p className="batch-helper">完成 CloudBase Web Auth 配置并以管理员身份登录后，才会写入兑换码批次和单个兑换码。</p>}
       {batchMessage && <div className="batch-message">{batchMessage}</div>}
       {latestCouponBatchId && (
         <button className="batch-download" disabled={downloadingBatchId === latestCouponBatchId} onClick={() => onDownloadBatch(latestCouponBatchId)} type="button">
@@ -1194,6 +1327,9 @@ function DataOverviewPage({
 function DetailTablePage({
   batchForm,
   batchMessage,
+  couponForm,
+  couponMessage,
+  creatingCoupon,
   generatingCodes,
   isConfigured,
   offset,
@@ -1202,6 +1338,8 @@ function DetailTablePage({
   total,
   type,
   onBatchFormChange,
+  onCouponFormChange,
+  onGenerateCoupon,
   onGenerateCodes,
   onCopyCouponCode,
   onDownloadBatch,
@@ -1221,6 +1359,9 @@ function DetailTablePage({
 }: {
   batchForm: CouponBatchForm
   batchMessage: string
+  couponForm: CouponForm
+  couponMessage: string
+  creatingCoupon: boolean
   generatingCodes: boolean
   isConfigured: boolean
   offset: number
@@ -1229,6 +1370,8 @@ function DetailTablePage({
   total: number
   type: ListType
   onBatchFormChange: (key: keyof CouponBatchForm, value: string) => void
+  onCouponFormChange: (key: keyof CouponForm, value: string) => void
+  onGenerateCoupon: () => void
   onGenerateCodes: () => void
   onCopyCouponCode: (code: string) => void
   onDownloadBatch: (batchId: string) => void
@@ -1248,10 +1391,21 @@ function DetailTablePage({
 }) {
   const meta = dataTables.find((table) => table.id === type)
   const columns = tableColumns(type, { disablingRecordId, onCopyCouponCode, onDisableCoupon, onDisableCouponCode, onDownloadBatch, onEditFeedback, downloadingBatchId })
-  const showCouponGenerator = type === 'coupons' || type === 'couponBatches' || type === 'couponCodes'
+  const showCouponGenerator = type === 'coupons'
+  const showMembershipCodeGenerator = type === 'couponBatches' || type === 'couponCodes'
   return (
     <>
       {showCouponGenerator && (
+        <CouponGenerator
+          couponForm={couponForm}
+          couponMessage={couponMessage}
+          creatingCoupon={creatingCoupon}
+          isConfigured={isConfigured}
+          onCouponFormChange={onCouponFormChange}
+          onGenerateCoupon={onGenerateCoupon}
+        />
+      )}
+      {showMembershipCodeGenerator && (
         <CouponBatchGenerator
           batchForm={batchForm}
           batchMessage={batchMessage}
@@ -1831,6 +1985,15 @@ function createInitialTableSearches(): Record<ListType, TableSearch> {
 
 function isListPage(pageId: PageId): pageId is ListType {
   return dataTables.some((table) => table.id === pageId)
+}
+
+function getInitialActivePage(): PageId {
+  try {
+    const pageId = window.sessionStorage.getItem(ADMIN_ACTIVE_PAGE_STORAGE_KEY)
+    return pageMenu.some((item) => item.id === pageId) ? pageId as PageId : 'overview'
+  } catch {
+    return 'overview'
+  }
 }
 
 function pageTitle(pageId: PageId) {

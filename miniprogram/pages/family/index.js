@@ -68,7 +68,7 @@ Page({
       const [membership, roleData, home] = await Promise.all([
         api.getMembershipStatus(),
         api.listFamilyRoles(),
-        api.getHome({ force: true }),
+        api.getHome(),
       ])
       const app = getApp()
       const shouldOpenAdd = this.openAddOnLoad || !!(app.globalData && app.globalData.openMemberModal)
@@ -107,7 +107,8 @@ Page({
               : pendingInvite
                 ? `等待接受邀请 · ${roleText[pendingInvite.role] || pendingInvite.role}`
                 : '无登录账号 · 由家人代管',
-            canInvite: canManageFamily && !linkedRole && !pendingInvite,
+            canInvite: canManageFamily && !linkedRole,
+            inviteActionText: pendingInvite ? '继续分享' : '邀请本人',
           }
         }),
         memberLimit: limits.maxMembers || 3,

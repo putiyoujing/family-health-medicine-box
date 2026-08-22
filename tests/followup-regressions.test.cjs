@@ -9,15 +9,11 @@ function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8')
 }
 
-test('cross-account pages force a silent refresh when shown again', () => {
-  for (const relativePath of [
-    'miniprogram/pages/profile/index.js',
-    'miniprogram/pages/family/index.js',
-    'miniprogram/pages/illness/index.js',
-    'miniprogram/pages/medicines/index.js',
-  ]) {
-    assert.match(read(relativePath), /getHome\(\{ force: (true|Boolean\(options\.force\)) \}\)/, relativePath)
-  }
+test('cross-account pages reuse cached data and keep explicit refresh paths', () => {
+  assert.match(read('miniprogram/pages/profile/index.js'), /force: hasPendingAction/)
+  assert.match(read('miniprogram/pages/family/index.js'), /api\.getHome\(\)/)
+  assert.match(read('miniprogram/pages/illness/index.js'), /this\.load\(\{ silent: this\.homeLoaded \}\)/)
+  assert.match(read('miniprogram/pages/medicines/index.js'), /this\.load\(\{ silent: this\.homeLoaded \}\)/)
   assert.match(read('miniprogram/pages/illness/index.json'), /"enablePullDownRefresh": true/)
 })
 

@@ -30,33 +30,49 @@ Page({
         api.listFamilyRoles(),
       ])
       const linkedMemberIds = new Set((roleData.roles || []).map((item) => item.memberId).filter(Boolean))
-      const pendingMemberIds = new Set(
-        (roleData.pendingInvites || []).map((item) => item.targetMemberId).filter(Boolean),
-      )
       const requestedMember = (home.members || []).find((item) => item._id === options.memberId)
       if (!requestedMember) {
         throw new Error('请先从家庭成员卡片发起邀请')
       }
-      if (linkedMemberIds.has(requestedMember._id) || pendingMemberIds.has(requestedMember._id)) {
-        throw new Error('该成员已关联账号或已有待接受邀请')
+      if (linkedMemberIds.has(requestedMember._id)) {
+        throw new Error('该成员已关联账号')
       }
+      const pendingInvite = (roleData.pendingInvites || [])
+        .find((item) => item.targetMemberId === requestedMember._id)
       const entitlement = (membership && membership.entitlement) || {}
       const limits = entitlement.limits || {}
       const allowedRoles = Array.isArray(limits.sharedRoles) && limits.sharedRoles.length
         ? limits.sharedRoles
         : ['viewer']
       const availableRoleOptions = roleOptions.filter((item) => allowedRoles.includes(item.role))
-      const safeRoleOptions = availableRoleOptions.length ? availableRoleOptions : [roleOptions[0]]
+      let safeRoleOptions = availableRoleOptions.length ? availableRoleOptions : [roleOptions[0]]
+      const pendingRoleOption = pendingInvite
+        ? roleOptions.find((item) => item.role === pendingInvite.role)
+        : null
+      if (pendingRoleOption && !safeRoleOptions.some((item) => item.role === pendingRoleOption.role)) {
+        safeRoleOptions = [pendingRoleOption, ...safeRoleOptions]
+      }
+      const pendingRoleIndex = pendingInvite
+        ? safeRoleOptions.findIndex((item) => item.role === pendingInvite.role)
+        : -1
+      const roleIndex = pendingRoleIndex >= 0 ? pendingRoleIndex : 0
+      const selectedRole = safeRoleOptions[roleIndex]
       this.setData({
         targetMemberId: requestedMember._id,
         targetMemberName: requestedMember.name || '',
         roleOptions: safeRoleOptions,
-        roleIndex: 0,
-        role: safeRoleOptions[0].role,
+        roleIndex,
+        role: selectedRole.role,
         entitlement: {
           ...entitlement,
           sharedRolesText: safeRoleOptions.map((item) => item.label).join(' / '),
         },
+        invite: pendingInvite
+          ? {
+              ...pendingInvite,
+              path: `/pages/family/accept?code=${encodeURIComponent(pendingInvite.inviteCode)}`,
+            }
+          : null,
       })
     } catch (error) {
       wx.showToast({ title: error.message || '加载失败', icon: 'none' })

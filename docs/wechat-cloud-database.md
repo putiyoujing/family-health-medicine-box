@@ -23,7 +23,9 @@
 - `coupons`：优惠券。
 - `coupon_code_batches`：会员兑换码批次，用于后台批量生成和发放。
 - `coupon_codes`：单个会员兑换码，记录发放、兑换、外部订单号和激活订阅。
-- `coupon_redemptions`：优惠券使用记录。
+- `coupon_redemptions`：会员兑换码使用记录，保存兑换码、批次、订阅和兑换结果；不关联 `coupons`。
+
+`coupons` 与会员兑换码资产完全独立：优惠券仅用于订单抵扣；兑换码批次和单个会员兑换码仅用于激活会员。新记录不得写入跨集合的 `couponId` 关联；已有历史字段只保留审计，不做迁移。
 - `ai_tasks`：AI 图片解析任务。
 - `ai_usage_logs`：AI 使用额度记录。
 - `app_configs`：面向应用的后台配置；`membership` 文档保存会员兑换提示文案。

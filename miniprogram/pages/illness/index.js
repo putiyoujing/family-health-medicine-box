@@ -20,7 +20,7 @@ Page({
       app.globalData.openQuickIllness = false
       this.shouldOpenQuickIllness = true
     }
-    this.load({ silent: this.homeLoaded, force: true })
+    this.load({ silent: this.homeLoaded })
   },
 
   async load(options = {}) {
