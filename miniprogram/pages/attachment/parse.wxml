@@ -14,7 +14,7 @@
 
   <view class="safety" wx:if="{{!featureEnabled}}">当前版本未连接真实图片识别服务，不会生成或保存伪识别结果。请返回后手动填写。</view>
 
-  <button class="primary-btn parse-action" bindtap="startParse" loading="{{parsing}}" disabled="{{!featureEnabled}}">
+  <button class="primary-btn parse-action" bindtap="startParse" loading="{{parsing}}" disabled="{{parsing || !featureEnabled}}">
     {{featureEnabled ? (parsing ? '整理中' : '开始整理图片') : '图片整理暂未开放'}}
   </button>
 
@@ -25,7 +25,7 @@
       <text class="field-label">{{item.label}}</text>
       <input class="input" data-key="{{item.key}}" value="{{item.value}}" bindinput="onFieldInput" placeholder="{{item.placeholder}}" />
     </view>
-    <button class="primary-btn" bindtap="confirmResult">确认保存</button>
+    <button class="primary-btn" bindtap="confirmResult" loading="{{confirming}}" disabled="{{confirming}}">{{confirming ? '保存中' : '确认保存'}}</button>
   </view>
 
   <view class="section">

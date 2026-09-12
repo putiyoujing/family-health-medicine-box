@@ -1,18 +1,22 @@
 const api = require('../../services/api')
 const { ensureLoginReady } = require('../../utils/operation-guards')
+const { EVENT_IDS, track, trackServiceError } = require('../../utils/analytics')
 
 const MEMBERSHIP_DISPLAY_CACHE_KEY = 'membership-display-cache'
 const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
 
 const DEFAULT_ENTITLEMENT = {
-  planName: '免费版',
+  plan: 'free',
+  tier: 'free',
+  planName: '基础版',
   limits: {
     maxOwnedFamilies: 1,
     maxMembers: 3,
-    maxSharedUsers: 2,
     maxAttachments: 10,
     aiAssistantMonthly: 10,
     aiImageParseMonthly: 3,
+    quickRecordLimit: 3,
+    quickRecordPeriod: 'lifetime',
   },
 }
 
@@ -22,6 +26,10 @@ const DEFAULT_FAMILY_POLICY = {
 }
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     family: {},
@@ -31,6 +39,7 @@ Page({
     benefitRows: buildBenefitRows(DEFAULT_ENTITLEMENT.limits, {}, DEFAULT_FAMILY_POLICY),
     comparisonRows: buildComparisonRows(),
     isFreeMembership: true,
+    membershipBadge: 'FREE',
     expireText: '',
     redeemCode: '',
     redeemInputFocused: false,
@@ -42,6 +51,26 @@ Page({
   onLoad(options) {
     this.shouldFocusRedeem = options.focus === 'redeem'
     this.restoreCachedMembershipGuide()
+    this.hydrateCachedMembership()
+  },
+
+  hydrateCachedMembership() {
+    if (typeof api.getCachedHome !== 'function') {
+      return
+    }
+    const home = api.getCachedHome()
+    const entitlement = home && home.entitlement
+    if (!entitlement) {
+      return
+    }
+    this.setData({
+      family: home.family || this.data.family,
+      entitlement,
+      benefitRows: buildBenefitRows(entitlement.limits || {}, this.data.usage, this.data.familyPolicy),
+      isFreeMembership: isFreePlan(entitlement),
+      membershipBadge: getMembershipBadge(entitlement),
+      expireText: formatExpireAt(entitlement.proExpireAt || entitlement.expireAt),
+    })
   },
 
   onShow() {
@@ -69,9 +98,8 @@ Page({
     let membershipGuide = this.data.membershipPurchaseGuide
     let familyPolicy = this.data.familyPolicy
 
-    const [membershipResult, familyPolicyResult, guideResult] = await Promise.allSettled([
+    const [membershipResult, guideResult] = await Promise.allSettled([
       api.getMembershipStatus(),
-      api.listMyFamilies(),
       guideRequest,
     ])
     if (membershipResult.status === 'fulfilled') {
@@ -80,8 +108,8 @@ Page({
     if (guideResult.status === 'fulfilled') {
       membershipGuide = guideResult.value
     }
-    if (familyPolicyResult.status === 'fulfilled') {
-      familyPolicy = familyPolicyResult.value
+    if (membershipResult.status === 'fulfilled' && membership.familyPolicy) {
+      familyPolicy = membership.familyPolicy
     }
 
     const entitlement = membership.entitlement || this.data.entitlement
@@ -95,6 +123,7 @@ Page({
       familyPolicy,
       benefitRows: buildBenefitRows(entitlement.limits || {}, usage, familyPolicy),
       isFreeMembership: isFreePlan(entitlement),
+      membershipBadge: getMembershipBadge(entitlement),
       expireText: formatExpireAt(entitlement.proExpireAt || entitlement.expireAt),
       membershipPurchaseGuide: membershipGuide,
     })
@@ -146,6 +175,10 @@ Page({
     if (!loggedIn) {
       return
     }
+    if (!this.data.family || !this.data.family._id) {
+      wx.showToast({ title: '请先创建或加入家庭', icon: 'none' })
+      return
+    }
     if (!this.data.redeemCode) {
       wx.showToast({ title: '请输入会员兑换码', icon: 'none' })
       return
@@ -162,11 +195,17 @@ Page({
         redeemCode: '',
         redeemResult: result,
       })
+      const tier = result.entitlement && result.entitlement.tier
+        || result.plan && result.plan.membershipTier
+        || 'unknown'
+      track(EVENT_IDS.MEMBERSHIP_REDEEM_RESULT, { status: 'success', tier })
       wx.showToast({ title: '会员已激活' })
       await this.load()
     } catch (error) {
       wx.hideLoading()
       this.setData({ redeeming: false })
+      track(EVENT_IDS.MEMBERSHIP_REDEEM_RESULT, { status: 'fail', tier: 'unknown' })
+      trackServiceError('membership_redeem')
       wx.showToast({ title: error.message || '兑换失败', icon: 'none' })
     }
   },
@@ -189,28 +228,39 @@ function buildBenefitRows(limits, usage, familyPolicy) {
       limit: familyPolicy.maxOwnedFamilies || limits.maxOwnedFamilies || 1,
     },
     { label: '家庭成员', used: usage.members || 0, limit: limits.maxMembers || 3 },
-    { label: '额外关联账号', used: usage.sharedUsers || 0, limit: limits.maxSharedUsers || 2 },
     { label: '附件上传', used: usage.attachments || 0, limit: limits.maxAttachments || 10 },
-    { label: '记录查询', used: usage.aiAssistantMonthly || 0, limit: limits.aiAssistantMonthly || 10 },
-    { label: 'AI 图片解析', used: usage.aiImageParseMonthly || 0, limit: limits.aiImageParseMonthly || 0 },
+    {
+      label: '快速记录',
+      used: usage.quickRecord ? usage.quickRecord.used : 0,
+      limit: limits.quickRecordLimit === undefined ? 3 : limits.quickRecordLimit,
+    },
   ].map((item) => ({
     ...item,
     progress: item.limit ? Math.min(100, Math.round((item.used / item.limit) * 100)) : 0,
+    limitText: item.limit === null ? '不限' : item.limit,
   }))
 }
 
 function buildComparisonRows() {
   return [
-    { label: '可创建家庭', free: '1 个', pro: '3 个' },
-    { label: '家庭成员', free: '3 位', pro: '10 位' },
-    { label: '成员账号关联', free: '3 位成员均可管理或编辑', pro: '除创建者外 6 位多角色' },
-    { label: '附件上传', free: '10 个', pro: '100 个' },
-    { label: '记录查询', free: '10 次/月', pro: '300 次/月' },
+    { label: '快速记录', values: ['3 次（累计）', '30 次/月', '不限次数'] },
+    { label: '可创建家庭', values: ['1 个', '3 个', '3 个'] },
+    { label: '家庭成员', values: ['3 位', '10 位', '10 位'] },
+    { label: '附件上传', values: ['10 个', '100 个', '100 个'] },
   ]
 }
 
 function isFreePlan(entitlement = {}) {
-  return entitlement.plan === 'free' || String(entitlement.planName || '').includes('免费')
+  return entitlement.tier === 'free'
+    || entitlement.plan === 'free'
+    || /免费|基础/.test(String(entitlement.planName || ''))
+}
+
+function getMembershipBadge(entitlement = {}) {
+  if (entitlement.tier === 'unlimited' || /无限|畅享/.test(String(entitlement.planName || ''))) {
+    return 'UNLIMITED'
+  }
+  return isFreePlan(entitlement) ? 'FREE' : 'MEMBER'
 }
 
 function formatExpireAt(value) {

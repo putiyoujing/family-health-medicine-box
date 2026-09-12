@@ -2,6 +2,7 @@ const api = require('../../services/api')
 const { nowDateTimeInput, todayDate } = require('../../utils/format')
 const { ensureHasMembers, ensureLoginReady } = require('../../utils/operation-guards')
 const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
+const { EVENT_IDS, countBucket, track, trackServiceError } = require('../../utils/analytics')
 
 const emptyForm = {
   _id: '',
@@ -25,6 +26,10 @@ const MAX_VISIT_ATTACHMENTS = 5
 const VISIT_DRAFT_PREFIX = 'illness-form-visit-draft:'
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     saving: false,
@@ -44,6 +49,7 @@ Page({
     recordTime: '',
     today: todayDate(),
     pendingAttachments: [],
+    savedAttachments: [],
     prescribedMedicines: [],
     form: { ...emptyForm },
   },
@@ -128,6 +134,11 @@ Page({
       const recentSymptoms = Array.from(
         new Set(home.illnessRecords.flatMap((item) => item.symptoms || []).filter(Boolean)),
       ).slice(0, 5)
+      const savedAttachments = record
+        ? normalizeSavedAttachments((home.attachments || []).filter(
+            (item) => item.relatedType === 'illness' && item.relatedId === record._id,
+          ))
+        : []
 
       this.setData({
         loading: false,
@@ -150,6 +161,7 @@ Page({
         pendingAttachments: visitDraft && Array.isArray(visitDraft.pendingAttachments)
           ? visitDraft.pendingAttachments
           : this.data.pendingAttachments,
+        savedAttachments,
         prescribedMedicines: visitDraft && Array.isArray(visitDraft.prescribedMedicines)
           ? visitDraft.prescribedMedicines
           : this.data.prescribedMedicines,
@@ -312,6 +324,10 @@ Page({
         initialEventNote: form.status === '已就医' ? buildVisitEventNote(form) : '',
         prescribedMedicineIds,
       })
+      track(EVENT_IDS.RECORD_CONFIRM, { entry: 'manual', status: 'success' })
+      if (!form._id) {
+        track(EVENT_IDS.RECORD_CREATED, { entry: 'manual', status: 'success' })
+      }
       for (const attachment of this.data.pendingAttachments) {
         await api.saveAttachment({
           relatedType: 'illness',
@@ -319,7 +335,7 @@ Page({
           fileType: 'image',
           fileId: attachment.fileID,
           ocrText: '',
-          aiSummary: 'OCR 待处理：已保存图片，后续可接入微信 OCR 或腾讯云 OCR。',
+          aiSummary: '病程图片附件。',
         })
       }
       wx.hideLoading()
@@ -330,6 +346,7 @@ Page({
     } catch (error) {
       wx.hideLoading()
       this.setData({ saving: false })
+      trackServiceError('manual_record_save')
       wx.showToast({ title: error.message || '保存失败', icon: 'none' })
     }
   },
@@ -372,6 +389,11 @@ Page({
       }
       wx.hideLoading()
       this.setData({ pendingAttachments: [...pendingAttachments, ...uploaded] })
+      track(EVENT_IDS.IMAGE_UPLOAD_RESULT, {
+        image_type: 'medical_record',
+        status: 'success',
+        count_bucket: countBucket(uploaded.length),
+      })
       wx.showToast({ title: `已暂存 ${uploaded.length} 张` })
     } catch (error) {
       wx.hideLoading()
@@ -381,6 +403,12 @@ Page({
       if (uploaded.length) {
         this.setData({ pendingAttachments: [...pendingAttachments, ...uploaded] })
       }
+      track(EVENT_IDS.IMAGE_UPLOAD_RESULT, {
+        image_type: 'medical_record',
+        status: 'fail',
+        count_bucket: '0',
+      })
+      trackServiceError('manual_record_image_upload')
       console.error('illness attachment upload failed', error)
       wx.showModal({
         title: '单据图片上传失败',
@@ -417,6 +445,15 @@ function formFromRecord(record) {
     status: record.status || '观察中',
     summary: record.summary || '',
   }
+}
+
+function normalizeSavedAttachments(attachments = []) {
+  return attachments.map((attachment) => ({
+    _id: attachment._id || attachment.id || '',
+    fileId: attachment.fileId || attachment.fileID || '',
+    tempFilePath: attachment.tempFilePath || '',
+    imageKind: attachment.imageKind || 'prescription',
+  })).filter((attachment) => attachment._id && attachment.fileId)
 }
 
 function resolveDefaultMemberId(members = [], records = [], preferredMemberId = '') {

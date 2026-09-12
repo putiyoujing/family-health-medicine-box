@@ -100,6 +100,123 @@ test('attachment confirmation updates validated attachments from the current fam
   assert.equal(fixture.attachmentUpdates.length, 1)
   assert.equal(fixture.attachmentUpdates[0].id, 'attachment-1')
   assert.equal(fixture.attachmentUpdates[0].data.aiStructured.name, 'validated output')
+  assert.equal(fixture.attachmentUpdates[0].data.parseStatus, 'confirmed')
+  assert.equal(fixture.attachmentUpdates[0].data.parseConfirmedBy, 'user-a')
+})
+
+test('health API rejects calls without a WeChat identity before querying the database', async () => {
+  const healthApi = loadCjsModule(path.join(root, 'cloudfunctions/healthApi/index.js'), {
+    stubs: {
+      'wx-server-sdk': {
+        DYNAMIC_CURRENT_ENV: 'test-env',
+        init() {},
+        database() {
+          return {
+            command: {},
+            collection() {
+              throw new Error('database should not be queried without an identity')
+            },
+          }
+        },
+        getWXContext() {
+          return {}
+        },
+      },
+    },
+    globals: { console: createSilentConsole() },
+  })
+
+  const result = await healthApi.main({ action: 'getHome' })
+
+  assert.equal(result.ok, false)
+  assert.match(result.message, /用户身份未就绪/)
+})
+
+test('attachment confirmation rejects a task that is still processing', async () => {
+  const fixture = createHealthCloudStub({ attachmentFamilyId: 'family-a', taskStatus: 'processing' })
+  const healthApi = loadCjsModule(path.join(root, 'cloudfunctions/healthApi/index.js'), {
+    stubs: { 'wx-server-sdk': fixture.cloud },
+    globals: { console: createSilentConsole() },
+  })
+
+  const result = await healthApi.main({
+    action: 'confirmAiParseResult',
+    familyId: 'family-a',
+    payload: { taskId: 'task-1', output: { name: 'not ready' } },
+  })
+
+  assert.equal(result.ok, false)
+  assert.match(result.message, /not ready for confirmation/i)
+  assert.equal(fixture.attachmentUpdates.length, 0)
+})
+
+test('text parse confirmation normalizes edited fields and writes them to the illness record', async () => {
+  const fixture = createHealthCloudStub({ attachmentFamilyId: 'family-a', taskType: 'text_parse' })
+  const healthApi = loadCjsModule(path.join(root, 'cloudfunctions/healthApi/index.js'), {
+    stubs: { 'wx-server-sdk': fixture.cloud },
+    globals: { console: createSilentConsole() },
+  })
+
+  const result = await healthApi.main({
+    action: 'confirmAiParseResult',
+    familyId: 'family-a',
+    payload: {
+      taskId: 'task-1',
+      illnessId: 'illness-1',
+      output: {
+        symptoms: ['发热', '咳嗽', '发热'],
+        temperatureMax: '38.6',
+        unsupportedField: 'must be discarded',
+      },
+    },
+  })
+
+  assert.equal(result.ok, true, result.message)
+  assert.equal(result.data.status, 'confirmed')
+  assert.deepEqual(Array.from(result.data.output.symptoms), ['发热', '咳嗽'])
+  assert.equal(result.data.output.temperatureMax, 38.6)
+  assert.equal(Object.hasOwn(result.data.output, 'unsupportedField'), false)
+  assert.equal(fixture.attachmentUpdates.length, 0)
+  assert.equal(fixture.illnessUpdates.length, 1)
+  assert.deepEqual(Array.from(fixture.illnessUpdates[0].data.symptoms), ['发热', '咳嗽'])
+  assert.equal(fixture.illnessUpdates[0].data.temperatureMax, 38.6)
+})
+
+test('successful text parsing writes the AI result to the saved illness before review confirmation', async () => {
+  const fixture = createHealthCloudStub({ attachmentFamilyId: 'family-a' })
+  const healthApi = loadCjsModule(path.join(root, 'cloudfunctions/healthApi/index.js'), {
+    stubs: {
+      'wx-server-sdk': fixture.cloud,
+      './deepseek-vision': {
+        MODEL: 'test-model',
+        callDeepSeekText: async () => ({
+          model: 'test-model',
+          rawContent: '{"symptoms":["咳嗽"],"temperatureMax":"38.6","summary":"咳嗽伴发热"}',
+          output: { symptoms: ['咳嗽'], temperatureMax: '38.6', summary: '咳嗽伴发热' },
+          usage: {},
+        }),
+        callDeepSeekVision: async () => ({}),
+        detectImageMimeType() {},
+      },
+    },
+    globals: {
+      console: createSilentConsole(),
+      process: { env: { ENABLE_IMAGE_PARSING: 'true', IMAGE_PARSING_PROVIDER: 'deepseek_vision', DEEPSEEK_API_KEY: 'test-key' } },
+    },
+  })
+
+  const result = await healthApi.main({
+    action: 'parseIllnessText',
+    familyId: 'family-a',
+    payload: { illnessId: 'illness-1', text: '昨晚开始咳嗽，最高体温 38.6℃。' },
+  })
+
+  assert.equal(result.ok, true, result.message)
+  assert.equal(result.data.appliedToIllness, true)
+  assert.equal(fixture.illnessUpdates.length, 1)
+  assert.deepEqual(Array.from(fixture.illnessUpdates[0].data.symptoms), ['咳嗽'])
+  assert.equal(fixture.illnessUpdates[0].data.temperatureMax, 38.6)
+  assert.equal(fixture.illnessUpdates[0].data.summary, '咳嗽伴发热')
 })
 
 function createPaymentCloudStub() {
@@ -128,8 +245,9 @@ function createSilentConsole() {
   }
 }
 
-function createHealthCloudStub({ attachmentFamilyId }) {
+function createHealthCloudStub({ attachmentFamilyId, taskStatus = 'success', taskType = 'image_parse' }) {
   const attachmentUpdates = []
+  const illnessUpdates = []
   const role = {
     _id: 'role-1',
     familyId: 'family-a',
@@ -151,8 +269,9 @@ function createHealthCloudStub({ attachmentFamilyId }) {
   const task = {
     _id: 'task-1',
     familyId: 'family-a',
-    taskType: 'image_parse',
-    imageKind: 'medicine_box',
+    taskType,
+    imageKind: taskType === 'image_parse' ? 'medicine_box' : 'text',
+    status: taskStatus,
     attachmentIds: ['attachment-1'],
   }
   const documents = {
@@ -167,6 +286,13 @@ function createHealthCloudStub({ attachmentFamilyId }) {
       },
     },
     ai_tasks: { 'task-1': task },
+    illness_records: {
+      'illness-1': {
+        _id: 'illness-1',
+        familyId: 'family-a',
+        memberId: 'owner-member-1',
+      },
+    },
     attachments: {
       'attachment-1': {
         _id: 'attachment-1',
@@ -194,6 +320,10 @@ function createHealthCloudStub({ attachmentFamilyId }) {
       return this
     }
 
+    async count() {
+      return { total: 0 }
+    }
+
     async get() {
       if (this.collection === 'family_roles') {
         return { data: [role] }
@@ -210,6 +340,7 @@ function createHealthCloudStub({ attachmentFamilyId }) {
       exists: (value) => ({ exists: value }),
       inc: (value) => ({ inc: value }),
       neq: (value) => ({ neq: value }),
+      gte: (value) => ({ gte: value }),
     },
     collection(name) {
       const query = new Query(name)
@@ -220,6 +351,9 @@ function createHealthCloudStub({ attachmentFamilyId }) {
         async update({ data }) {
           if (name === 'attachments') {
             attachmentUpdates.push({ id, data })
+          }
+          if (name === 'illness_records') {
+            illnessUpdates.push({ id, data })
           }
           return { stats: { updated: 1 } }
         },
@@ -233,6 +367,7 @@ function createHealthCloudStub({ attachmentFamilyId }) {
   }
   return {
     attachmentUpdates,
+    illnessUpdates,
     cloud: {
       DYNAMIC_CURRENT_ENV: 'test-env',
       init() {},

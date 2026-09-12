@@ -13,10 +13,13 @@ test('illness form uses direct active-status choices and only shows visit fields
   const listTemplate = fs.readFileSync(path.join(root, 'miniprogram/pages/illness/index.wxml'), 'utf8')
   const formTemplate = fs.readFileSync(path.join(root, 'miniprogram/pages/illness/form.wxml'), 'utf8')
   const formStyles = fs.readFileSync(path.join(root, 'miniprogram/pages/illness/form.wxss'), 'utf8')
+  const formSource = fs.readFileSync(formScript, 'utf8')
 
   assert.ok(appConfig.pages.includes('pages/illness/form'))
   assert.doesNotMatch(listTemplate, /wx:if="\{\{showForm\}\}"/)
+  assert.match(listTemplate, /class="illness-entry-actions"/)
   assert.match(listTemplate, /bindtap="createRecord"/)
+  assert.match(listTemplate, /bindtap="quickRecord"[^>]*>快速记录<\/button>/)
   assert.match(formTemplate, /mode="date"/)
   assert.match(formTemplate, /mode="time"/)
   assert.match(formTemplate, /class="unit-suffix">℃</)
@@ -44,6 +47,8 @@ test('illness form uses direct active-status choices and only shows visit fields
   assert.doesNotMatch(formTemplate, /prescriptionOptions|medicine-options/)
   assert.doesNotMatch(formTemplate, /<input[^>]+data-field="doctorDiagnosis"/)
   assert.doesNotMatch(formTemplate, />已恢复</)
+  assert.doesNotMatch(formTemplate, /逐张整理|整理图片内容/)
+  assert.doesNotMatch(formSource, /imageParsingEnabled|pages\/illness\/review|pendingIllnessReview/)
 })
 
 test('selecting 已就医 directly reveals structured visit fields', () => {
@@ -240,6 +245,37 @@ test('legacy illness dates are normalized for the date and time pickers', () => 
     { ...helpers.splitDateTime('2026-7-2') },
     { date: '2026-07-02', time: '00:00' },
   )
+})
+
+test('illness form restores persisted images without treating them as new uploads', async () => {
+  const home = {
+    currentFamilyId: 'family-a',
+    family: { _id: 'family-a' },
+    members: [{ _id: 'owner', name: '我', relation: '本人' }],
+    illnessRecords: [{
+      _id: 'illness-a',
+      memberId: 'owner',
+      startedAt: '2026-07-22 09:00',
+      symptoms: ['发烧'],
+      status: '观察中',
+    }],
+    attachments: [{
+      _id: 'attachment-a',
+      relatedType: 'illness',
+      relatedId: 'illness-a',
+      fileId: 'cloud://illness-a.jpg',
+      imageKind: 'medical_record',
+    }],
+  }
+  const { pageDefinition } = loadFormModule({ home })
+  const page = createPageInstance(pageDefinition)
+
+  page.onLoad({ id: 'illness-a' })
+  await page.load()
+
+  assert.equal(page.data.savedAttachments.length, 1)
+  assert.equal(page.data.savedAttachments[0].fileId, 'cloud://illness-a.jpg')
+  assert.equal(page.data.pendingAttachments.length, 0)
 })
 
 function loadFormModule(options = {}) {

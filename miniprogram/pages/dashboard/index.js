@@ -12,6 +12,10 @@ const { formatMedicineStockSummary } = require('../../utils/medicine-stock')
 const { syncTabBar } = require('../../utils/tab-bar')
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     family: null,
@@ -49,7 +53,7 @@ Page({
         this.showGuestHome()
         return
       }
-      const home = await api.getHome({ force: Boolean(options.force) })
+      const home = await api.getDashboardSummary({ force: Boolean(options.force) })
       const canEditRecords = canEditFamilyRecords(home.family)
       const lowStockThreshold = normalizeLowStockThreshold(home.user && home.user.lowStockThreshold)
       const expiryReminderDays = normalizeExpiryReminderDays(home.user && home.user.expiryReminderDays)
@@ -82,8 +86,7 @@ Page({
         && !home.medicines.length
         && !home.illnessRecords.length
         && !home.medicationLogs.length
-        && !home.attachments.length
-        && !home.reminders.length
+        && !home.hasSupportingData
       this.setData({
         loading: false,
         loadError: '',
@@ -204,7 +207,8 @@ Page({
   },
 
   async goMedicinePhoto() {
-    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+    const home = getHomeSnapshot(this.data)
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords, home, { createFamily: true, entry: 'medicine_add' })) {
       return
     }
     const app = getApp()
@@ -221,18 +225,26 @@ Page({
     wx.switchTab({ url: '/pages/illness/index' })
   },
 
+  async goManualIllness() {
+    const home = getHomeSnapshot(this.data)
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords, home, { createFamily: true, entry: 'manual_record' })) {
+      return
+    }
+    if (!ensureHasMembers(home)) {
+      return
+    }
+    wx.navigateTo({ url: '/pages/illness/form' })
+  },
+
   async goQuickIllness() {
-    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+    const home = getHomeSnapshot(this.data)
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords, home, { createFamily: true, entry: 'quick_record' })) {
       return
     }
-    if (!ensureHasMembers(getHomeSnapshot(this.data))) {
+    if (!ensureHasMembers(home)) {
       return
     }
-    const app = getApp()
-    if (app.globalData) {
-      app.globalData.openQuickIllness = true
-    }
-    wx.switchTab({ url: '/pages/illness/index' })
+    wx.navigateTo({ url: '/pages/illness/quick' })
   },
 
   goIllnessDetail(event) {

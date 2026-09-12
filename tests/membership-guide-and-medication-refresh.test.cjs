@@ -185,6 +185,41 @@ test('membership guide refreshes before slower membership data without restoring
   await loadPromise
 })
 
+test('membership page hydrates the current plan from the fresh home cache', () => {
+  let pageDefinition
+  loadCjsModule(path.join(root, 'miniprogram/pages/membership/index.js'), {
+    stubs: {
+      '../../services/api': {
+        getCachedHome: () => ({
+          family: { _id: 'family-a' },
+          entitlement: {
+            plan: 'pro',
+            planName: '家庭专业版',
+            proExpireAt: '2027-01-01T00:00:00.000Z',
+            limits: { maxMembers: 10 },
+          },
+        }),
+      },
+      '../../utils/operation-guards': {
+        ensureLoginReady: async () => true,
+      },
+    },
+    globals: {
+      Page(definition) { pageDefinition = definition },
+      wx: {
+        getStorageSync: () => null,
+      },
+    },
+  })
+
+  const page = createPageInstance(pageDefinition)
+  page.onLoad({})
+
+  assert.equal(page.data.isFreeMembership, false)
+  assert.equal(page.data.entitlement.planName, '家庭专业版')
+  assert.equal(page.data.family._id, 'family-a')
+})
+
 test('payment plan config includes the monthly flexible-experience badge', () => {
   const paymentSource = fs.readFileSync(path.join(root, 'cloudfunctions/paymentApi/index.js'), 'utf8')
   const monthlyPlan = paymentSource.match(/planId: 'monthly_pro'[\s\S]*?benefits: PRO_LIMITS/)?.[0] || ''

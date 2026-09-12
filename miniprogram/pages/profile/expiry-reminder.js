@@ -7,6 +7,10 @@ const options = [7, 30, 60, 90].map((value) => ({
 }))
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     options,
     reminderDays: 60,

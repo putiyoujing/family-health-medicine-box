@@ -1,40 +1,15 @@
 const api = require('../../services/api')
 const { ensureLoginReady } = require('../../utils/operation-guards')
-
-const kindOptions = [
-  { label: '外包装 / 药瓶', value: 'medicine_box' },
-  { label: '药品说明书', value: 'instruction' },
-  { label: '处方 / 医嘱', value: 'prescription' },
-  { label: '检查单', value: 'examination' },
-]
-
-const fieldSets = {
-  medicine_box: [
-    { key: 'name', label: '药品名称', placeholder: '请确认药品名称' },
-    { key: 'specification', label: '规格', placeholder: '例如 100ml/瓶' },
-    { key: 'expireDate', label: '有效期', placeholder: '例如 2027-12-31' },
-    { key: 'manufacturer', label: '厂家', placeholder: '可选' },
-    { key: 'approvalNo', label: '批准文号', placeholder: '可选' },
-  ],
-  instruction: [
-    { key: 'name', label: '药品名称', placeholder: '请确认药品名称' },
-    { key: 'instructionText', label: '说明书重点', placeholder: '用法、注意事项等原文整理' },
-    { key: 'contraindications', label: '禁忌/注意', placeholder: '可选' },
-  ],
-  prescription: [
-    { key: 'doctorDiagnosis', label: '医生记录', placeholder: '按处方或医嘱原文整理' },
-    { key: 'doctorAdvice', label: '医嘱', placeholder: '请人工确认' },
-    { key: 'summary', label: '就医摘要', placeholder: '可选' },
-  ],
-  examination: [
-    { key: 'examinationResult', label: '检查结果', placeholder: '检查项目、结果、单位、参考范围' },
-    { key: 'summary', label: '检查摘要', placeholder: '可选' },
-  ],
-}
+const { buildFields, fieldsToObject, kindOptions } = require('../../utils/ai-image-fields')
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     parsing: false,
+    confirming: false,
     source: '',
     attachment: null,
     kindOptions,
@@ -79,6 +54,9 @@ Page({
   },
 
   async startParse() {
+    if (this.data.parsing) {
+      return
+    }
     if (!this.data.featureEnabled) {
       wx.showModal({
         title: '图片整理暂未开放',
@@ -123,6 +101,9 @@ Page({
   },
 
   async confirmResult() {
+    if (this.data.confirming) {
+      return
+    }
     const loggedIn = await ensureLoginReady()
     if (!loggedIn) {
       return
@@ -131,6 +112,7 @@ Page({
       wx.showToast({ title: '请先整理图片', icon: 'none' })
       return
     }
+    this.setData({ confirming: true })
     wx.showLoading({ title: '保存中' })
     try {
       await api.confirmAiParseResult({
@@ -139,25 +121,20 @@ Page({
         relatedType: this.data.attachment.relatedType || this.data.source || '',
       })
       wx.hideLoading()
+      this.setData({ confirming: false })
       wx.showToast({ title: '已保存确认结果' })
       setTimeout(() => wx.navigateBack(), 600)
     } catch (error) {
       wx.hideLoading()
+      this.setData({ confirming: false })
       wx.showToast({ title: error.message || '保存失败', icon: 'none' })
     }
   },
+
+  onUnload() {
+    const app = getApp()
+    if (app.globalData && app.globalData.pendingParseAttachment === this.data.attachment) {
+      app.globalData.pendingParseAttachment = null
+    }
+  },
 })
-
-function buildFields(imageKind, output) {
-  return (fieldSets[imageKind] || fieldSets.medicine_box).map((field) => ({
-    ...field,
-    value: output[field.key] || '',
-  }))
-}
-
-function fieldsToObject(fields) {
-  return (fields || []).reduce((data, field) => {
-    data[field.key] = field.value || ''
-    return data
-  }, {})
-}

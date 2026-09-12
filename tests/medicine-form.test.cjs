@@ -57,6 +57,21 @@ test('medicine package photos support up to five draft attachments and become me
   assert.equal(demo.getHome().attachments.some((item) => item._id === draft.id), false)
 })
 
+test('medicine upload privacy notice is shown once while continuing to add photos', async () => {
+  const { pageDefinition, modalRequests } = loadFormModule({
+    showModal: (payload) => payload.success({ confirm: true }),
+    showActionSheet: async () => ({ tapIndex: 2 }),
+    chooseMedia: async () => ({ tempFiles: [] }),
+  })
+  const page = createPageInstance(pageDefinition)
+
+  await page.load()
+  await page.chooseMedicinePhoto()
+  await page.chooseMedicinePhoto()
+
+  assert.equal(modalRequests.filter((item) => item.title === '上传健康图片？').length, 1)
+})
+
 test('new medicine uses household categories without silently preselecting one', async () => {
   const { pageDefinition } = loadFormModule()
   const page = createPageInstance(pageDefinition)
@@ -381,6 +396,7 @@ function loadFormModule(options = {}) {
   let pageDefinition
   const navigation = { back: 0 }
   const toasts = []
+  const modalRequests = []
   const unloadAlerts = { disabled: 0, enabled: 0 }
   const home = options.home || {
     family: { _id: 'family-a' },
@@ -427,12 +443,19 @@ function loadFormModule(options = {}) {
         },
         setNavigationBarTitle() {},
         showLoading() {},
-        showModal() {},
+        showModal(payload) {
+          modalRequests.push(payload)
+          if (options.showModal) {
+            options.showModal(payload)
+          }
+        },
+        showActionSheet: options.showActionSheet || (async () => ({ tapIndex: 2 })),
+        chooseMedia: options.chooseMedia || (async () => ({ tempFiles: [] })),
         showToast(payload) {
           toasts.push(payload.title)
         },
       },
     },
   })
-  return { app, navigation, pageDefinition, toasts, unloadAlerts }
+  return { app, navigation, pageDefinition, toasts, unloadAlerts, modalRequests }
 }

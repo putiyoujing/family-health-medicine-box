@@ -4,7 +4,10 @@
     <view class="page-subtitle">按时间查看症状、体温、就诊和恢复过程</view>
   </view>
 
-  <button class="primary-btn add-btn" wx:if="{{showWriteEntries}}" loading="{{loading}}" disabled="{{loading}}" bindtap="createRecord">记一次生病</button>
+  <view class="illness-entry-actions" wx:if="{{showWriteEntries}}">
+    <button class="primary-btn add-btn" loading="{{loading}}" disabled="{{loading}}" bindtap="createRecord">记一次生病</button>
+    <button class="ghost-btn quick-add-btn" bindtap="quickRecord">快速记录</button>
+  </view>
 
   <view class="card-list">
     <view class="list-heading" wx:if="{{records.length}}">

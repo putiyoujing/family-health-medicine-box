@@ -4,7 +4,24 @@
     <view class="h1">{{record.memberName || '家人'}} · {{record.symptomText || '本次病程'}}</view>
   </view>
 
-  <view class="section" wx:if="{{record}}">
+  <view class="ai-processing-banner" wx:if="{{record && record.aiProcessing}}">
+    <view class="ai-processing-title">资料处理中</view>
+    <view class="muted">正在整理你输入的文字、病例、报告和药品资料，完成后会自动更新本病程。</view>
+  </view>
+
+  <view class="section" wx:if="{{loading}}">
+    <view class="section-title">正在加载病程</view>
+    <view class="muted">正在准备病程详情，请稍候。</view>
+  </view>
+
+  <view class="section" wx:elif="{{loadError}}">
+    <view class="section-title">暂时无法打开</view>
+    <view class="muted">{{loadError}}</view>
+    <button class="primary-btn" bindtap="load">重新加载</button>
+  </view>
+
+  <block wx:if="{{record && !loading && !loadError}}">
+  <view class="section">
     <view class="record-head">
       <view>
         <view class="record-title">{{record.timeText}} 开始</view>
@@ -14,16 +31,22 @@
     </view>
     <view>{{record.summary || record.symptomDescription || '暂无总结'}}</view>
     <view class="muted detail-line">诊断：{{record.doctorDiagnosis || '未记录'}} · 医嘱：{{record.doctorAdvice || '未记录'}}</view>
+    <view class="attachment-preview-grid" wx:if="{{attachments.length}}">
+      <view class="attachment-preview" wx:for="{{attachments}}" wx:key="_id">
+        <image src="{{item.tempFilePath || item.fileId || item.fileID}}" mode="aspectFill" data-index="{{index}}" bindtap="previewAttachment"></image>
+      </view>
+    </view>
+    <button class="ghost-btn" wx:if="{{canEditRecords && imageParsingEnabled && attachments.length}}" bindtap="startAttachmentReview">整理并核对图片</button>
   </view>
 
   <view class="action-grid">
-    <button class="primary-btn" wx:if="{{!record.completed}}" bindtap="toggleEventForm">{{showEventForm ? '收起追加' : '追加病程记录'}}</button>
-    <button class="ghost-btn" wx:if="{{!record.completed}}" bindtap="goMedication">记录用药</button>
+    <button class="primary-btn" wx:if="{{canEditRecords && !record.completed}}" bindtap="toggleEventForm">{{showEventForm ? '收起追加' : '追加病程记录'}}</button>
+    <button class="ghost-btn" wx:if="{{canEditRecords && !record.completed}}" bindtap="goMedication">记录用药</button>
     <button class="ghost-btn" bindtap="goReport">复诊摘要</button>
-    <button class="ghost-btn" wx:if="{{!record.completed}}" bindtap="goHealthTodo">添加健康待办</button>
+    <button class="ghost-btn" wx:if="{{canEditRecords && !record.completed}}" bindtap="goHealthTodo">添加健康待办</button>
   </view>
 
-  <view class="section" wx:if="{{showEventForm && !record.completed}}">
+  <view class="section" wx:if="{{canEditRecords && showEventForm && !record.completed}}">
     <view class="field">
       <text class="field-label">记录类型</text>
       <view class="event-type-options">
@@ -131,6 +154,22 @@
     </view>
   </view>
 
+  <view class="section" wx:if="{{medicineCandidates.length}}">
+    <view class="section-title">识别出的处方药品</view>
+    <view class="muted">药品只会先记录在病程中，请逐项确认是否加入药箱。</view>
+    <view class="medicine-candidate" wx:for="{{medicineCandidates}}" wx:key="id">
+      <view class="medicine-candidate-main">
+        <view class="record-title">{{item.name}}</view>
+        <view class="muted">{{item.specification || item.text}}</view>
+        <view class="medicine-candidate-status">{{item.actionText}}</view>
+      </view>
+      <view class="medicine-candidate-actions" wx:if="{{item.action === 'pending'}}">
+        <button class="ghost-btn" data-index="{{index}}" bindtap="addRecognizedMedicine">加入药箱</button>
+        <button class="ghost-btn" data-index="{{index}}" bindtap="skipRecognizedMedicine">暂不加入</button>
+      </view>
+    </view>
+  </view>
+
   <view class="section">
     <view class="section-title">本次病程待办</view>
     <view wx:if="{{!healthTodos.length}}" class="empty">还没有关联本病程的健康待办</view>
@@ -142,7 +181,7 @@
         </view>
         <view class="muted">{{item.typeLabel}} · {{item.remindAtText}}</view>
         <view class="todo-note" wx:if="{{item.note}}">{{item.note}}</view>
-        <view class="illness-todo-actions">
+        <view class="illness-todo-actions" wx:if="{{canEditRecords}}">
           <button class="illness-todo-action edit-action" wx:if="{{!item.completed}}" data-id="{{item._id}}" bindtap="editHealthTodo">编辑</button>
           <button class="illness-todo-action complete-action" wx:if="{{!item.completed}}" data-id="{{item._id}}" bindtap="completeHealthTodo">完成</button>
           <button class="illness-todo-action delete-action" data-id="{{item._id}}" bindtap="deleteHealthTodo">删除</button>
@@ -161,7 +200,7 @@
     </view>
   </view>
 
-  <view class="section completion-section" wx:if="{{record && showCompletionForm && !record.completed}}">
+  <view class="section completion-section" wx:if="{{record && canEditRecords && showCompletionForm && !record.completed}}">
     <view class="section-title">关闭病程</view>
     <view class="muted">关闭后将不能再追加跟踪记录，但仍可在列表中查看。</view>
     <view class="field">
@@ -176,8 +215,10 @@
   </view>
 
   <view class="course-actions" wx:if="{{record}}">
-    <button class="close-course-btn" wx:if="{{!record.completed && !showCompletionForm}}" loading="{{completing}}" disabled="{{completing}}" bindtap="closeCourse">关闭病程</button>
-    <button class="delete-record-btn" bindtap="remove">删除病程</button>
+    <button class="edit-record-btn" wx:if="{{canEditRecords}}" bindtap="editRecord">修改病程</button>
+    <button class="close-course-btn" wx:if="{{canEditRecords && !record.completed && !showCompletionForm}}" loading="{{completing}}" disabled="{{completing}}" bindtap="closeCourse">关闭病程</button>
+    <button class="delete-record-btn" wx:if="{{canEditRecords}}" bindtap="remove">删除病程</button>
   </view>
+  </block>
 </view>
 <global-auth-layer id="global-auth-layer" />

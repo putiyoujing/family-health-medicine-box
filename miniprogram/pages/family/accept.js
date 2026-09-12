@@ -1,5 +1,6 @@
 const api = require('../../services/api')
 const { ensureLoginReady } = require('../../utils/operation-guards')
+const { EVENT_IDS, track, trackServiceError } = require('../../utils/analytics')
 
 const roleText = {
   admin: '管理员',
@@ -8,6 +9,10 @@ const roleText = {
 }
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     code: '',
     invite: null,
@@ -83,11 +88,14 @@ Page({
       if (result.familyId && app && app.globalData) {
         app.globalData.currentFamilyId = result.familyId
       }
+      track(EVENT_IDS.FAMILY_INVITE_RESULT, { entry: 'accept', status: 'success' })
       wx.showToast({ title: result.memberId ? '已关联并加入家庭' : '已加入家庭' })
       setTimeout(() => {
         wx.switchTab({ url: '/pages/dashboard/index' })
       }, 600)
     } catch (error) {
+      track(EVENT_IDS.FAMILY_INVITE_RESULT, { entry: 'accept', status: 'fail' })
+      trackServiceError('family_invite_accept')
       wx.showToast({ title: error.message || '加入失败', icon: 'none' })
     }
   },

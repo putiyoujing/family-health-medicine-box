@@ -4,6 +4,10 @@ const { ensureLoginReady } = require('../../utils/operation-guards')
 const typeOptions = ['使用问题', '功能建议', '数据错误', '账号与数据请求', '其他反馈']
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     submitting: false,
     typeOptions,

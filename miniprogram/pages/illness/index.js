@@ -4,6 +4,10 @@ const { canEditFamilyRecords, ensureFamilyWriteAccess, ensureHasMembers, ensureL
 const { syncTabBar } = require('../../utils/tab-bar')
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     family: null,
@@ -86,18 +90,30 @@ Page({
     }
     this.shouldOpenQuickIllness = false
     if (canEditRecords && ensureHasMembers(home)) {
-      wx.navigateTo({ url: '/pages/illness/form' })
+      wx.navigateTo({ url: '/pages/illness/quick' })
     }
   },
 
   async createRecord() {
-    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+    const home = getHomeSnapshot(this.data)
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords, home, { createFamily: true, entry: 'manual_record' })) {
       return
     }
-    if (!ensureHasMembers(getHomeSnapshot(this.data))) {
+    if (!ensureHasMembers(home)) {
       return
     }
     wx.navigateTo({ url: '/pages/illness/form' })
+  },
+
+  async quickRecord() {
+    const home = getHomeSnapshot(this.data)
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords, home, { createFamily: true, entry: 'quick_record' })) {
+      return
+    }
+    if (!ensureHasMembers(home)) {
+      return
+    }
+    wx.navigateTo({ url: '/pages/illness/quick' })
   },
 
   async editRecord(event) {

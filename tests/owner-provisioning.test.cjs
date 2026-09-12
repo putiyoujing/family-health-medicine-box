@@ -6,7 +6,7 @@ const { loadCjsModule } = require('./helpers/cjs-harness.cjs')
 
 const root = path.resolve(__dirname, '..')
 
-test('first login creates one owner member and binds the owner role idempotently', async () => {
+test('first login creates only the user and leaves family creation deferred', async () => {
   const database = createDatabase()
   const cloud = {
     DYNAMIC_CURRENT_ENV: 'test',
@@ -33,16 +33,13 @@ test('first login creates one owner member and binds the owner role idempotently
   await login.main({ profile })
   await login.main({ profile })
 
+  const users = database.dump('users')
   const members = database.dump('family_members')
   const roles = database.dump('family_roles')
-  assert.equal(members.length, 1)
-  assert.equal(roles.length, 1)
-  assert.equal(members[0].relation, '本人')
-  assert.equal(members[0].isOwnerProfile, true)
-  assert.equal(members[0].name, 'Owner')
-  assert.equal(members[0].gender, 'male')
-  assert.equal(roles[0].role, 'owner')
-  assert.equal(roles[0].memberId, members[0]._id)
+  assert.equal(users.length, 1)
+  assert.equal(users[0].currentFamilyId, '')
+  assert.equal(members.length, 0)
+  assert.equal(roles.length, 0)
 })
 
 test('first login accepts an app-generated avatar preset as the official fallback path', async () => {
@@ -73,7 +70,9 @@ test('first login accepts an app-generated avatar preset as the official fallbac
   assert.equal(user.nickname, '健康守护者4821')
   assert.equal(user.avatarUrl, '')
   assert.equal(user.avatarPreset, 'lake')
+  assert.equal(user.currentFamilyId, '')
   assert.equal(result.user.avatarPreset, 'lake')
+  assert.equal(result.currentFamilyId, '')
 })
 
 test('an existing unlinked owner is backfilled with one member profile', async () => {
@@ -171,6 +170,40 @@ test('login keeps a linked owner member name and gender edited by the family', a
   assert.equal(member.gender, 'female')
 })
 
+test('health API returns an empty family state without provisioning a new family', async () => {
+  const database = createNoFamilyHealthDatabase()
+  const healthApi = loadCjsModule(path.join(root, 'cloudfunctions/healthApi/index.js'), {
+    stubs: {
+      'wx-server-sdk': {
+        DYNAMIC_CURRENT_ENV: 'test',
+        init() {},
+        getWXContext() {
+          return { OPENID: 'new-user' }
+        },
+        database() {
+          return database
+        },
+      },
+    },
+  })
+
+  const home = await healthApi.main({ action: 'getHome' })
+  const families = await healthApi.main({ action: 'listMyFamilies' })
+  const membership = await healthApi.main({ action: 'getMembershipStatus' })
+  const roles = await healthApi.main({ action: 'listFamilyRoles' })
+
+  assert.equal(home.ok, true)
+  assert.equal(home.data.family, null)
+  assert.equal(home.data.currentFamilyId, '')
+  assert.equal(families.data.ownedFamilyCount, 0)
+  assert.equal(JSON.stringify(families.data.families), '[]')
+  assert.equal(membership.data.family, null)
+  assert.equal(membership.data.familyPolicy.ownedFamilyCount, 0)
+  assert.equal(JSON.stringify(roles.data.roles), '[]')
+  assert.equal(database.dump('families').length, 0)
+  assert.equal(database.dump('family_roles').length, 0)
+})
+
 function createDatabase() {
   const collections = new Map()
   const now = '2026-07-19T00:00:00.000Z'
@@ -234,6 +267,70 @@ function createDatabase() {
     },
     seed(name, id, data) {
       getCollection(name).set(id, { ...data, _id: id })
+    },
+  }
+}
+
+function createNoFamilyHealthDatabase() {
+  const collections = new Map([
+    ['users', new Map([[
+      'new-user-record',
+      {
+        _id: 'new-user-record',
+        openid: 'new-user',
+        nickname: '新用户',
+        publicUserId: '1000000002',
+        currentFamilyId: '',
+      },
+    ]])],
+    ['family_roles', new Map()],
+    ['families', new Map()],
+  ])
+
+  function getCollection(name) {
+    if (!collections.has(name)) {
+      collections.set(name, new Map())
+    }
+    return collections.get(name)
+  }
+
+  return {
+    command: {
+      exists(value) {
+        return { exists: value }
+      },
+    },
+    serverDate() {
+      return '2026-08-22T00:00:00.000Z'
+    },
+    collection(name) {
+      const records = getCollection(name)
+      return {
+        where(query) {
+          let limit = Number.POSITIVE_INFINITY
+          return {
+            limit(value) {
+              limit = value
+              return this
+            },
+            async get() {
+              return {
+                data: [...records.values()]
+                  .filter((record) => Object.entries(query).every(([key, value]) => {
+                    if (value && typeof value === 'object' && Object.hasOwn(value, 'exists')) {
+                      return value.exists ? record[key] !== undefined : record[key] === undefined
+                    }
+                    return record[key] === value
+                  }))
+                  .slice(0, limit),
+              }
+            },
+          }
+        },
+      }
+    },
+    dump(name) {
+      return [...getCollection(name).values()]
     },
   }
 }

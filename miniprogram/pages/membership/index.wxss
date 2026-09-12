@@ -117,7 +117,7 @@
 
 .comparison-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.08fr) repeat(3, minmax(0, 1fr));
   min-height: 72rpx;
   border-top: 1rpx solid #edf4f2;
 }
@@ -150,11 +150,11 @@
   font-weight: 800;
 }
 
-.comparison-free {
+.comparison-value {
   color: #71837e;
 }
 
-.comparison-pro {
+.comparison-row .comparison-value:nth-child(4) {
   color: #176f61;
   background: #f3faf7;
   font-weight: 900;

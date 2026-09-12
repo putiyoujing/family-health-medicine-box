@@ -77,6 +77,42 @@ test('a page missing the global layer shows an actionable message without routin
   assert.deepEqual(toasts, ['当前页面暂不支持登录，请重新进入'])
 })
 
+test('an explicit record action creates a family and refreshes the owner member before continuing', async () => {
+  const app = { globalData: { openid: 'new-user', currentFamilyId: '' } }
+  const home = { family: null, currentFamilyId: '', members: [] }
+  const calls = []
+  const guards = loadCjsModule(path.join(root, 'miniprogram/utils/operation-guards.js'), {
+    stubs: {
+      '../services/api': {
+        async createFamily(payload) {
+          calls.push(payload)
+          app.globalData.currentFamilyId = 'family-created-on-demand'
+          return { currentFamilyId: app.globalData.currentFamilyId }
+        },
+        async getHome() {
+          return {
+            family: { _id: 'family-created-on-demand', role: 'owner' },
+            currentFamilyId: 'family-created-on-demand',
+            members: [{ _id: 'owner-member', name: '本人' }],
+          }
+        },
+      },
+    },
+    globals: {
+      getApp: () => app,
+      wx: { showToast() {} },
+    },
+  })
+
+  assert.equal(
+    await guards.ensureFamilyWriteAccess(false, home, { createFamily: true }),
+    true,
+  )
+  assert.equal(JSON.stringify(calls), JSON.stringify([{ name: '我的家庭健康记录' }]))
+  assert.equal(home.currentFamilyId, 'family-created-on-demand')
+  assert.equal(home.members.length, 1)
+})
+
 function loadGuards({ app, layer, toasts = [] }) {
   return loadCjsModule(path.join(root, 'miniprogram/utils/operation-guards.js'), {
     globals: {

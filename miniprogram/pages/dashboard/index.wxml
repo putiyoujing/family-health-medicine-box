@@ -2,7 +2,7 @@
   <view wx:if="{{loadError}}" class="default-home error-home">
     <view class="default-brand">
       <view>
-        <view class="default-title">家人健康记</view>
+        <view class="default-title">家人健康记录</view>
         <view class="default-subtitle">先把首页加载回来</view>
       </view>
       <view class="mini-menu">
@@ -26,7 +26,7 @@
   <view wx:elif="{{loading}}" class="default-home">
     <view class="default-brand">
       <view>
-        <view class="default-title">家人健康记</view>
+        <view class="default-title">家人健康记录</view>
         <view class="default-subtitle">正在准备家庭健康记录</view>
       </view>
       <view class="mini-menu">
@@ -47,8 +47,7 @@
   <view wx:elif="{{isDefaultHome}}" class="default-home">
     <view class="default-brand">
       <view>
-        <view class="default-title">家人健康记</view>
-        <view class="default-subtitle">先把第一个真实记录放进来</view>
+        <view class="default-title">家人健康记录</view>
       </view>
       <view class="mini-menu">
         <text></text>
@@ -67,7 +66,7 @@
     </view>
 
     <button class="default-primary" wx:if="{{showWriteEntries}}" bindtap="goAddMember">添加家庭成员</button>
-    <button class="default-secondary" wx:if="{{showWriteEntries}}" bindtap="goQuickIllness">先记录一次症状</button>
+    <button class="default-secondary" wx:if="{{showWriteEntries}}" bindtap="goQuickIllness">快速记录症状</button>
 
     <view class="starter-card" wx:if="{{showWriteEntries}}">
       <view class="starter-title">可以从这里开始</view>
@@ -78,7 +77,7 @@
           </view>
           <view>拍照录入药品</view>
         </view>
-        <view class="starter-item starter-note" bindtap="goQuickIllness">
+        <view class="starter-item starter-note" bindtap="goManualIllness">
           <view class="starter-icon">
             <view class="note-icon">
               <view></view>
@@ -107,11 +106,11 @@
 
     <view class="hero-action">
       <view>
-        <text class="eyebrow">{{family.name || '我的家庭'}}</text>
+        <text class="eyebrow">{{family._id ? family.name : '尚未创建家庭'}}</text>
         <view class="member-title">孩子生病不用靠回忆</view>
         <view class="muted">快速记下体温、症状、用药和复诊要点。</view>
       </view>
-      <button class="primary-btn hero-btn" wx:if="{{showWriteEntries}}" bindtap="goQuickIllness">记一次生病</button>
+      <button class="primary-btn hero-btn" wx:if="{{showWriteEntries}}" bindtap="goManualIllness">记一次生病</button>
     </view>
 
     <view class="stats-grid">
@@ -145,7 +144,7 @@
 
     <view class="section">
       <view class="section-title">进行中的病程</view>
-      <view wx:if="{{!activeCourses.length && showWriteEntries}}" class="empty" bindtap="goQuickIllness">暂无进行中的病程，点这里记录一次</view>
+      <view wx:if="{{!activeCourses.length && showWriteEntries}}" class="empty" bindtap="goManualIllness">暂无进行中的病程，点这里记录一次</view>
       <view wx:elif="{{!activeCourses.length}}" class="empty">暂无进行中的病程</view>
       <view class="card-list" wx:else>
         <view class="record-card" wx:for="{{activeCourses}}" wx:key="_id" data-id="{{item._id}}" bindtap="goIllnessDetail">
@@ -212,7 +211,7 @@
         <text>最近病程</text>
         <text class="section-action" bindtap="goIllness">查看全部</text>
       </view>
-      <view wx:if="{{!illnessRecords.length && showWriteEntries}}" class="empty" bindtap="goQuickIllness">还没有病程，点这里记录一次</view>
+      <view wx:if="{{!illnessRecords.length && showWriteEntries}}" class="empty" bindtap="goManualIllness">还没有病程，点这里记录一次</view>
       <view wx:elif="{{!illnessRecords.length}}" class="empty">还没有病程记录</view>
       <view class="card-list" wx:else>
         <view class="record-card" wx:for="{{illnessRecords}}" wx:key="_id" data-id="{{item._id}}" bindtap="goIllnessDetail">

@@ -12,6 +12,9 @@ test('dashboard quick actions keep all three buttons inside the content width', 
 
   assert.ok(quickActions)
   assert.equal((quickActions[1].match(/<button/g) || []).length, 3)
+  assert.match(template, /class="default-secondary"[^>]*bindtap="goQuickIllness">快速记录症状<\/button>/)
+  assert.match(template, /bindtap="goManualIllness">记一次生病<\/button>/)
+  assert.match(template, /bindtap="goQuickIllness">快速记录<\/button>/)
   assert.match(styles, /\.quick-grid\s*{[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/)
   assert.match(styles, /\.quick-grid \.ghost-btn\s*{[\s\S]*min-width:\s*0/)
   assert.match(styles, /\.quick-grid \.ghost-btn\s*{[\s\S]*width:\s*100%/)

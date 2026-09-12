@@ -27,14 +27,19 @@ const today = [
 ].join('-')
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     family: {},
     entitlement: {
-      planName: '免费版',
+      plan: 'free',
+      tier: 'free',
+      planName: '基础版',
       limits: {
         maxMembers: 3,
-        maxSharedUsers: 2,
       },
     },
     members: [],
@@ -43,6 +48,7 @@ Page({
     canEditFamily: false,
     canManageFamily: false,
     showMemberModal: false,
+    savingMember: false,
     memberModalMode: 'add',
     selectedMember: null,
     form: { ...emptyMember },
@@ -89,7 +95,10 @@ Page({
       const pendingInvites = roleData.pendingInvites || []
       this.setData({
         loading: false,
-        family: membership.family || {},
+        family: {
+          ...(membership.family || {}),
+          roleText: roleText[(membership.family || {}).role] || (membership.family || {}).role || '家庭成员',
+        },
         entitlement: membership.entitlement || this.data.entitlement,
         members: (home.members || []).map((item) => {
           const linkedRole = roles.find((role) => role.memberId === item._id)
@@ -127,13 +136,16 @@ Page({
   },
 
   openMemberModal() {
+    if (!this.data.canEditFamily) {
+      return
+    }
     if (this.data.members.length >= this.data.memberLimit) {
       const isFreeMembership = (this.data.entitlement || {}).plan === 'free'
-        || String((this.data.entitlement || {}).planName || '').includes('免费')
+        || /免费|基础/.test(String((this.data.entitlement || {}).planName || ''))
       wx.showModal({
         title: '成员数量已达上限',
         content: isFreeMembership
-          ? `当前免费版最多 ${this.data.memberLimit} 位成员，兑换会员后可添加至 10 位。`
+          ? `当前基础版最多 ${this.data.memberLimit} 位成员，兑换会员后可添加至 10 位。`
           : `当前家庭最多可添加 ${this.data.memberLimit} 位成员。`,
         confirmText: isFreeMembership ? '去升级' : '知道了',
         showCancel: isFreeMembership,
@@ -161,7 +173,7 @@ Page({
     }
     this.setData({
       showMemberModal: true,
-      memberModalMode: 'edit',
+      memberModalMode: this.data.canEditFamily ? 'edit' : 'view',
       selectedMember: member,
       form: {
         _id: member._id,
@@ -180,6 +192,7 @@ Page({
     this.setData({
       showMemberModal: false,
       memberModalMode: 'add',
+      savingMember: false,
       selectedMember: null,
       form: { ...emptyMember },
     })
@@ -188,15 +201,24 @@ Page({
   noop() {},
 
   onMemberInput(event) {
+    if (this.data.memberModalMode === 'view') {
+      return
+    }
     const field = event.currentTarget.dataset.field
     this.setData({ [`form.${field}`]: event.detail.value })
   },
 
   onBirthdayChange(event) {
+    if (this.data.memberModalMode === 'view') {
+      return
+    }
     this.setData({ 'form.birthday': event.detail.value })
   },
 
   async saveMember() {
+    if (this.data.memberModalMode === 'view' || !this.data.canEditFamily || this.data.savingMember) {
+      return
+    }
     const form = this.data.form
     if (!String(form.name || '').trim()) {
       wx.showToast({ title: '请填写成员昵称', icon: 'none' })
@@ -206,6 +228,7 @@ Page({
       wx.showToast({ title: '请填写成员关系', icon: 'none' })
       return
     }
+    this.setData({ savingMember: true })
     try {
       await api.saveMember({
         ...form,
@@ -217,10 +240,15 @@ Page({
       await this.load()
     } catch (error) {
       wx.showToast({ title: error.message || '保存失败', icon: 'none' })
+    } finally {
+      this.setData({ savingMember: false })
     }
   },
 
   async deleteMember() {
+    if (!this.data.canManageFamily) {
+      return
+    }
     const id = this.data.form._id
     if (!id) {
       return
@@ -240,6 +268,9 @@ Page({
   },
 
   openMemberInvite(event) {
+    if (!this.data.canManageFamily) {
+      return
+    }
     const memberId = event.currentTarget.dataset.id
     if (!memberId) {
       return

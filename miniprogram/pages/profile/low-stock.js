@@ -7,6 +7,10 @@ const options = [10, 20, 25, 30, 50].map((value) => ({
 }))
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     options,
     threshold: 25,

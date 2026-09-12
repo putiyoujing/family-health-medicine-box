@@ -16,9 +16,7 @@
       <view class="picker-value">{{roleOptions[roleIndex].label}}</view>
     </picker>
     <view class="muted permission-desc">{{roleOptions[roleIndex].desc}}</view>
-    <view class="muted" wx:if="{{entitlement}}">
-      当前为 {{entitlement.planName}}，可邀请角色：{{entitlement.sharedRolesText}}
-    </view>
+    <view class="muted" wx:if="{{entitlement}}">家庭成员均可关联账号，权限可设置为查看者、协作者或管理员。</view>
   </view>
 
   <view class="section">

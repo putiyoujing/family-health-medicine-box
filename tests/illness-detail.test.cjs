@@ -21,6 +21,67 @@ test('illness list routes append through detail and keeps course actions inside 
   assert.doesNotMatch(listTemplate, /quick-append/)
   assert.match(detailTemplate, /bindtap="closeCourse"[^>]*>关闭病程<\/button>/)
   assert.match(detailTemplate, /bindtap="remove"[^>]*>删除病程<\/button>/)
+  assert.match(detailTemplate, /bindtap="editRecord"[^>]*>修改病程<\/button>/)
+  assert.match(detailTemplate, /bindtap="previewAttachment"/)
+  assert.match(detailTemplate, /bindtap="startAttachmentReview"/)
+})
+
+test('illness detail previews attachments and opens the edit form', async () => {
+  const { pageDefinition, navigations, previewImages } = loadPage(detailScript, {
+    home: {
+      family: { _id: 'family-a', role: 'owner' },
+      members: [{ _id: 'member-a', name: '小宝' }],
+      illnessRecords: [{ _id: 'illness-a', memberId: 'member-a', startedAt: '2026-07-20 08:00' }],
+      medicines: [],
+      courseEvents: [],
+      medicationLogs: [],
+      attachments: [{ _id: 'attachment-a', relatedType: 'illness', relatedId: 'illness-a', fileId: 'cloud://record.jpg' }],
+    },
+  })
+  const page = createPageInstance(pageDefinition)
+
+  page.onLoad({ id: 'illness-a' })
+  await page.load()
+  page.previewAttachment({ currentTarget: { dataset: { index: 0 } } })
+  await page.editRecord()
+
+  assert.deepEqual(JSON.parse(JSON.stringify(previewImages)), [{
+    urls: ['cloud://record.jpg'],
+    current: 'cloud://record.jpg',
+  }])
+  assert.deepEqual(navigations.urls, ['/pages/illness/form?id=illness-a'])
+})
+
+test('illness detail leaves loading state when the route has no illness id', async () => {
+  const { pageDefinition } = loadPage(detailScript)
+  const page = createPageInstance(pageDefinition)
+
+  page.onLoad({})
+  await page.load()
+
+  assert.equal(page.data.loading, false)
+  assert.equal(page.data.loadError, '缺少病程 ID')
+})
+
+test('illness detail opens explicit attachment review for editable users', async () => {
+  const home = {
+    family: { _id: 'family-a', role: 'owner' },
+    features: { imageParsingEnabled: true },
+    members: [{ _id: 'member-a', name: '小宝' }],
+    illnessRecords: [{ _id: 'illness-a', memberId: 'member-a', startedAt: '2026-07-20 08:00' }],
+    medicines: [],
+    courseEvents: [],
+    medicationLogs: [],
+    attachments: [{ _id: 'attachment-a', relatedType: 'illness', relatedId: 'illness-a', fileId: 'cloud://record.jpg' }],
+  }
+  const { pageDefinition, navigations } = loadPage(detailScript, { home })
+  const page = createPageInstance(pageDefinition)
+
+  page.onLoad({ id: 'illness-a' })
+  await page.load()
+  page.startAttachmentReview()
+
+  assert.deepEqual(navigations.urls, ['/pages/illness/review'])
 })
 
 test('illness list append opens the selected detail form', async () => {
@@ -156,6 +217,7 @@ test('visit attachment picker fills only the remaining slots and supports remova
     ],
   })
   const page = createPageInstance(pageDefinition, {
+    canEditRecords: true,
     pendingAttachments: [
       { fileID: 'temp-old-1.jpg', tempFilePath: 'temp-old-1.jpg' },
       { fileID: 'temp-old-2.jpg', tempFilePath: 'temp-old-2.jpg' },
@@ -342,6 +404,7 @@ test('deleting an illness is confirmed from detail and returns to the list', asy
     deleteIllness: async (id) => deletedIds.push(id),
   })
   const page = createPageInstance(pageDefinition, {
+    canEditRecords: true,
     id: 'illness-a',
     record: { _id: 'illness-a' },
   })
@@ -430,11 +493,40 @@ test('demo completion persists the recovery review in the illness timeline', () 
   assert.equal(review.recordedAt, '2026-07-22 09:30')
 })
 
+test('demo illness keeps the AI processing status between saves', () => {
+  const illness = demo.saveIllness({
+    memberId: 'member-processing-test',
+    startedAt: '2026-07-20 08:00',
+    status: '观察中',
+    aiProcessing: true,
+    aiProcessingStatus: 'processing',
+    aiProcessingStartedAt: '2026-07-20 08:01',
+  })
+
+  const stored = demo.getHome().illnessRecords.find((item) => item._id === illness.id)
+  assert.equal(stored.aiProcessing, true)
+  assert.equal(stored.aiProcessingStatus, 'processing')
+  assert.equal(stored.aiProcessingStartedAt, '2026-07-20 08:01')
+
+  demo.saveIllness({
+    _id: illness.id,
+    memberId: 'member-processing-test',
+    startedAt: '2026-07-20 08:00',
+    status: '观察中',
+    aiProcessing: false,
+    aiProcessingStatus: 'completed',
+  })
+  const completed = demo.getHome().illnessRecords.find((item) => item._id === illness.id)
+  assert.equal(completed.aiProcessing, false)
+  assert.equal(completed.aiProcessingStatus, 'completed')
+})
+
 function loadPage(script, options = {}) {
   let pageDefinition
   const navigations = { back: 0, urls: [] }
   const attachmentPickerCounts = []
   const modalRequests = []
+  const previewImages = []
   const storage = options.storage || {}
   const home = options.home || {
     family: { _id: 'family-a' },
@@ -482,6 +574,9 @@ function loadPage(script, options = {}) {
         navigateTo({ url }) {
           navigations.urls.push(url)
         },
+        previewImage(options) {
+          previewImages.push(options)
+        },
         getStorageSync(key) {
           return storage[key]
         },
@@ -502,5 +597,5 @@ function loadPage(script, options = {}) {
       },
     },
   })
-  return { attachmentPickerCounts, modalRequests, navigations, pageDefinition, storage }
+  return { attachmentPickerCounts, modalRequests, navigations, pageDefinition, previewImages, storage }
 }

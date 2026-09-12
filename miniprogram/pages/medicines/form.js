@@ -3,6 +3,7 @@ const { todayDate } = require('../../utils/format')
 const { ensureLoginReady } = require('../../utils/operation-guards')
 const { hasPackageConversion } = require('../../utils/medicine-stock')
 const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
+const { EVENT_IDS, countBucket, track, trackServiceError } = require('../../utils/analytics')
 
 const DEFAULT_TAG_OPTIONS = ['儿童用药', '老人父母', '常规用药', '退烧', '感冒咳嗽', '鼻腔护理', '肠胃', '过敏', '外用', '常备', '处方药', '低库存关注']
 const DEFAULT_CATEGORY_OPTIONS = ['退热止痛', '感冒呼吸', '消化肠胃', '抗过敏', '外用皮肤', '五官口腔', '抗感染', '慢病长期', '急救备用', '其他']
@@ -33,6 +34,10 @@ const emptyForm = {
 }
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     saving: false,
@@ -53,6 +58,7 @@ Page({
     pendingAttachments: [],
     imageParsingEnabled: false,
     fromPrescription: false,
+    fromAiReview: false,
     prescriptionMedicineCount: 0,
     today: todayDate(),
     errors: {},
@@ -66,8 +72,11 @@ Page({
     this.preferredMemberId = options.memberId || ''
     this.visitDraftKey = decodeVisitDraftKey(options.visitDraftKey)
     this.fromPrescription = !!this.visitDraftKey
+    this.fromAiReview = options.fromAiReview === '1'
+    this.aiReviewToken = ''
     this.dirty = false
     this.unloadAlertEnabled = false
+    this.imageUploadNoticeShown = false
     wx.setNavigationBarTitle({ title: this.recordId ? '编辑药品' : '添加药品' })
     this.load()
   },
@@ -81,6 +90,11 @@ Page({
         return
       }
       const home = await api.getHome()
+      const app = getApp()
+      const aiPrefill = this.fromAiReview && app.globalData && app.globalData.pendingMedicinePrefill
+        ? app.globalData.pendingMedicinePrefill
+        : null
+      this.aiReviewToken = aiPrefill && aiPrefill.token || ''
       const visitDraft = this.fromPrescription ? readVisitDraft(this.visitDraftKey) : null
       const medicines = home.medicines || []
       const medicine = this.recordId
@@ -114,11 +128,18 @@ Page({
                   totalQuantity: '1',
                   remainingQuantity: '1',
                   unit: '盒',
-                  source: '处方',
-                }
+                source: '处方',
+              }
               : {}),
-            memberId: preferredMember ? preferredMember._id : '',
-            memberNameSnapshot: preferredMember ? preferredMember.name : '全家通用',
+            ...(aiPrefill ? buildAiPrefillForm(aiPrefill) : {}),
+            memberId: aiPrefill && aiPrefill.memberId
+              ? aiPrefill.memberId
+              : preferredMember ? preferredMember._id : '',
+            memberNameSnapshot: preferredMember
+              ? preferredMember.name
+              : aiPrefill && aiPrefill.memberId
+                ? memberPickerOptions.find((item) => item._id === aiPrefill.memberId)?.name || '全家通用'
+                : '全家通用',
           }
       const memberIndex = Math.max(0, memberPickerOptions.findIndex((item) => item._id === form.memberId))
       const categoryOptions = buildCategoryOptions(form.category)
@@ -145,6 +166,7 @@ Page({
         formTagOptions: buildFormTagOptions(form.tagsText),
         imageParsingEnabled: !!(getApp().globalData && getApp().globalData.imageParsingEnabled),
         fromPrescription: this.fromPrescription,
+        fromAiReview: this.fromAiReview,
         prescriptionMedicineCount: visitDraft && Array.isArray(visitDraft.prescribedMedicines)
           ? visitDraft.prescribedMedicines.length
           : 0,
@@ -395,6 +417,9 @@ Page({
       this.disableUnloadAlert()
       if (this.fromPrescription) {
         appendPrescriptionMedicine(this.visitDraftKey, saved, form)
+        if (!form._id) {
+          track(EVENT_IDS.MEDICINE_MANUAL_ADD, { entry: 'prescription', status: 'success' })
+        }
         if (continueAdding) {
           this.recordId = ''
           wx.showToast({ title: '已加入药箱，继续添加' })
@@ -402,11 +427,33 @@ Page({
           return
         }
       }
+      if (this.fromAiReview && this.aiReviewToken) {
+        const app = getApp()
+        const pendingReview = app.globalData && app.globalData.pendingIllnessReview
+        if (pendingReview) {
+          pendingReview.medicineConfirmations = pendingReview.medicineConfirmations || {}
+          pendingReview.medicineConfirmations[this.aiReviewToken] = { medicineId: saved.id }
+        }
+        if (app.globalData) {
+          app.globalData.pendingMedicinePrefill = null
+        }
+        track(EVENT_IDS.MEDICINE_CONFIRM_ADD, { status: 'success' })
+        wx.showToast({ title: '已加入药箱' })
+        wx.navigateBack()
+        return
+      }
+      if (!form._id) {
+        track(EVENT_IDS.MEDICINE_MANUAL_ADD, {
+          entry: 'medicine_box',
+          status: 'success',
+        })
+      }
       wx.showToast({ title: form._id ? '已修改' : '已保存' })
       wx.navigateBack()
     } catch (error) {
       wx.hideLoading()
       this.setData({ saving: false })
+      trackServiceError('medicine_save')
       wx.showToast({ title: error.message || '保存失败', icon: 'none' })
     }
   },
@@ -418,12 +465,15 @@ Page({
       wx.showToast({ title: `最多可添加 ${MAX_MEDICINE_ATTACHMENTS} 张包装图片`, icon: 'none' })
       return
     }
-    const confirmed = await confirm(
-      '图片可能包含敏感健康或身份信息。请先遮挡无关姓名、证件号等内容，确认后再选择并上传。',
-      '上传健康图片？',
-    )
-    if (!confirmed) {
-      return
+    if (!this.imageUploadNoticeShown) {
+      this.imageUploadNoticeShown = true
+      const confirmed = await confirm(
+        '图片可能包含敏感健康或身份信息。请先遮挡无关姓名、证件号等内容，确认后再选择并上传。',
+        '上传健康图片？',
+      )
+      if (!confirmed) {
+        return
+      }
     }
     try {
       const res = await wx.showActionSheet({
@@ -464,6 +514,11 @@ Page({
       this.setData({
         pendingAttachments: [...pendingAttachments, ...addedAttachments],
       })
+      track(EVENT_IDS.IMAGE_UPLOAD_RESULT, {
+        image_type: imageKind,
+        status: 'success',
+        count_bucket: countBucket(addedAttachments.length),
+      })
       this.markDirty()
       wx.showToast({ title: '图片已添加' })
     } catch (error) {
@@ -471,6 +526,12 @@ Page({
       if (isImageSelectionCanceled(error)) {
         return
       }
+      track(EVENT_IDS.IMAGE_UPLOAD_RESULT, {
+        image_type: 'medicine_box',
+        status: 'fail',
+        count_bucket: '0',
+      })
+      trackServiceError('medicine_image_upload')
       console.error('medicine image upload failed', error)
       wx.showModal({
         title: '药品图片上传失败',
@@ -609,6 +670,20 @@ function formFromMedicine(medicine) {
     indicationsText: medicine.indicationsText || '',
     instructionText: medicine.instructionText || '',
     note: medicine.note || '',
+  }
+}
+
+function buildAiPrefillForm(prefill = {}) {
+  return {
+    category: '其他',
+    tagsText: '处方药',
+    name: String(prefill.name || '').trim(),
+    specification: String(prefill.specification || '').trim(),
+    totalQuantity: '1',
+    remainingQuantity: '1',
+    unit: '盒',
+    source: '处方',
+    note: String(prefill.note || '').trim(),
   }
 }
 

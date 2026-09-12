@@ -1,0 +1,91 @@
+<view class="page">
+  <view class="quick-quota-banner" wx:if="{{!loading && !loadError && members.length}}" bindtap="promptQuickRecordUpgrade">
+    <view>
+      <view class="quick-quota-title">快速记录</view>
+      <view class="quick-quota-text">{{quickRecordNotice}}</view>
+    </view>
+    <view class="quick-quota-count" wx:if="{{quickRecordUsage.limit !== null}}">剩余 {{quickRecordUsage.remaining}} 次</view>
+  </view>
+
+  <view class="section" wx:if="{{!loading && !loadError && members.length}}">
+    <view class="field">
+      <text class="field-label">记录哪位家人</text>
+      <picker mode="selector" range="{{members}}" range-key="name" value="{{memberIndex}}" bindchange="onMemberChange">
+        <view class="picker-row">
+          <view class="member-value">
+            <view class="member-mark">{{selectedMemberInitial}}</view>
+            <text>{{selectedMemberText}}</text>
+          </view>
+          <text class="picker-arrow">›</text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <text class="field-label">描述这次生病情况</text>
+      <textarea class="textarea quick-input" value="{{inputText}}" bindinput="onInput" maxlength="2000" placeholder="例如：昨晚开始发烧，最高 38.6℃，今天去医院检查后开了药。"></textarea>
+      <view class="muted quick-ai-hint" wx:if="{{imageParsingEnabled && inputText}}">提交并保存病程后，再整理文字和图片；整理结果会逐项核对。</view>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{!loading && !loadError && members.length}}">
+    <view class="section-kicker">添加资料</view>
+    <view class="muted quick-upload-note">每类最多上传 {{totalImageLimit}} 张；上传前请遮挡无关姓名、证件号等内容。</view>
+    <view class="quick-upload-card" wx:for="{{slots}}" wx:key="imageKind">
+      <view class="quick-upload-head">
+        <view>
+          <view class="field-label">{{item.label}}</view>
+          <view class="muted">{{item.hint}}</view>
+        </view>
+        <button class="ghost-btn quick-upload-btn" data-slot="{{index}}" bindtap="chooseImages" wx:if="{{item.files.length < totalImageLimit}}">上传</button>
+      </view>
+      <view class="attachment-preview-grid" wx:if="{{item.files.length}}">
+        <view class="attachment-preview" wx:for="{{item.files}}" wx:for-item="file" wx:for-index="fileIndex" wx:key="fileID">
+          <image src="{{file.fileID || file.tempFilePath}}" mode="aspectFill" data-slot="{{index}}" data-index="{{fileIndex}}" bindtap="previewImage"></image>
+          <button class="attachment-remove-top" data-slot="{{index}}" data-index="{{fileIndex}}" catchtap="removeImage">×</button>
+        </view>
+      </view>
+      <view class="quick-empty" wx:if="{{!item.files.length}}">尚未上传</view>
+    </view>
+  </view>
+
+  <button class="primary-btn quick-submit" wx:if="{{!loading && !loadError && members.length}}" loading="{{saving}}" disabled="{{saving}}" bindtap="submit">
+    {{saving ? '保存中' : '提交并保存病程'}}
+  </button>
+
+  <view class="quick-state section" wx:if="{{loading}}">
+    <view class="section-title">正在准备快速记录</view>
+    <view class="muted">正在加载家庭成员和当前可用次数，请稍候。</view>
+  </view>
+
+  <view class="quick-state section" wx:elif="{{loadError}}">
+    <view class="section-title">暂时无法打开</view>
+    <view class="muted">{{loadError}}</view>
+    <button class="primary-btn" bindtap="load">重新加载</button>
+  </view>
+
+  <view class="quick-state section" wx:elif="{{!members.length}}">
+    <view class="section-title">先创建或加入家庭</view>
+    <view class="muted">快速记录需要先有家庭空间和成员信息。</view>
+    <button class="primary-btn" bindtap="goAddMember">去添加成员</button>
+  </view>
+
+  <view class="image-preview-modal" wx:if="{{previewVisible}}">
+    <view class="image-preview-close" catchtap="closePreview">×</view>
+    <image class="image-preview-large" src="{{previewImageUrl}}" mode="aspectFit"></image>
+    <view class="image-preview-actions">
+      <button class="image-preview-delete" catchtap="removePreviewImage">删除这张图片</button>
+      <button class="image-preview-cancel" catchtap="closePreview">取消</button>
+    </view>
+  </view>
+
+  <view class="quick-lock-layer" wx:if="{{quickRecordLocked}}" catchtap="promptQuickRecordUpgrade">
+    <view class="quick-lock-card" catchtap="promptQuickRecordUpgrade">
+      <view class="quick-lock-icon">∞</view>
+      <view class="quick-lock-title">快速记录次数已用完</view>
+      <view class="quick-lock-text">请升级会员</view>
+      <button class="primary-btn quick-lock-btn" catchtap="promptQuickRecordUpgrade">去升级会员</button>
+    </view>
+  </view>
+</view>
+<global-auth-layer id="global-auth-layer" />

@@ -14,7 +14,7 @@
 ## 当前架构
 
 - `miniprogram/`：微信原生小程序前端
-- `cloudfunctions/login`：用户登录、openid 获取、首次家庭初始化
+- `cloudfunctions/login`：用户登录、openid 获取；家庭空间按需创建或通过邀请加入
 - `cloudfunctions/healthApi`：统一业务后台接口
 - `cloudfunctions/reminderDispatcher`：每分钟派发到期的微信订阅消息
 - `cloudfunctions/paymentApi`：会员兑换及保留的订单、优惠券接口
@@ -26,7 +26,7 @@
 
 ## 已实现
 
-- 用户 openid 登录与家庭初始化
+- 用户 openid 登录、按需创建家庭与邀请加入家庭
 - 多家庭、家庭切换、家庭共享邀请和角色权限
 - 家庭成员管理
 - 家庭药箱记录

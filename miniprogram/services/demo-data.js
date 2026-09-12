@@ -5,46 +5,69 @@ const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成�
 const limits = {
   maxOwnedFamilies: 1,
   maxMembers: 3,
-  maxSharedUsers: 2,
   sharedRoles: ['viewer', 'member', 'admin'],
   maxAttachments: 10,
   aiAssistantMonthly: 10,
   aiImageParseMonthly: 3,
+  quickRecordLimit: 3,
+  quickRecordPeriod: 'lifetime',
 }
 
 const proLimits = {
   maxOwnedFamilies: 3,
   maxMembers: 10,
-  maxSharedUsers: 6,
   sharedRoles: ['viewer', 'member', 'admin'],
   maxAttachments: 100,
   aiAssistantMonthly: 300,
   aiImageParseMonthly: 100,
+  quickRecordLimit: 30,
+  quickRecordPeriod: 'monthly',
+}
+
+const unlimitedLimits = {
+  ...proLimits,
+  quickRecordLimit: null,
+  quickRecordPeriod: 'unlimited',
 }
 
 const plans = [
   {
     planId: 'yearly_pro',
-    name: '年度会员',
+    name: '安心版（年度）',
     price: 9900,
     durationDays: 365,
     badge: '推荐',
     sort: 0,
+    membershipTier: 'paid',
+    benefits: proLimits,
     benefitsText: '最多创建 3 个家庭，适合全家长期记录健康、用药和药箱信息',
   },
   {
     planId: 'monthly_pro',
-    name: '月度会员',
+    name: '安心版（月度）',
     price: 990,
     durationDays: 30,
     badge: '灵活体验',
     sort: 1,
+    membershipTier: 'paid',
+    benefits: proLimits,
     benefitsText: '最多创建 3 个家庭，适合先体验家庭共享、AI 整理和复诊摘要',
+  },
+  {
+    planId: 'unlimited_pro',
+    name: '畅享版',
+    price: 0,
+    durationDays: 365,
+    badge: '不限次数',
+    sort: 2,
+    membershipTier: 'unlimited',
+    benefits: unlimitedLimits,
+    benefitsText: '快速记录不限次数，适合长期持续记录家庭健康变化',
   },
 ]
 
 const coupons = []
-const demoRedeemCodes = ['XXLIFELAB-TEST-2026']
+const demoRedeemCodes = ['XXLIFELAB-TEST-2026', 'XXLIFELAB-UNLIMITED-2026']
 // Keep seeded examples available for development troubleshooting, but start local mock sessions clean.
 const SHOW_TEST_SEED_DATA = false
 const ALREADY_IN_FAMILY_MESSAGE =
@@ -87,9 +110,15 @@ function createDemoState() {
     memberCount: 1 + testSeed.members.length,
     createdAt,
     plan: 'free',
+    membershipTier: 'free',
+    planId: 'free',
+    membershipTier: 'free',
+    planId: 'free',
   }
   const entitlement = {
-    planName: '免费版',
+    plan: 'free',
+    tier: 'free',
+    planName: '基础版',
     expireAt: '',
     limits,
   }
@@ -103,6 +132,9 @@ function createDemoState() {
     members: [ownerMember, ...testSeed.members],
     medicines: testSeed.medicines,
     illnessRecords: testSeed.illnessRecords,
+    quickRecordHistory: testSeed.illnessRecords
+      .filter((item) => item.entrySource === 'quick')
+      .map((item) => ({ createdAt: item.createdAt || createdAt })),
     courseEvents: testSeed.courseEvents,
     medicationLogs: testSeed.medicationLogs,
     attachments: [],
@@ -147,7 +179,7 @@ function fillProUsageForTesting() {
   state.members = [ownerMember, ...members]
   state.roles = [
     ownerRole,
-    ...members.slice(0, proLimits.maxSharedUsers).map((member, index) => ({
+    ...members.map((member, index) => ({
       _id: `pro-full-role-${index + 1}`,
       openid: `pro-full-user-${index + 1}`,
       nickname: member.name,
@@ -573,6 +605,9 @@ function getHome() {
   syncFamilyStats()
   return clone({
     safetyNotice: SAFETY_NOTICE,
+    features: {
+      imageParsingEnabled: true,
+    },
     user: state.user,
     family: {
       ...state.family,
@@ -588,6 +623,7 @@ function getHome() {
     attachments: state.attachments,
     reminders: state.reminders,
     entitlement: state.entitlement,
+    quickRecordUsage: buildQuickRecordUsage(),
     stats: buildStats(),
   })
 }
@@ -614,10 +650,17 @@ function updateUserProfile(payload = {}) {
 }
 
 function getMembershipStatus() {
+  const families = buildFamilyList()
+  const ownedFamilyCount = families.filter((family) => family.role === 'owner').length
+  const policy = getOwnedFamilyCreationPolicy(families)
   return clone({
     family: state.family,
     entitlement: state.entitlement,
     usage: buildUsage(),
+    familyPolicy: {
+      ownedFamilyCount,
+      maxOwnedFamilies: policy.maxOwnedFamilies,
+    },
     plans,
     coupons,
   })
@@ -654,7 +697,7 @@ function createFamily(payload = {}) {
     throw new Error(
       policy.plan === 'pro'
         ? '会员最多创建 3 个家庭'
-        : '免费版最多创建 1 个家庭，开通会员后可创建多个家庭',
+        : '基础版最多创建 1 个家庭，开通会员后可创建多个家庭',
     )
   }
 
@@ -681,13 +724,16 @@ function createFamily(payload = {}) {
   const space = {
     family,
     entitlement: {
-      planName: '免费版',
+      plan: 'free',
+      tier: 'free',
+      planName: '基础版',
       expireAt: '',
       limits,
     },
     members: [ownerMember],
     medicines: [],
     illnessRecords: [],
+    quickRecordHistory: [],
     courseEvents: [],
     medicationLogs: [],
     attachments: [],
@@ -827,8 +873,14 @@ function deleteMedicine(id) {
 function saveIllness(payload = {}) {
   const id = payload._id || payload.id
   const existing = id ? state.illnessRecords.find((item) => item._id === id) : null
+  if (!existing && payload.entrySource === 'quick' && buildQuickRecordUsage().exhausted) {
+    throw new Error('快速记录次数已用完，请升级会员')
+  }
+  const createdAt = existing && existing.createdAt ? existing.createdAt : nowText()
   const record = {
     _id: id || newId('health'),
+    entrySource: payload.entrySource || (existing && existing.entrySource) || '',
+    createdAt,
     memberId: payload.memberId || '',
     startedAt: payload.startedAt || '',
     endedAt: payload.endedAt || '',
@@ -839,6 +891,24 @@ function saveIllness(payload = {}) {
     doctorDiagnosis: payload.doctorDiagnosis || '',
     doctorAdvice: payload.doctorAdvice || '',
     examinationResult: payload.examinationResult || '',
+    quickInputText: payload.quickInputText || '',
+    prescriptionText: payload.prescriptionText || '',
+    aiStructured: Array.isArray(payload.aiStructured) ? payload.aiStructured : [],
+    aiProcessing: payload.aiProcessing !== undefined
+      ? Boolean(payload.aiProcessing)
+      : Boolean(existing && existing.aiProcessing),
+    aiProcessingStatus: payload.aiProcessingStatus !== undefined
+      ? String(payload.aiProcessingStatus || '')
+      : (existing && existing.aiProcessingStatus) || '',
+    aiProcessingStartedAt: payload.aiProcessingStartedAt !== undefined
+      ? payload.aiProcessingStartedAt || ''
+      : (existing && existing.aiProcessingStartedAt) || '',
+    aiProcessingFinishedAt: payload.aiProcessingFinishedAt !== undefined
+      ? payload.aiProcessingFinishedAt || ''
+      : (existing && existing.aiProcessingFinishedAt) || '',
+    aiProcessingError: payload.aiProcessingError !== undefined
+      ? payload.aiProcessingError || ''
+      : (existing && existing.aiProcessingError) || '',
     status: payload.status || '观察中',
     summary: payload.summary || payload.symptomDescription || '新健康记录',
   }
@@ -848,6 +918,12 @@ function saveIllness(payload = {}) {
     return clone({ id: record._id, mode: 'updated', ...existing })
   }
   state.illnessRecords.unshift(record)
+  if (record.entrySource === 'quick') {
+    state.quickRecordHistory = Array.isArray(state.quickRecordHistory)
+      ? state.quickRecordHistory
+      : []
+    state.quickRecordHistory.push({ createdAt: record.createdAt })
+  }
   saveCourseEvent({
     illnessRecordId: record._id,
     memberId: record.memberId,
@@ -877,6 +953,10 @@ function syncDemoInitialCourseEvent(record, payload = {}) {
     recordedAt: record.startedAt,
     temperature: record.temperatureMax || '',
     symptoms: record.symptoms,
+    hospitalName: record.hospitalName || '',
+    doctorDiagnosis: record.doctorDiagnosis || '',
+    examinationResult: record.examinationResult || '',
+    doctorAdvice: record.doctorAdvice || '',
     note: payload.initialEventNote || record.symptomDescription || record.summary,
   })
 }
@@ -1196,6 +1276,14 @@ function saveFeedback(payload = {}) {
 
 function parseAttachment(payload = {}) {
   const taskId = newId('ai-task')
+  const attachment = state.attachments.find((item) => item._id === payload.attachmentId || item._id === payload.attachmentIds?.[0])
+  const output = buildParseOutput(payload.imageKind)
+  if (attachment) {
+    attachment.aiStructured = output
+    attachment.aiSummary = '已完成图片整理，可继续修改'
+    attachment.parseStatus = 'parsed'
+    applyAiOutputToIllness(attachment.relatedId, payload.imageKind, output)
+  }
   return clone({
     task: {
       _id: taskId,
@@ -1203,16 +1291,73 @@ function parseAttachment(payload = {}) {
       imageKind: payload.imageKind || '',
       relatedType: payload.relatedType || '',
     },
-    output: buildParseOutput(payload.imageKind),
+    output,
+    appliedToIllness: Boolean(attachment && attachment.relatedType === 'illness'),
+  })
+}
+
+function parseIllnessText(payload = {}) {
+  const text = String(payload.text || '').trim()
+  if (!text) {
+    throw new Error('文字内容不能为空')
+  }
+  const symptomWords = ['发烧', '发热', '咳嗽', '流鼻涕', '鼻塞', '呕吐', '腹泻', '头痛', '乏力', '咽痛']
+  const symptoms = symptomWords.filter((word) => text.includes(word))
+  const temperatureMatch = text.match(/(?:最高体温|体温|发烧|发热)[^0-9]{0,8}(3[5-9](?:\.\d)?|4[0-2](?:\.\d)?)/)
+  const hospitalMatch = text.match(/(?:去了|就诊于|到|在)\s*([^，。；,;]{2,20}(?:医院|诊所|卫生院|门诊))/)
+  const output = {
+    symptoms,
+    temperatureMax: temperatureMatch ? Number(temperatureMatch[1]) : '',
+    hospitalName: hospitalMatch ? hospitalMatch[1].trim() : '',
+    doctorDiagnosis: '',
+    doctorAdvice: '',
+    examinationResult: '',
+    medicinesText: '',
+    summary: text,
+  }
+  applyAiOutputToIllness(payload.illnessId, 'text', output)
+  return clone({
+    task: { _id: newId('ai-task'), status: 'success', taskType: 'text_parse' },
+    output,
+    appliedToIllness: Boolean(payload.illnessId),
   })
 }
 
 function confirmAiParseResult(payload = {}) {
+  const output = payload.output || {}
+  applyAiOutputToIllness(payload.illnessId, payload.imageKind || 'text', output)
   return clone({
     taskId: payload.taskId,
     saved: true,
-    output: payload.output || {},
+    output,
   })
+}
+
+function applyAiOutputToIllness(illnessId, imageKind, output = {}) {
+  const illness = state.illnessRecords.find((item) => item._id === illnessId)
+  if (!illness) {
+    return false
+  }
+  const fields = imageKind === 'text'
+    ? ['symptoms', 'temperatureMax', 'hospitalName', 'doctorDiagnosis', 'doctorAdvice', 'examinationResult', 'medicinesText', 'summary']
+    : imageKind === 'medical_record'
+      ? ['doctorDiagnosis', 'doctorAdvice', 'summary']
+      : imageKind === 'prescription'
+        ? ['doctorDiagnosis', 'doctorAdvice', 'medicinesText', 'summary']
+        : imageKind === 'examination'
+          ? ['examinationResult', 'summary']
+          : []
+  fields.forEach((field) => {
+    const value = output[field]
+    if (field === 'symptoms' && Array.isArray(value) && value.length) {
+      illness.symptoms = value
+    } else if (field === 'temperatureMax' && Number.isFinite(Number(value))) {
+      illness.temperatureMax = Number(value)
+    } else if (field !== 'symptoms' && field !== 'temperatureMax' && value) {
+      illness[field === 'medicinesText' ? 'prescriptionText' : field] = value
+    }
+  })
+  return true
 }
 
 function exportReport(payload = {}) {
@@ -1360,10 +1505,13 @@ function mockPaymentSuccess(payload = {}) {
   }
   state.entitlement = {
     ...state.entitlement,
-    planName: '家庭专业版',
+    plan: 'pro',
+    tier: 'paid',
+    planName: '安心版',
     limits: proLimits,
     expireAt: nextYearText(),
   }
+  state.family = { ...state.family, plan: 'pro', membershipTier: 'paid', planId: 'yearly_pro' }
   return clone({
     success: true,
     orderId: payload.orderId,
@@ -1383,11 +1531,22 @@ function redeemMembershipCode(payload = {}) {
   if (!demoRedeemCodes.includes(code)) {
     throw new Error('当前没有可用的演示兑换码')
   }
+  const isUnlimited = code === 'XXLIFELAB-UNLIMITED-2026'
+  const membershipTier = isUnlimited ? 'unlimited' : 'paid'
+  const membershipPlan = isUnlimited ? plans.find((item) => item.planId === 'unlimited_pro') : plans[0]
   state.entitlement = {
     ...state.entitlement,
-    planName: '家庭专业版',
-    limits: proLimits,
+    plan: 'pro',
+    tier: membershipTier,
+    planName: isUnlimited ? '畅享版' : '安心版',
+    limits: isUnlimited ? unlimitedLimits : proLimits,
     expireAt: nextYearText(),
+  }
+  state.family = {
+    ...state.family,
+    plan: 'pro',
+    membershipTier,
+    planId: membershipPlan.planId,
   }
   fillProUsageForTesting()
   return clone({
@@ -1396,7 +1555,7 @@ function redeemMembershipCode(payload = {}) {
     status: 'active',
     code,
     expireAt: state.entitlement.expireAt,
-    plan: plans[0],
+    plan: membershipPlan,
   })
 }
 
@@ -1440,11 +1599,6 @@ function createFamilyInvite(payload = {}) {
     (invite) => invite.status === 'active' && invite.targetMemberId === targetMemberId,
   )) {
     throw new Error('该成员已有待接受邀请')
-  }
-  const sharedUsers = state.roles.filter((item) => item.role !== 'owner').length
-  const activeInvites = state.invites.filter((invite) => invite.status === 'active').length
-  if (sharedUsers + activeInvites >= state.entitlement.limits.maxSharedUsers) {
-    throw new Error(`共享成员已达到 ${state.entitlement.limits.maxSharedUsers} 人上限`)
   }
   const invite = {
     _id: newId('invite'),
@@ -1550,10 +1704,38 @@ function buildUsage() {
     attachments: state.attachments.length,
     aiAssistantMonthly: Number((state.aiUsage || {}).aiAssistantMonthly || 0),
     aiImageParseMonthly: Number((state.aiUsage || {}).aiImageParseMonthly || 0),
+    quickRecord: buildQuickRecordUsage(),
+  }
+}
+
+function buildQuickRecordUsage() {
+  const tier = state.entitlement.tier || (state.entitlement.plan === 'pro' ? 'paid' : 'free')
+  const history = Array.isArray(state.quickRecordHistory) ? state.quickRecordHistory : []
+  const monthKey = nowText().slice(0, 7)
+  const lifetimeUsed = history.length
+  const monthlyUsed = history.filter((item) => String(item.createdAt || '').slice(0, 7) === monthKey).length
+  const limit = state.entitlement.limits && state.entitlement.limits.quickRecordLimit
+  const unlimited = limit === null || tier === 'unlimited'
+  const used = tier === 'free' ? lifetimeUsed : monthlyUsed
+  return {
+    used,
+    limit: unlimited ? null : limit,
+    remaining: unlimited ? null : Math.max(0, limit - used),
+    period: state.entitlement.limits.quickRecordPeriod,
+    lifetimeUsed,
+    monthlyUsed,
+    exhausted: !unlimited && used >= limit,
   }
 }
 
 function buildParseOutput(imageKind) {
+  if (imageKind === 'medical_record') {
+    return {
+      doctorDiagnosis: '',
+      doctorAdvice: '',
+      summary: '',
+    }
+  }
   if (imageKind === 'instruction') {
     return {
       name: '',
@@ -1679,6 +1861,7 @@ function snapshotFamilyState(source) {
     members: source.members,
     medicines: source.medicines,
     illnessRecords: source.illnessRecords,
+    quickRecordHistory: source.quickRecordHistory,
     courseEvents: source.courseEvents,
     medicationLogs: source.medicationLogs,
     attachments: source.attachments,
@@ -1715,7 +1898,9 @@ function buildFamilyList() {
       : state.familyStores[family._id]
     return {
       ...family,
-      entitlement: space ? space.entitlement : { planName: '免费版', limits },
+      entitlement: space
+        ? space.entitlement
+        : { plan: 'free', tier: 'free', planName: '基础版', limits },
     }
   })
 }
@@ -1725,7 +1910,11 @@ function getOwnedFamilyCreationPolicy(families) {
     (family) =>
       family.role === 'owner' &&
       family.entitlement &&
-      family.entitlement.planName !== '免费版',
+      !(
+        family.entitlement.tier === 'free'
+        || family.entitlement.plan === 'free'
+        || /免费|基础/.test(String(family.entitlement.planName || ''))
+      ),
   )
   return {
     plan: hasProOwnedFamily ? 'pro' : 'free',
@@ -1786,6 +1975,7 @@ module.exports = {
   listMyFamilies,
   mockPaymentSuccess,
   parseAttachment,
+  parseIllnessText,
   previewOrder,
   redeemMembershipCode,
   removeFamilyUser,

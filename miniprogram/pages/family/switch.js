@@ -9,6 +9,10 @@ const roleText = {
 }
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     currentFamilyId: '',

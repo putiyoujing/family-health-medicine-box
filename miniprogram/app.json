@@ -5,6 +5,7 @@
     "pages/medicines/form",
     "pages/illness/index",
     "pages/illness/form",
+    "pages/illness/quick",
     "pages/illness/detail",
     "pages/medication/index",
     "pages/medication/form",
@@ -20,11 +21,12 @@
     "pages/family/switch",
     "pages/membership/index",
     "pages/attachment/parse",
+    "pages/illness/review",
     "pages/report/export",
     "pages/reminders/index"
   ],
   "window": {
-    "navigationBarTitleText": "家人健康记",
+    "navigationBarTitleText": "家人健康记录",
     "navigationBarBackgroundColor": "#f4fbf8",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f4fbf8",

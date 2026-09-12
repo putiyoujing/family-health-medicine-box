@@ -5,6 +5,10 @@ const pageTitles = {
 }
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     type: 'privacy',
     title: pageTitles.privacy,

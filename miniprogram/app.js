@@ -45,6 +45,14 @@ App({
 
     this.registerPrivacyAuthorization()
     this.restoreLoginPromise = this.restoreLogin()
+    this.restoreLoginPromise.then((loggedIn) => {
+      if (!loggedIn) {
+        return
+      }
+      require('./services/api').getDashboardSummary().catch((error) => {
+        console.warn('home preload failed', error)
+      })
+    })
   },
 
   registerPrivacyAuthorization() {

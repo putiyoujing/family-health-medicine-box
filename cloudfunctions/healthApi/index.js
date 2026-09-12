@@ -1,5 +1,11 @@
 const cloud = require('wx-server-sdk')
 const crypto = require('crypto')
+const {
+  MODEL: DEEPSEEK_VISION_MODEL,
+  callDeepSeekVision,
+  callDeepSeekText,
+  detectImageMimeType,
+} = require('./deepseek-vision')
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
@@ -27,6 +33,7 @@ const COLLECTIONS = {
 const VIEW_ROLES = ['owner', 'admin', 'member', 'viewer']
 const EDIT_ROLES = ['owner', 'admin', 'member']
 const MANAGE_ROLES = ['owner', 'admin']
+const IMAGE_KINDS = ['medical_record', 'medicine_box', 'instruction', 'prescription', 'examination']
 const FREE_MAX_OWNED_FAMILIES = 1
 const PRO_MAX_OWNED_FAMILIES = 3
 const ALREADY_IN_FAMILY_MESSAGE =
@@ -35,23 +42,37 @@ const ALREADY_IN_FAMILY_MESSAGE =
 const FREE_LIMITS = {
   maxOwnedFamilies: FREE_MAX_OWNED_FAMILIES,
   maxMembers: 3,
-  maxSharedUsers: 2,
   sharedRoles: ['viewer', 'member', 'admin'],
   maxAttachments: 10,
   aiImageParseMonthly: 3,
   aiAssistantMonthly: 10,
   familyMonthlyReport: false,
+  quickRecordLimit: 3,
+  quickRecordPeriod: 'lifetime',
 }
 
 const PRO_LIMITS = {
   maxOwnedFamilies: PRO_MAX_OWNED_FAMILIES,
   maxMembers: 10,
-  maxSharedUsers: 6,
   sharedRoles: ['viewer', 'member', 'admin'],
   maxAttachments: 100,
   aiImageParseMonthly: 100,
   aiAssistantMonthly: 300,
   familyMonthlyReport: true,
+  quickRecordLimit: 30,
+  quickRecordPeriod: 'monthly',
+}
+
+const UNLIMITED_LIMITS = {
+  ...PRO_LIMITS,
+  quickRecordLimit: null,
+  quickRecordPeriod: 'unlimited',
+}
+
+const MEMBERSHIP_TIER_NAMES = {
+  free: '基础版',
+  paid: '安心版',
+  unlimited: '畅享版',
 }
 
 const QUOTA_RULES = {
@@ -75,9 +96,16 @@ exports.main = async (event = {}) => {
   const familyId = event.familyId || payload.familyId || ''
 
   try {
+    if (!openid) {
+      throw new Error('用户身份未就绪，请重新登录后再试')
+    }
     switch (action) {
       case 'getHome':
         return ok(await getHome(openid, familyId))
+      case 'getDashboardSummary':
+        return ok(await getDashboardSummary(openid, familyId))
+      case 'getProfileBootstrap':
+        return ok(await getProfileBootstrap(openid, familyId))
       case 'updateUserProfile':
         return ok(await updateUserProfile(openid, payload))
       case 'listMyFamilies':
@@ -126,7 +154,7 @@ exports.main = async (event = {}) => {
       case 'deleteMedication':
         return ok(await deleteMedication(openid, familyId, payload.id))
       case 'saveAttachment':
-        return ok(await saveRecord(openid, familyId, 'attachments', payload))
+        return ok(await saveAttachment(openid, familyId, payload))
       case 'deleteAttachment':
         return ok(await deleteRecord(openid, familyId, 'attachments', payload.id))
       case 'saveReminder':
@@ -139,6 +167,8 @@ exports.main = async (event = {}) => {
         return ok(await saveFeedback(openid, familyId, payload))
       case 'parseAttachment':
         return ok(await parseAttachment(openid, familyId, payload))
+      case 'parseIllnessText':
+        return ok(await parseIllnessText(openid, familyId, payload))
       case 'getAiTask':
         return ok(await getAiTask(openid, familyId, payload.taskId))
       case 'confirmAiParseResult':
@@ -155,10 +185,15 @@ exports.main = async (event = {}) => {
 }
 
 async function getHome(openid, familyId) {
-  const family = await getCurrentFamily(openid, familyId)
-  const user = await getUser(openid)
+  const { user, familyList, family, targetFamilyId } = await getFamilyContext(openid, familyId)
+  if (!family) {
+    if (targetFamilyId) {
+      throw new Error('family not found or no permission')
+    }
+    return buildEmptyHome(user, familyList)
+  }
   const currentFamilyId = family._id
-  const [members, medicines, illnessRecords, courseEvents, medicationLogs, attachments, reminders, familyList] =
+  const [members, medicines, illnessRecords, courseEvents, medicationLogs, attachments, reminders, familyListResult] =
     await Promise.all([
       listByFamily('family_members', currentFamilyId),
       listByFamily('medicines', currentFamilyId),
@@ -167,14 +202,18 @@ async function getHome(openid, familyId) {
       listByFamily('medication_logs', currentFamilyId),
       listByFamily('attachments', currentFamilyId),
       listByFamily('reminders', currentFamilyId),
-      listMyFamilies(openid),
+      Promise.resolve(familyList),
     ])
+  const quickRecordUsage = await buildQuickRecordUsage(currentFamilyId, family.entitlement)
 
   return {
     safetyNotice: SAFETY_NOTICE,
+    features: {
+      imageParsingEnabled: isImageParsingConfigured(),
+    },
     user: publicUser(user),
     family,
-    families: familyList.families,
+    families: familyListResult.families,
     currentFamilyId: family._id,
     members,
     medicines,
@@ -184,6 +223,7 @@ async function getHome(openid, familyId) {
     attachments,
     reminders,
     entitlement: family.entitlement,
+    quickRecordUsage,
     stats: {
       members: members.length,
       medicines: medicines.length,
@@ -346,82 +386,8 @@ async function getUser(openid) {
   }
 }
 
-async function ensureDefaultFamily(openid) {
-  const roleResult = await db
-    .collection('family_roles')
-    .where({
-      openid,
-      deletedAt: _.exists(false),
-    })
-    .limit(1)
-    .get()
-
-  if (roleResult.data.length) {
-    await ensureOwnerMemberLink(openid, roleResult.data[0])
-    return roleResult.data[0].familyId
-  }
-
-  const user = await getUser(openid)
-  const now = db.serverDate()
-  const familyResult = await db.collection('families').add({
-    data: {
-      ownerOpenid: openid,
-      name: '我的家庭健康记录',
-      membersOpenids: [openid],
-      plan: 'free',
-      proExpireAt: null,
-      proSource: '',
-      proUpdatedAt: null,
-      currentQuotaSnapshot: FREE_LIMITS,
-      createdAt: now,
-      updatedAt: now,
-    },
-  })
-
-  const ownerMemberId = createDeterministicDocumentId('owner_member', familyResult._id, openid)
-  await db.collection('family_members').doc(ownerMemberId).set({
-    data: {
-      familyId: familyResult._id,
-      name: user.nickname || '我',
-      relation: '本人',
-      gender: user.gender || '',
-      birthday: user.birthday || '',
-      allergyHistory: '',
-      medicalHistory: '',
-      note: '',
-      isOwnerProfile: true,
-      createdBy: openid,
-      updatedBy: openid,
-      createdAt: now,
-      updatedAt: now,
-    },
-  })
-
-  await db.collection('family_roles').add({
-    data: {
-      familyId: familyResult._id,
-      openid,
-      role: 'owner',
-      memberId: ownerMemberId,
-      memberLinkedAt: now,
-      createdAt: now,
-      updatedAt: now,
-    },
-  })
-
-  await db.collection('users').doc(user._id).update({
-    data: {
-      currentFamilyId: familyResult._id,
-      updatedAt: now,
-    },
-  })
-
-  return familyResult._id
-}
-
-async function listMyFamilies(openid) {
-  await ensureDefaultFamily(openid)
-  const user = await getUser(openid)
+async function listMyFamilies(openid, existingUser = null) {
+  const user = existingUser || await getUser(openid)
   const rolesResult = await db
     .collection('family_roles')
     .where({
@@ -530,14 +496,15 @@ async function ensureOwnerMemberLink(openid, role) {
 }
 
 async function getCurrentFamily(openid, familyId) {
-  const list = await listMyFamilies(openid)
-  const targetId = familyId || list.currentFamilyId
-  const family = list.families.find((item) => item._id === targetId)
+  return selectFamilyFromList(await listMyFamilies(openid), familyId)
+}
 
+function selectFamilyFromList(list, familyId) {
+  const targetId = familyId || list.currentFamilyId
+  const family = (list.families || []).find((item) => item._id === targetId)
   if (!family) {
     throw new Error('family not found or no permission')
   }
-
   return family
 }
 
@@ -596,7 +563,7 @@ async function createFamily(openid, payload) {
     throw new Error(
       hasProOwnedFamily
         ? `会员最多创建 ${PRO_MAX_OWNED_FAMILIES} 个家庭`
-        : '免费版最多创建 1 个家庭，开通会员后可创建多个家庭',
+        : '基础版最多创建 1 个家庭，开通会员后可创建多个家庭',
     )
   }
 
@@ -610,6 +577,8 @@ async function createFamily(openid, payload) {
     name,
     membersOpenids: [openid],
     plan: 'free',
+    membershipTier: 'free',
+    planId: 'free',
     proExpireAt: null,
     proSource: '',
     proUpdatedAt: null,
@@ -696,49 +665,285 @@ async function assertFamilyAccess(openid, familyId, roles = VIEW_ROLES) {
 async function getFamilyEntitlement(familyId, familyData) {
   const family = familyData || (await db.collection('families').doc(familyId).get()).data
   const expireAt = family && family.proExpireAt ? new Date(family.proExpireAt).getTime() : 0
-  const isPro = family && family.plan === 'pro' && expireAt > Date.now()
-  const limits = isPro ? PRO_LIMITS : FREE_LIMITS
+  const configuredTier = resolveMembershipTier(family)
+  const activeTier = configuredTier !== 'free' && expireAt > Date.now() ? configuredTier : 'free'
+  const limits = getLimitsForTier(activeTier)
 
   return {
-    plan: isPro ? 'pro' : 'free',
-    planName: isPro ? '会员版' : '免费版',
-    proExpireAt: isPro ? family.proExpireAt : null,
+    plan: activeTier === 'free' ? 'free' : 'pro',
+    tier: activeTier,
+    planId: activeTier === 'free' ? 'free' : (family.planId || `${activeTier}_pro`),
+    planName: MEMBERSHIP_TIER_NAMES[activeTier],
+    proExpireAt: activeTier === 'free' ? null : family.proExpireAt,
     limits,
   }
 }
 
+async function getDashboardSummary(openid, familyId) {
+  const { user, familyList, family, targetFamilyId } = await getFamilyContext(openid, familyId)
+  if (!family) {
+    if (targetFamilyId) {
+      throw new Error('family not found or no permission')
+    }
+    return buildDashboardSummary(buildEmptyHome(user, familyList))
+  }
+
+  const currentFamilyId = family._id
+  const [members, medicines, illnessRecords, medicationLogs, attachmentCount, reminderCount] = await Promise.all([
+    listByFamily('family_members', currentFamilyId, 20),
+    listByFamily('medicines', currentFamilyId, 100),
+    listByFamily('illness_records', currentFamilyId, 50),
+    listByFamily('medication_logs', currentFamilyId, 20),
+    safeCount('attachments', { familyId: currentFamilyId, deletedAt: _.exists(false) }),
+    safeCount('reminders', { familyId: currentFamilyId, deletedAt: _.exists(false) }),
+  ])
+
+  return {
+    safetyNotice: SAFETY_NOTICE,
+    features: {
+      imageParsingEnabled: isImageParsingConfigured(),
+    },
+    user: publicUser(user),
+    family,
+    families: familyList.families,
+    currentFamilyId,
+    members,
+    medicines,
+    illnessRecords,
+    medicationLogs,
+    hasSupportingData: attachmentCount > 0 || reminderCount > 0,
+    stats: {
+      members: members.length,
+      medicines: medicines.length,
+      illnessRecords: illnessRecords.length,
+      medicationLogs: medicationLogs.length,
+      attachments: attachmentCount,
+      reminders: reminderCount,
+    },
+  }
+}
+
+async function getProfileBootstrap(openid, familyId) {
+  const { user, family, targetFamilyId } = await getFamilyContext(openid, familyId)
+  if (!family) {
+    if (targetFamilyId) {
+      throw new Error('family not found or no permission')
+    }
+    return {
+      user: publicUser(user),
+      family: null,
+      currentFamilyId: '',
+      members: [],
+      entitlement: getEmptyFamilyEntitlement(),
+    }
+  }
+
+  const members = await listByFamily('family_members', family._id, 20)
+  return {
+    user: publicUser(user),
+    family,
+    currentFamilyId: family._id,
+    members,
+    entitlement: family.entitlement || getEmptyFamilyEntitlement(),
+  }
+}
+
+function buildDashboardSummary(home = {}) {
+  return {
+    ...home,
+    hasSupportingData: Boolean(home.hasSupportingData),
+  }
+}
+
+async function getFamilyContext(openid, familyId) {
+  const user = await getUser(openid)
+  const familyList = await listMyFamilies(openid, user)
+  const targetFamilyId = familyId || familyList.currentFamilyId
+  const family = (familyList.families || []).find((item) => item._id === targetFamilyId) || null
+  return { user, familyList, family, targetFamilyId }
+}
+
+function buildEmptyHome(user, familyList) {
+  return {
+    safetyNotice: SAFETY_NOTICE,
+    features: {
+      imageParsingEnabled: isImageParsingConfigured(),
+    },
+    user: publicUser(user),
+    family: null,
+    families: familyList.families || [],
+    currentFamilyId: '',
+    members: [],
+    medicines: [],
+    illnessRecords: [],
+    courseEvents: [],
+    medicationLogs: [],
+    attachments: [],
+    reminders: [],
+    entitlement: null,
+    quickRecordUsage: null,
+    stats: {
+      members: 0,
+      medicines: 0,
+      illnessRecords: 0,
+      courseEvents: 0,
+      medicationLogs: 0,
+      attachments: 0,
+      reminders: 0,
+    },
+  }
+}
+
 async function getMembershipStatus(openid, familyId) {
-  const family = await getCurrentFamily(openid, familyId)
-  const entitlement = await getFamilyEntitlement(family._id)
-  const usage = await buildFamilyUsage(family._id)
+  const familyList = await listMyFamilies(openid)
+  const targetFamilyId = familyId || familyList.currentFamilyId
+  const family = (familyList.families || []).find((item) => item._id === targetFamilyId) || null
+  if (!family) {
+    if (targetFamilyId) {
+      throw new Error('family not found or no permission')
+    }
+    return {
+      family: null,
+      entitlement: getEmptyFamilyEntitlement(),
+      usage: buildEmptyFamilyUsage(),
+      familyPolicy: {
+        ownedFamilyCount: familyList.ownedFamilyCount,
+        maxOwnedFamilies: familyList.maxOwnedFamilies,
+      },
+      plans: getMembershipPlans(),
+    }
+  }
+  const entitlement = family.entitlement || await getFamilyEntitlement(family._id)
+  const usage = await buildFamilyUsage(family._id, entitlement)
 
   return {
     family,
     entitlement,
     usage,
-    plans: [
-      {
-        planId: 'yearly_pro',
-        name: '年度会员',
-        price: 9900,
-        displayPrice: '99',
-        durationDays: 365,
-        badge: '推荐',
-      },
-      {
-        planId: 'monthly_pro',
-        name: '月度会员',
-        price: 990,
-        displayPrice: '9.9',
-        durationDays: 30,
-      },
-    ],
+    familyPolicy: {
+      ownedFamilyCount: familyList.ownedFamilyCount,
+      maxOwnedFamilies: familyList.maxOwnedFamilies,
+    },
+    plans: getMembershipPlans(),
   }
 }
 
-async function buildFamilyUsage(familyId) {
+function getEmptyFamilyEntitlement() {
+  return {
+    plan: 'free',
+    tier: 'free',
+    planId: 'free',
+    planName: MEMBERSHIP_TIER_NAMES.free,
+    proExpireAt: null,
+    limits: FREE_LIMITS,
+  }
+}
+
+function buildEmptyFamilyUsage() {
+  return {
+    members: 0,
+    sharedUsers: 0,
+    attachments: 0,
+    aiImageParseMonthly: 0,
+    aiAssistantMonthly: 0,
+    quickRecord: {
+      used: 0,
+      limit: FREE_LIMITS.quickRecordLimit,
+      remaining: FREE_LIMITS.quickRecordLimit,
+      period: FREE_LIMITS.quickRecordPeriod,
+      lifetimeUsed: 0,
+      monthlyUsed: 0,
+      exhausted: false,
+    },
+  }
+}
+
+function resolveMembershipTier(family = {}) {
+  if (family.membershipTier === 'unlimited' || family.plan === 'unlimited') {
+    return 'unlimited'
+  }
+  if (family.membershipTier === 'paid' || family.plan === 'pro') {
+    return 'paid'
+  }
+  return 'free'
+}
+
+function getLimitsForTier(tier) {
+  if (tier === 'unlimited') {
+    return UNLIMITED_LIMITS
+  }
+  if (tier === 'paid') {
+    return PRO_LIMITS
+  }
+  return FREE_LIMITS
+}
+
+function getMembershipPlans() {
+  return [
+    {
+      planId: 'free',
+      tier: 'free',
+      name: MEMBERSHIP_TIER_NAMES.free,
+      durationDays: 0,
+      benefits: FREE_LIMITS,
+    },
+    {
+      planId: 'monthly_pro',
+      tier: 'paid',
+      name: MEMBERSHIP_TIER_NAMES.paid,
+      durationDays: 30,
+      benefits: PRO_LIMITS,
+    },
+    {
+      planId: 'unlimited_pro',
+      tier: 'unlimited',
+      name: MEMBERSHIP_TIER_NAMES.unlimited,
+      durationDays: 365,
+      benefits: UNLIMITED_LIMITS,
+    },
+  ]
+}
+
+async function buildQuickRecordUsage(familyId, entitlement) {
+  const resolvedEntitlement = entitlement || await getFamilyEntitlement(familyId)
+  const tier = resolvedEntitlement.tier || 'free'
+  const limit = resolvedEntitlement.limits && resolvedEntitlement.limits.quickRecordLimit
+  const query = {
+    familyId,
+    entrySource: 'quick',
+  }
+  const [lifetimeUsed, monthlyUsed] = await Promise.all([
+    safeCount('illness_records', query),
+    safeCount('illness_records', {
+      ...query,
+      createdAt: _.gte(getMonthStart()),
+    }),
+  ])
+  const used = tier === 'free' ? lifetimeUsed : monthlyUsed
+  const unlimited = limit === null || tier === 'unlimited'
+  return {
+    used,
+    limit: unlimited ? null : limit,
+    remaining: unlimited ? null : Math.max(0, limit - used),
+    period: resolvedEntitlement.limits.quickRecordPeriod,
+    lifetimeUsed,
+    monthlyUsed,
+    exhausted: !unlimited && used >= limit,
+  }
+}
+
+async function assertQuickRecordQuota(familyId) {
+  const entitlement = await getFamilyEntitlement(familyId)
+  const usage = await buildQuickRecordUsage(familyId, entitlement)
+  if (usage.exhausted) {
+    throw new Error('快速记录次数已用完，请升级会员')
+  }
+}
+
+async function buildFamilyUsage(familyId, entitlement) {
   const monthStart = getMonthStart()
-  const [members, sharedUsers, attachments, aiImageParse, aiAssistant] =
+  const resolvedEntitlement = entitlement || await getFamilyEntitlement(familyId)
+  const [members, sharedUsers, attachments, aiImageParse, aiAssistant, quickRecord] =
     await Promise.all([
       safeCount('family_members', { familyId, deletedAt: _.exists(false) }),
       countSharedUsers(familyId),
@@ -753,6 +958,7 @@ async function buildFamilyUsage(familyId) {
         usageType: 'assistant_query',
         createdAt: _.gte(monthStart),
       }),
+      buildQuickRecordUsage(familyId, resolvedEntitlement),
     ])
 
   return {
@@ -761,10 +967,11 @@ async function buildFamilyUsage(familyId) {
     attachments,
     aiImageParseMonthly: aiImageParse,
     aiAssistantMonthly: aiAssistant,
+    quickRecord,
   }
 }
 
-async function listByFamily(collection, familyId) {
+async function listByFamily(collection, familyId, limit = 100) {
   const result = await db
     .collection(collection)
     .where({
@@ -772,7 +979,7 @@ async function listByFamily(collection, familyId) {
       deletedAt: _.exists(false),
     })
     .orderBy('createdAt', 'desc')
-    .limit(100)
+    .limit(limit)
     .get()
   return result.data
 }
@@ -1053,7 +1260,12 @@ async function archiveMember(openid, familyId, id) {
 }
 
 async function saveIllness(openid, familyId, payload) {
-  const result = await saveRecord(openid, familyId, 'illness', payload)
+  const family = await getCurrentFamily(openid, familyId)
+  assertRole(family.role, EDIT_ROLES)
+  if (!payload._id && !payload.id && payload.entrySource === 'quick') {
+    await assertQuickRecordQuota(family._id)
+  }
+  const result = await saveRecord(openid, family._id, 'illness', payload)
   if (result.mode === 'created') {
     await saveCourseEvent(openid, familyId, {
       illnessRecordId: result.id,
@@ -1074,6 +1286,28 @@ async function saveIllness(openid, familyId, payload) {
     await syncInitialCourseEvent(openid, familyId, result.id, payload)
   }
   return result
+}
+
+async function saveAttachment(openid, familyId, payload) {
+  const id = payload._id || payload.id
+  if (!id && payload.relatedType === 'illness' && payload.relatedId && payload.imageKind) {
+    const family = await getCurrentFamily(openid, familyId)
+    assertRole(family.role, EDIT_ROLES)
+    const illness = await assertFamilyRecord('illness', payload.relatedId, family._id)
+    if (illness.entrySource === 'quick') {
+      const imageCount = await safeCount('attachments', {
+        familyId: family._id,
+        relatedType: 'illness',
+        relatedId: payload.relatedId,
+        imageKind: payload.imageKind,
+        deletedAt: _.exists(false),
+      })
+      if (imageCount >= 3) {
+        throw new Error('每类最多上传 3 张图片')
+      }
+    }
+  }
+  return saveRecord(openid, familyId, 'attachments', payload)
 }
 
 async function syncInitialCourseEvent(openid, familyId, illnessRecordId, payload) {
@@ -1098,6 +1332,10 @@ async function syncInitialCourseEvent(openid, familyId, illnessRecordId, payload
       recordedAt: payload.startedAt,
       temperature: payload.temperatureMax ? Number(payload.temperatureMax) : null,
       symptoms: Array.isArray(payload.symptoms) ? payload.symptoms : [],
+      hospitalName: payload.hospitalName || '',
+      doctorDiagnosis: payload.doctorDiagnosis || '',
+      examinationResult: payload.examinationResult || '',
+      doctorAdvice: payload.doctorAdvice || '',
       note: payload.initialEventNote || payload.symptomDescription || payload.summary || '',
       updatedBy: openid,
       updatedAt: db.serverDate(),
@@ -1697,10 +1935,14 @@ async function parseAttachment(openid, familyId, payload) {
   }
   const attachmentIds = normalizeAttachmentIds(payload.attachmentIds)
   const attachments = await assertFamilyRecords('attachments', attachmentIds, family._id)
-  if (!attachments.some((attachment) => attachment.fileId === fileId)) {
+  const attachment = attachments.find((item) => item.fileId === fileId)
+  if (!attachment) {
     throw new Error('fileId does not belong to the validated attachments')
   }
   const imageKind = payload.imageKind || 'medicine_box'
+  if (!IMAGE_KINDS.includes(imageKind)) {
+    throw new Error('图片资料类型不受支持')
+  }
   const output = buildParseDraft(imageKind)
   const now = db.serverDate()
   const result = await db.collection('ai_tasks').add({
@@ -1709,30 +1951,207 @@ async function parseAttachment(openid, familyId, payload) {
       userOpenid: openid,
       taskType: 'image_parse',
       provider: imageParsingProvider,
-      model: 'manual-confirm-v1',
+      model: DEEPSEEK_VISION_MODEL,
       imageKind,
       attachmentIds,
       input: {
         fileId,
         relatedType: payload.relatedType || '',
+        relatedId: attachment.relatedId || '',
       },
       output,
-      status: 'success',
+      status: 'processing',
       errorMessage: '',
       tokenUsage: {},
       createdAt: now,
       updatedAt: now,
     },
   })
-  await recordAiUsage(family._id, openid, 'image_parse', result._id)
-  return {
-    task: {
-      _id: result._id,
-      status: 'success',
+  try {
+    const fileResult = await cloud.downloadFile({ fileID: fileId })
+    const imageBuffer = fileResult && fileResult.fileContent
+    if (!Buffer.isBuffer(imageBuffer)) {
+      throw new Error('无法读取已上传的图片')
+    }
+    const visionResult = await callDeepSeekVision({
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      imageBuffer,
+      mimeType: detectImageMimeType(imageBuffer),
+      prompt: buildVisionPrompt(imageKind),
+    })
+    const normalizedOutput = normalizeVisionOutput(imageKind, visionResult.output)
+    await db.collection('ai_tasks').doc(result._id).update({
+      data: {
+        output: normalizedOutput,
+        rawOutput: visionResult.rawContent,
+        status: 'success',
+        tokenUsage: visionResult.usage,
+        updatedAt: db.serverDate(),
+      },
+    })
+    await recordAiUsage(family._id, openid, 'image_parse', result._id)
+    await db.collection('attachments').doc(attachment._id).update({
+      data: {
+        aiStructured: normalizedOutput,
+        aiSummary: buildAiSummary(imageKind, normalizedOutput),
+        parseStatus: 'parsed',
+        aiTaskId: result._id,
+        updatedBy: openid,
+        updatedAt: db.serverDate(),
+      },
+    })
+    const appliedToIllness = await applyAiOutputToIllness(
+      openid,
+      family._id,
+      attachment.relatedType === 'illness' ? attachment.relatedId : '',
       imageKind,
-    },
-    output,
+      normalizedOutput,
+    )
+    return {
+      task: {
+        _id: result._id,
+        status: 'success',
+        imageKind,
+        model: visionResult.model,
+      },
+      output: normalizedOutput,
+      appliedToIllness,
+    }
+  } catch (error) {
+    await db.collection('ai_tasks').doc(result._id).update({
+      data: {
+        status: 'failed',
+        errorMessage: String(error.message || '图片识别失败').slice(0, 500),
+        updatedAt: db.serverDate(),
+      },
+    })
+    throw error
   }
+}
+
+async function parseIllnessText(openid, familyId, payload) {
+  const textParsingProvider = assertImageParsingEnabled()
+  const family = await getCurrentFamily(openid, familyId)
+  assertRole(family.role, EDIT_ROLES)
+  await assertAiQuota(family._id, 'text_parse')
+  const text = String(payload.text || '').trim()
+  if (!text) {
+    throw new Error('text is required')
+  }
+  if (text.length > 4000) {
+    throw new Error('文字内容不能超过 4000 字')
+  }
+  const output = buildTextParseDraft()
+  const now = db.serverDate()
+  const result = await db.collection('ai_tasks').add({
+    data: {
+      familyId: family._id,
+      userOpenid: openid,
+      taskType: 'text_parse',
+      provider: textParsingProvider,
+      model: DEEPSEEK_VISION_MODEL,
+      imageKind: 'text',
+      attachmentIds: [],
+      input: { text, illnessId: payload.illnessId || '' },
+      output,
+      status: 'processing',
+      errorMessage: '',
+      tokenUsage: {},
+      createdAt: now,
+      updatedAt: now,
+    },
+  })
+  try {
+    const textResult = await callDeepSeekText({
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      prompt: buildTextParsePrompt(text),
+    })
+    const normalizedOutput = normalizeTextParseOutput(textResult.output)
+    await db.collection('ai_tasks').doc(result._id).update({
+      data: {
+        output: normalizedOutput,
+        rawOutput: textResult.rawContent,
+        status: 'success',
+        tokenUsage: textResult.usage,
+        updatedAt: db.serverDate(),
+      },
+    })
+    await recordAiUsage(family._id, openid, 'text_parse', result._id)
+    const appliedToIllness = await applyAiOutputToIllness(
+      openid,
+      family._id,
+      payload.illnessId || '',
+      'text',
+      normalizedOutput,
+    )
+    return {
+      task: {
+        _id: result._id,
+        status: 'success',
+        taskType: 'text_parse',
+        model: textResult.model,
+      },
+      output: normalizedOutput,
+      appliedToIllness,
+    }
+  } catch (error) {
+    await db.collection('ai_tasks').doc(result._id).update({
+      data: {
+        status: 'failed',
+        errorMessage: String(error.message || '文字整理失败').slice(0, 500),
+        updatedAt: db.serverDate(),
+      },
+    })
+    throw error
+  }
+}
+
+async function applyAiOutputToIllness(openid, familyId, illnessId, imageKind, output) {
+  const id = String(illnessId || '').trim()
+  if (!id) {
+    return false
+  }
+  await assertFamilyRecord('illness_records', id, familyId)
+  const update = {
+    updatedBy: openid,
+    updatedAt: db.serverDate(),
+  }
+  const fields = imageKind === 'text'
+    ? ['symptoms', 'temperatureMax', 'hospitalName', 'doctorDiagnosis', 'doctorAdvice', 'examinationResult', 'medicinesText', 'summary']
+    : imageKind === 'medical_record'
+      ? ['doctorDiagnosis', 'doctorAdvice', 'summary']
+      : imageKind === 'prescription'
+        ? ['doctorDiagnosis', 'doctorAdvice', 'medicinesText', 'summary']
+        : imageKind === 'examination'
+          ? ['examinationResult', 'summary']
+          : []
+
+  fields.forEach((field) => {
+    const value = output && output[field]
+    if (field === 'symptoms') {
+      if (Array.isArray(value) && value.length) {
+        update.symptoms = value
+      }
+      return
+    }
+    if (field === 'temperatureMax') {
+      const temperature = Number(value)
+      if (Number.isFinite(temperature)) {
+        update.temperatureMax = temperature
+      }
+      return
+    }
+    const text = textValue(value)
+    if (text) {
+      update[field === 'medicinesText' ? 'prescriptionText' : field] = text
+    }
+  })
+
+  if (Object.keys(update).length === 2) {
+    return false
+  }
+  await db.collection('illness_records').doc(id).update({ data: update })
+  return true
 }
 
 async function getAiTask(openid, familyId, taskId) {
@@ -1754,29 +2173,58 @@ async function confirmAiParseResult(openid, familyId, payload) {
     throw new Error('taskId is required')
   }
   const task = await assertFamilyRecord('ai_tasks', taskId, family._id)
-  if (task.taskType !== 'image_parse') {
-    throw new Error('task is not an image parse task')
+  if (!['image_parse', 'text_parse'].includes(task.taskType)) {
+    throw new Error('task type cannot be confirmed')
   }
-  const attachmentIds = normalizeAttachmentIds(task.attachmentIds)
-  if (payload.attachmentIds !== undefined) {
-    const requestedAttachmentIds = normalizeAttachmentIds(payload.attachmentIds)
-    if (!haveSameIds(attachmentIds, requestedAttachmentIds)) {
-      throw new Error('attachmentIds do not match the task')
+  if (!['success', 'confirmed'].includes(task.status)) {
+    throw new Error('ai parse task is not ready for confirmation')
+  }
+
+  const output = task.taskType === 'text_parse'
+    ? normalizeTextParseOutput(payload.output)
+    : normalizeVisionOutput(task.imageKind, payload.output)
+
+  if (task.taskType === 'image_parse') {
+    const attachmentIds = normalizeAttachmentIds(task.attachmentIds)
+    if (payload.attachmentIds !== undefined) {
+      const requestedAttachmentIds = normalizeAttachmentIds(payload.attachmentIds)
+      if (!haveSameIds(attachmentIds, requestedAttachmentIds)) {
+        throw new Error('attachmentIds do not match the task')
+      }
     }
+    const attachments = await assertFamilyRecords('attachments', attachmentIds, family._id)
+    const now = db.serverDate()
+    for (const attachmentId of attachmentIds) {
+      await db.collection('attachments').doc(attachmentId).update({
+        data: {
+          aiStructured: output,
+          aiSummary: buildAiSummary(task.imageKind, output),
+          parseStatus: 'confirmed',
+          parseConfirmedBy: openid,
+          parseConfirmedAt: now,
+          updatedBy: openid,
+          updatedAt: now,
+        },
+      })
+    }
+    const illnessIds = Array.from(new Set(
+      attachments
+        .filter((attachment) => attachment.relatedType === 'illness' && attachment.relatedId)
+        .map((attachment) => attachment.relatedId),
+    ))
+    for (const illnessId of illnessIds) {
+      await applyAiOutputToIllness(openid, family._id, illnessId, task.imageKind, output)
+    }
+  } else {
+    await applyAiOutputToIllness(
+      openid,
+      family._id,
+      payload.illnessId || (task.input && task.input.illnessId) || '',
+      'text',
+      output,
+    )
   }
-  await assertFamilyRecords('attachments', attachmentIds, family._id)
-  const output = payload.output || {}
   const now = db.serverDate()
-  for (const attachmentId of attachmentIds) {
-    await db.collection('attachments').doc(attachmentId).update({
-      data: {
-        aiStructured: output,
-        aiSummary: buildAiSummary(task.imageKind, output),
-        updatedBy: openid,
-        updatedAt: now,
-      },
-    })
-  }
   await db.collection('ai_tasks').doc(taskId).update({
     data: {
       output,
@@ -1870,12 +2318,6 @@ async function createFamilyInvite(openid, familyId, payload) {
     (invite) => !invite.expiresAt || new Date(invite.expiresAt).getTime() > Date.now(),
   )) {
     throw new Error('该成员已有待接受邀请')
-  }
-
-  const sharedUsers = await countSharedUsers(family._id)
-  const activeInvites = await countActiveInvites(family._id)
-  if (sharedUsers + activeInvites >= entitlement.limits.maxSharedUsers) {
-    throw new Error(`共享成员已达到 ${entitlement.limits.maxSharedUsers} 人上限`)
   }
 
   const inviteCode = await createUniqueInviteCode()
@@ -1993,7 +2435,6 @@ async function acceptFamilyInvite(openid, inviteCode) {
       throw new Error('invite role is no longer available for this family')
     }
     const membersOpenids = Array.from(new Set(family.membersOpenids || []))
-    const sharedUserCount = membersOpenids.filter((item) => item && item !== family.ownerOpenid).length
     const roleResult = await transaction.collection('family_roles').doc(familyRoleId).get()
     const existingRole = roleResult.data
     const hasActiveRole = !!(existingRole && !existingRole.deletedAt)
@@ -2003,10 +2444,6 @@ async function acceptFamilyInvite(openid, inviteCode) {
       }
       throw new Error(ALREADY_IN_FAMILY_MESSAGE)
     }
-    if (!membersOpenids.includes(openid) && sharedUserCount >= entitlement.limits.maxSharedUsers) {
-      throw new Error('family shared user limit reached')
-    }
-
     await transaction.collection('family_roles').doc(familyRoleId).set({
       data: {
         familyId: currentInvite.familyId,
@@ -2052,7 +2489,19 @@ async function acceptFamilyInvite(openid, inviteCode) {
 }
 
 async function listFamilyRoles(openid, familyId) {
-  const family = await getCurrentFamily(openid, familyId)
+  const familyList = await listMyFamilies(openid)
+  const targetFamilyId = familyId || familyList.currentFamilyId
+  const family = (familyList.families || []).find((item) => item._id === targetFamilyId) || null
+  if (!family) {
+    if (targetFamilyId) {
+      throw new Error('family not found or no permission')
+    }
+    return {
+      family: null,
+      roles: [],
+      pendingInvites: [],
+    }
+  }
   await assertFamilyAccess(openid, family._id, VIEW_ROLES)
   const [result, inviteResult] = await Promise.all([
     db
@@ -2310,7 +2759,7 @@ async function assertRecordQuota(familyId, type) {
   }
   const entitlement = await getFamilyEntitlement(familyId)
   const limit = entitlement.limits[rule.limitKey]
-  const used = await safeCount(rule.collection, {
+  const used = await countForQuota(rule.collection, {
     familyId,
     deletedAt: _.exists(false),
   })
@@ -2322,7 +2771,7 @@ async function assertRecordQuota(familyId, type) {
 async function assertAiQuota(familyId, usageType) {
   const entitlement = await getFamilyEntitlement(familyId)
   const limitKey = usageType === 'image_parse' ? 'aiImageParseMonthly' : 'aiAssistantMonthly'
-  const used = await safeCount('ai_usage_logs', {
+  const used = await countForQuota('ai_usage_logs', {
     familyId,
     usageType,
     createdAt: _.gte(getMonthStart()),
@@ -2462,15 +2911,17 @@ function buildIdempotentMedicationResult(record, context) {
 }
 
 function assertImageParsingEnabled() {
-  const provider = String(process.env.IMAGE_PARSING_PROVIDER || '').trim()
-  if (
-    process.env.ENABLE_IMAGE_PARSING !== 'true' ||
-    !provider ||
-    provider.toLowerCase() === 'local_stub'
-  ) {
+  const provider = String(process.env.IMAGE_PARSING_PROVIDER || '').trim().toLowerCase()
+  if (!isImageParsingConfigured()) {
     throw new Error('图片整理服务暂未开放')
   }
   return provider
+}
+
+function isImageParsingConfigured() {
+  return process.env.ENABLE_IMAGE_PARSING === 'true'
+    && String(process.env.IMAGE_PARSING_PROVIDER || '').trim().toLowerCase() === 'deepseek_vision'
+    && Boolean(String(process.env.DEEPSEEK_API_KEY || '').trim())
 }
 
 function normalizeAttachmentIds(value) {
@@ -2664,6 +3115,13 @@ function hasAny(text, keywords) {
 }
 
 function buildParseDraft(imageKind) {
+  if (imageKind === 'medical_record') {
+    return {
+      doctorDiagnosis: '',
+      doctorAdvice: '',
+      summary: '',
+    }
+  }
   if (imageKind === 'instruction') {
     return {
       name: '',
@@ -2675,6 +3133,7 @@ function buildParseDraft(imageKind) {
     return {
       doctorDiagnosis: '',
       doctorAdvice: '',
+      medicinesText: '',
       summary: '',
     }
   }
@@ -2693,7 +3152,103 @@ function buildParseDraft(imageKind) {
   }
 }
 
+async function countForQuota(collection, query) {
+  try {
+    const result = await db.collection(collection).where(query).count()
+    return result.total || 0
+  } catch (error) {
+    console.warn(`countForQuota ${collection}`, error.message)
+    throw new Error('暂时无法核验使用额度，请稍后重试')
+  }
+}
+
+function buildTextParseDraft() {
+  return {
+    symptoms: [],
+    temperatureMax: '',
+    hospitalName: '',
+    doctorDiagnosis: '',
+    doctorAdvice: '',
+    examinationResult: '',
+    medicinesText: '',
+    summary: '',
+  }
+}
+
+function buildTextParsePrompt(text) {
+  const schema = '{"symptoms": [], "temperatureMax": "", "hospitalName": "", "doctorDiagnosis": "", "doctorAdvice": "", "examinationResult": "", "medicinesText": "", "summary": ""}'
+  return [
+    '你是家庭健康记录中的文字整理模块，不是医生。',
+    '下面的内容是用户提供的原始描述，只把明确写出的事实整理成结构化字段。',
+    '不要诊断疾病，不要猜测症状、体温、医院、检查结果、药品或用法；没有明确写出的字段填写空字符串或空数组。',
+    'temperatureMax 只填写用户明确说出的最高体温数值，不要把普通数字当作体温。',
+    'symptoms 只填写原文明确提到的症状，保持简短；medicinesText 只记录原文明确提到的药品和用法。',
+    `请严格返回 JSON 对象，字段格式为：${schema}`,
+    '【用户原始描述】',
+    text,
+  ].join('\n')
+}
+
+function normalizeTextParseOutput(output) {
+  const source = output && typeof output === 'object' && !Array.isArray(output) ? output : {}
+  const rawSymptoms = Array.isArray(source.symptoms) ? source.symptoms : String(source.symptoms || '').split(/[、,，\s]+/)
+  const temperature = source.temperatureMax
+  const numericTemperature = temperature !== '' && temperature !== null ? Number(temperature) : NaN
+  return {
+    symptoms: Array.from(new Set(rawSymptoms.map((item) => textValue(item)).filter(Boolean))),
+    temperatureMax: Number.isFinite(numericTemperature) ? numericTemperature : '',
+    hospitalName: textValue(source.hospitalName),
+    doctorDiagnosis: textValue(source.doctorDiagnosis),
+    doctorAdvice: textValue(source.doctorAdvice),
+    examinationResult: textValue(source.examinationResult),
+    medicinesText: textValue(source.medicinesText),
+    summary: textValue(source.summary),
+  }
+}
+
+function buildVisionPrompt(imageKind) {
+  const schema = Object.keys(buildParseDraft(imageKind))
+    .map((field) => `"${field}": ""`)
+    .join(', ')
+  return [
+    '你是家庭健康记录中的图片资料整理模块，不是医生。',
+    '请只识别图片中明确可见的内容，不要诊断疾病、推荐药品、修改剂量或补全看不清的信息。',
+    '请严格返回 JSON 对象，不要返回 Markdown、解释或代码围栏。',
+    `资料类型为 ${imageKind}，返回字段必须包含：{${schema}, "documentType": "", "rawText": "", "confidence": 0}`,
+    '看不清或图片中不存在的字段填写空字符串；confidence 为 0 到 1 之间的识别把握度。',
+    '处方图片中的 medicinesText 请逐项整理药名、规格和用法用量；只代表医生开具记录，不代表用户已经购买或正在使用。',
+  ].join('\n')
+}
+
+function normalizeVisionOutput(imageKind, output) {
+  const source = output && typeof output === 'object' && !Array.isArray(output) ? output : {}
+  const normalized = buildParseDraft(imageKind)
+  Object.keys(normalized).forEach((field) => {
+    normalized[field] = textValue(source[field])
+  })
+  normalized.documentType = textValue(source.documentType)
+  normalized.rawText = textValue(source.rawText)
+  const confidence = Number(source.confidence)
+  normalized.confidence = Number.isFinite(confidence)
+    ? Math.max(0, Math.min(1, confidence))
+    : 0
+  return normalized
+}
+
+function textValue(value) {
+  if (typeof value === 'string') {
+    return value.trim()
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  return ''
+}
+
 function buildAiSummary(imageKind, output) {
+  if (imageKind === 'medical_record') {
+    return `病例整理：${output.summary || output.doctorDiagnosis || output.doctorAdvice || '待补充'}`
+  }
   if (imageKind === 'medicine_box') {
     return `包装信息：${output.name || '未填写药名'} ${output.specification || ''} ${output.expireDate || ''}`.trim()
   }
@@ -2701,7 +3256,9 @@ function buildAiSummary(imageKind, output) {
     return `说明书整理：${output.instructionText || '待补充'}`
   }
   if (imageKind === 'prescription') {
-    return `医嘱整理：${output.doctorAdvice || output.summary || '待补充'}`
+    const medicineText = output.medicinesText ? `处方药品：${output.medicinesText}` : ''
+    const adviceText = output.doctorAdvice || output.summary || '待补充'
+    return [`医嘱整理：${adviceText}`, medicineText].filter(Boolean).join('；')
   }
   return `检查单整理：${output.examinationResult || output.summary || '待补充'}`
 }

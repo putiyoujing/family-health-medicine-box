@@ -112,13 +112,19 @@
       <text class="field-label">医嘱</text>
       <textarea class="textarea" data-field="doctorAdvice" value="{{form.doctorAdvice}}" bindinput="onInput" placeholder="用药、复查和注意事项"></textarea>
     </view>
-    <view class="attachment-section">
-      <view>
-        <view class="attachment-title">检查单或处方附件</view>
-        <view class="muted">上传前请遮挡无关姓名、证件号等信息</view>
-      </view>
+      <view class="attachment-section">
+        <view>
+          <view class="attachment-title">检查单或处方附件</view>
+          <view class="muted">上传前请遮挡无关姓名、证件号等信息</view>
+        </view>
+        <view class="attachment-ready" wx:if="{{savedAttachments.length}}">已保存 {{savedAttachments.length}} 张图片</view>
+        <view class="attachment-preview-grid" wx:if="{{savedAttachments.length}}">
+          <view class="attachment-preview" wx:for="{{savedAttachments}}" wx:key="_id">
+            <image src="{{item.tempFilePath || item.fileId}}" mode="aspectFill"></image>
+          </view>
+        </view>
       <button class="ghost-btn attachment-btn" wx:if="{{pendingAttachments.length < 5}}" bindtap="chooseAttachment">{{pendingAttachments.length ? '继续上传' : '上传图片'}}</button>
-      <view class="attachment-ready" wx:if="{{pendingAttachments.length}}">已选 {{pendingAttachments.length}}/5 张，保存病程后自动关联</view>
+        <view class="attachment-ready" wx:if="{{pendingAttachments.length}}">已选 {{pendingAttachments.length}}/5 张，保存病程后自动关联</view>
       <view class="attachment-preview-grid" wx:if="{{pendingAttachments.length}}">
         <view class="attachment-preview" wx:for="{{pendingAttachments}}" wx:key="fileID">
           <image src="{{item.tempFilePath || item.fileID}}" mode="aspectFill"></image>

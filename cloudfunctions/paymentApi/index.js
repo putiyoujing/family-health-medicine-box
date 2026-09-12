@@ -14,33 +14,53 @@ const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成�
 const PRO_LIMITS = {
   maxOwnedFamilies: 3,
   maxMembers: 10,
-  maxSharedUsers: 6,
   maxAttachments: 100,
   aiImageParseMonthly: 100,
   aiAssistantMonthly: 300,
   familyMonthlyReport: true,
+  quickRecordLimit: 30,
+  quickRecordPeriod: 'monthly',
+}
+
+const UNLIMITED_LIMITS = {
+  ...PRO_LIMITS,
+  quickRecordLimit: null,
+  quickRecordPeriod: 'unlimited',
 }
 
 const PLANS = [
   {
     planId: 'yearly_pro',
-    name: '年度会员',
+    name: '安心版（年度）',
     price: 9900,
     displayPrice: '99',
     durationDays: 365,
     badge: '推荐',
     sort: 0,
+    membershipTier: 'paid',
     benefits: PRO_LIMITS,
   },
   {
     planId: 'monthly_pro',
-    name: '月度会员',
+    name: '安心版（月度）',
     price: 990,
     displayPrice: '9.9',
     durationDays: 30,
     badge: '灵活体验',
     sort: 1,
+    membershipTier: 'paid',
     benefits: PRO_LIMITS,
+  },
+  {
+    planId: 'unlimited_pro',
+    name: '畅享版',
+    price: 0,
+    displayPrice: '兑换激活',
+    durationDays: 365,
+    badge: '不限次数',
+    sort: 2,
+    membershipTier: 'unlimited',
+    benefits: UNLIMITED_LIMITS,
   },
 ]
 
@@ -81,9 +101,32 @@ async function getPlans() {
     getMembershipPurchaseGuide(),
   ])
   return {
-    plans: dbPlans.length ? dbPlans : PLANS,
+    plans: dbPlans.length ? mergePlanDefaults(dbPlans) : PLANS,
     membershipPurchaseGuide,
   }
+}
+
+function mergePlanDefaults(dbPlans) {
+  const builtInsById = new Map(PLANS.map((plan) => [plan.planId, plan]))
+  const configured = dbPlans.map((plan) => {
+    const builtInPlan = builtInsById.get(plan.planId)
+    return builtInPlan
+      ? {
+        ...builtInPlan,
+        ...plan,
+        name: builtInPlan.name,
+        membershipTier: builtInPlan.membershipTier,
+        benefits: {
+          ...builtInPlan.benefits,
+          ...(plan.benefits || {}),
+          quickRecordLimit: builtInPlan.benefits.quickRecordLimit,
+          quickRecordPeriod: builtInPlan.benefits.quickRecordPeriod,
+        },
+      }
+      : plan
+  })
+  const configuredIds = new Set(configured.map((plan) => plan.planId))
+  return configured.concat(PLANS.filter((plan) => !configuredIds.has(plan.planId)))
 }
 
 async function getMembershipPurchaseGuide() {
@@ -223,6 +266,9 @@ async function redeemMembershipCode(openid, payload) {
       redeemedByOpenid: openid,
       redeemedFamilyId: familyId,
       activatedSubscriptionId: subscriptionResult._id,
+      redeemedPlanId: plan.planId,
+      redeemedPlanName: plan.name,
+      redeemedMembershipTier: plan.membershipTier || 'paid',
       redeemedAt: now,
       updatedAt: now,
     },
@@ -238,6 +284,8 @@ async function redeemMembershipCode(openid, payload) {
       orderId: '',
       externalOrderId,
       planId: plan.planId,
+      planName: plan.name,
+      membershipTier: plan.membershipTier || 'paid',
       redemptionType: 'membership_redeem',
       discountAmount: 0,
       membershipDays: redeemDurationDays,
@@ -784,10 +832,12 @@ async function activateFamilyPlan(familyId, plan, expireAt, source) {
     .update({
       data: {
         plan: 'pro',
+        membershipTier: plan.membershipTier || 'paid',
+        planId: plan.planId,
         proExpireAt: expireAt,
         proSource: source || plan.planId,
         proUpdatedAt: db.serverDate(),
-        currentQuotaSnapshot: PRO_LIMITS,
+        currentQuotaSnapshot: plan.benefits || PRO_LIMITS,
         updatedAt: db.serverDate(),
       },
     })

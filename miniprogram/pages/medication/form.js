@@ -5,6 +5,10 @@ const { ensureLoginReady, ensureMedicationReady } = require('../../utils/operati
 const emptyForm = { _id: '', memberId: '', medicineId: '', illnessRecordId: '', doseQuantity: '', reaction: '', note: '' }
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true, saving: false, isEditing: false, family: null, members: [], medicines: [], illnessRecords: [],
     medicineOptions: [], filteredMedicineOptions: [], medicationEntries: [], medicineSearch: '',

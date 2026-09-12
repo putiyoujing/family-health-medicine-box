@@ -1,0 +1,92 @@
+<view class="page">
+  <view class="page-title">
+    <text class="eyebrow">智能整理病程图片</text>
+    <view class="h1">病程已保存，逐项核对</view>
+    <view class="page-subtitle">文字和图片都会在保存病程后整理；处方里的药品不会自动进入药箱。</view>
+  </view>
+
+  <view class="review-progress" wx:if="{{items.length}}">
+    <text>已写入病程 {{confirmedCount}} / {{items.length}} 张</text>
+    <text class="muted">当前第 {{currentIndex + 1}} 张</text>
+  </view>
+
+  <view class="section text-review-card" wx:if="{{inputText}}">
+    <view class="section-kicker">病情文字</view>
+    <view class="muted">原始文字已随病程保存，页面会自动调用 AI 整理；结果写入后可查看和修改。</view>
+    <view class="text-original">{{inputText}}</view>
+    <view class="muted" wx:if="{{textParsing}}">正在自动整理文字，请稍候…</view>
+    <view class="error-text" wx:if="{{textParseError}}">{{textParseError}}</view>
+    <button class="ghost-btn" wx:if="{{textParseOutput || textParseError}}" bindtap="startTextParse" loading="{{textParsing}}" disabled="{{textParsing}}">
+      {{textParsing ? '整理中' : '重新整理文字'}}
+    </button>
+    <view class="text-ai-card" wx:if="{{textParseOutput}}">
+      <view class="section-kicker">AI 整理结果</view>
+        <view class="muted">结果已直接写入病程。你可以修改字段，点击下方按钮保存修改，也可以直接返回。</view>
+      <view class="field" wx:for="{{textFields}}" wx:key="key">
+        <text class="field-label">{{item.label}}</text>
+        <input class="input" data-key="{{item.key}}" value="{{item.value}}" bindinput="onTextFieldInput" placeholder="{{item.placeholder}}" />
+      </view>
+      <button class="primary-btn" bindtap="confirmTextResult" loading="{{textConfirming}}" disabled="{{textConfirming}}">
+        {{textConfirmed ? '已保存，可继续修改' : '保存文字修改'}}
+      </button>
+    </view>
+    <button class="ghost-btn" wx:if="{{!textConfirmed}}" bindtap="skipText">暂不整理文字</button>
+  </view>
+
+  <view class="section" wx:if="{{currentItem}}">
+    <view class="review-image-wrap" bindtap="previewCurrent">
+      <image class="review-image" src="{{currentItem.fileId || currentItem.tempFilePath}}" mode="aspectFit"></image>
+    </view>
+    <view class="review-image-title">{{currentItem.title}} · {{currentItem.statusText}}</view>
+
+    <view class="field">
+      <text class="field-label">图片类型</text>
+      <picker mode="selector" range="{{kindOptions}}" range-key="label" value="{{kindIndex}}" bindchange="onKindChange">
+        <view class="picker-value">{{kindLabel}}</view>
+      </picker>
+    </view>
+
+    <view class="muted review-hint">识别只整理图片中能看清的原文，不做诊断、换药或剂量建议。</view>
+    <view class="muted" wx:if="{{parsing}}">正在自动整理图片，请稍候…</view>
+    <view class="error-text" wx:if="{{parseError}}">{{parseError}}</view>
+    <button class="ghost-btn" wx:if="{{task || parseError}}" bindtap="startParse" loading="{{parsing}}" disabled="{{parsing}}">
+      {{parsing ? '整理中' : '重新整理图片'}}
+    </button>
+  </view>
+
+  <view class="section" wx:if="{{task}}">
+    <view class="section-title">AI 结果（已写入病程）</view>
+    <view class="muted">{{task.statusText}}</view>
+    <view class="field" wx:for="{{fields}}" wx:key="key">
+      <text class="field-label">{{item.label}}</text>
+      <input class="input" data-key="{{item.key}}" value="{{item.value}}" bindinput="onFieldInput" placeholder="{{item.placeholder}}" />
+    </view>
+    <view class="medicine-confirm-panel" wx:if="{{currentItem.imageKind === 'prescription' && currentItem.medicineCandidates.length}}">
+      <view class="field-label">处方药品逐项确认</view>
+      <view class="muted medicine-confirm-note">加入药箱前还需要补充库存和有效期；暂不加入的药品只保留在病程记录中。</view>
+      <view class="medicine-candidate" wx:for="{{currentItem.medicineCandidates}}" wx:key="id">
+        <view class="medicine-candidate-main">
+          <view class="record-title">{{item.name}}</view>
+          <view class="muted">{{item.specification || item.text}}</view>
+          <view class="medicine-candidate-status">{{item.actionText}}</view>
+        </view>
+        <view class="medicine-candidate-actions" wx:if="{{item.action === 'pending'}}">
+          <button class="ghost-btn" data-index="{{index}}" bindtap="addMedicineToCabinet">加入药箱</button>
+          <button class="ghost-btn" data-index="{{index}}" bindtap="skipMedicine">暂不加入</button>
+        </view>
+      </view>
+    </view>
+    <button class="primary-btn" bindtap="confirmResult" loading="{{confirming}}" disabled="{{confirming}}">保存这张的修改</button>
+  </view>
+
+  <view class="review-actions" wx:if="{{currentItem}}">
+    <button class="ghost-btn" bindtap="skipCurrent">跳过，稍后处理</button>
+    <button class="ghost-btn" bindtap="finishReview">完成并返回病程</button>
+  </view>
+
+  <view class="section empty" wx:if="{{!currentItem}}">
+    <view>没有待整理的图片。</view>
+    <button class="primary-btn" bindtap="finishReview">返回病程</button>
+  </view>
+</view>
+<global-auth-layer id="global-auth-layer" />

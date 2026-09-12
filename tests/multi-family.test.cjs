@@ -20,7 +20,7 @@ test('free accounts can own only the default family', () => {
   assert.equal(families.multiFamilyPlan, 'free')
   assert.throws(
     () => demo.createFamily({ name: '爸妈健康记录' }),
-    /免费版最多创建 1 个家庭/,
+    /基础版最多创建 1 个家庭/,
   )
 })
 
@@ -45,7 +45,7 @@ test('pro accounts can create up to three isolated family spaces and switch betw
   demo.switchFamily({ familyId: originalFamilyId })
   const originalHome = demo.getHome()
   assert.ok(originalHome.members.some((member) => member._id === originalMember.id))
-  assert.equal(originalHome.entitlement.planName, '家庭专业版')
+  assert.equal(originalHome.entitlement.planName, '安心版')
 
   demo.createFamily({ name: '长辈健康记录' })
   const atLimit = demo.listMyFamilies()

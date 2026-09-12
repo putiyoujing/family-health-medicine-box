@@ -1,5 +1,6 @@
 const api = require('../../services/api')
 const { ensureLoginReady } = require('../../utils/operation-guards')
+const { EVENT_IDS, track, trackServiceError } = require('../../utils/analytics')
 
 const roleOptions = [
   { role: 'viewer', label: '查看者', desc: '只能查看家庭药箱记录、健康记录和用药记录' },
@@ -106,8 +107,11 @@ Page({
         targetMemberId: this.data.targetMemberId,
       })
       this.setData({ invite })
+      track(EVENT_IDS.FAMILY_INVITE_RESULT, { entry: 'create', status: 'success' })
       wx.showToast({ title: '邀请已生成' })
     } catch (error) {
+      track(EVENT_IDS.FAMILY_INVITE_RESULT, { entry: 'create', status: 'fail' })
+      trackServiceError('family_invite_create')
       wx.showToast({ title: error.message || '生成失败', icon: 'none' })
     }
   },
