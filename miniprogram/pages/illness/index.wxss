@@ -1,5 +1,29 @@
-.add-btn {
+.illness-entry-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
   margin-bottom: 24rpx;
+}
+
+.illness-entry-actions .add-btn,
+.illness-entry-actions .quick-add-btn {
+  flex: 0 1 260rpx;
+  width: 260rpx;
+  max-width: calc((100% - 16rpx) / 2);
+  min-width: 0;
+  height: 76rpx;
+  padding: 0 18rpx;
+  margin-bottom: 0;
+  color: #ffffff;
+  background: #259f8e;
+  border-color: #259f8e;
+  border-radius: 999rpx;
+  box-shadow: 0 10rpx 24rpx rgba(10, 36, 28, 0.12);
+  font-size: 24rpx;
+}
+
+.add-btn {
   background: #259f8e;
 }
 

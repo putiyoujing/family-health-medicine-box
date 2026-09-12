@@ -38,11 +38,10 @@ test('all three free family members can link accounts with management or edit ro
   const cloudSource = fs.readFileSync(path.join(root, 'cloudfunctions/healthApi/index.js'), 'utf8')
 
   assert.equal(membership.entitlement.limits.maxMembers, 3)
-  assert.equal(membership.entitlement.limits.maxSharedUsers, 2)
   assert.equal(membership.entitlement.limits.sharedRoles.join(','), 'viewer,member,admin')
   assert.match(
     cloudSource,
-    /const FREE_LIMITS = \{[\s\S]*?maxMembers: 3,[\s\S]*?maxSharedUsers: 2,[\s\S]*?sharedRoles: \['viewer', 'member', 'admin'\]/,
+    /const FREE_LIMITS = \{[\s\S]*?maxMembers: 3,[\s\S]*?sharedRoles: \['viewer', 'member', 'admin'\]/,
   )
 
   const editor = demo.saveMember({ name: '妈妈', relation: '妈妈' })
@@ -57,7 +56,8 @@ test('development membership test code keeps the remaining pro limits', () => {
   const membership = demo.getMembershipStatus()
 
   assert.equal(result.status, 'active')
-  assert.equal(membership.entitlement.planName, '家庭专业版')
+  assert.equal(membership.entitlement.planName, '安心版')
+  assert.equal(membership.entitlement.tier, 'paid')
   assert.equal(membership.entitlement.limits.maxAttachments, 100)
   assert.equal(membership.entitlement.limits.maxOwnedFamilies, 3)
 })
@@ -71,7 +71,7 @@ test('development membership test code fills remaining limited benefits for visu
 
   assert.equal(familyPolicy.ownedFamilyCount, membership.entitlement.limits.maxOwnedFamilies)
   assert.equal(membership.usage.members, membership.entitlement.limits.maxMembers)
-  assert.equal(membership.usage.sharedUsers, membership.entitlement.limits.maxSharedUsers)
+  assert.equal(membership.usage.sharedUsers, membership.entitlement.limits.maxMembers - 1)
   assert.equal(membership.usage.attachments, membership.entitlement.limits.maxAttachments)
   assert.equal(membership.usage.aiAssistantMonthly, membership.entitlement.limits.aiAssistantMonthly)
   assert.equal(membership.usage.aiImageParseMonthly, membership.entitlement.limits.aiImageParseMonthly)
@@ -81,8 +81,9 @@ test('membership center presents the multi-family benefit and account-level usag
   const script = fs.readFileSync(path.join(root, 'miniprogram/pages/membership/index.js'), 'utf8')
   const template = fs.readFileSync(path.join(root, 'miniprogram/pages/membership/index.wxml'), 'utf8')
 
-  assert.match(script, /可创建家庭[^\n]*free: '1 个'[^\n]*pro: '3 个'/)
-  assert.match(script, /成员账号关联[^\n]*free: '3 位成员均可管理或编辑'/)
+  assert.match(script, /快速记录[^\n]*values: \['3 次（累计）', '30 次\/月', '不限次数'\]/)
+  assert.match(template, /基础版[\s\S]*安心版[\s\S]*畅享版/)
+  assert.doesNotMatch(script, /成员账号关联|额外关联账号/)
   assert.doesNotMatch(script, /药品数量|病程记录|用药记录/)
   assert.match(template, /家庭数量按账号统计，其他用量按当前家庭统计/)
 })

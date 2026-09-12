@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
 const path = require('node:path')
 const test = require('node:test')
 
@@ -48,6 +49,7 @@ test('getHome reuses recent data and invalidates it after a successful mutation'
 
   assert.equal(getHomeCalls, 1)
   assert.strictEqual(second, first)
+  assert.strictEqual(api.getCachedHome(), first)
   assert.equal(api.isHomeCacheFresh(), true)
 
   await api.saveMedicine({ name: '退热药' })
@@ -65,6 +67,73 @@ test('getHome reuses recent data and invalidates it after a successful mutation'
   app.globalData.currentFamilyId = 'family-b'
   await api.getHome()
   assert.equal(getHomeCalls, 4)
+})
+
+test('dashboard and profile bootstrap use separate lightweight caches', async () => {
+  let getHomeCalls = 0
+  const app = {
+    globalData: {
+      currentFamilyId: 'family-a',
+      useDemoData: true,
+    },
+  }
+  const api = loadCjsModule(path.join(root, 'miniprogram/services/api.js'), {
+    stubs: {
+      './demo-data': {
+        getHome() {
+          getHomeCalls += 1
+          return {
+            currentFamilyId: app.globalData.currentFamilyId,
+            family: { _id: app.globalData.currentFamilyId },
+            user: { nickname: '测试用户' },
+            members: [{ _id: 'member-a' }],
+            medicines: [{ _id: 'medicine-a' }],
+            illnessRecords: [{ _id: 'illness-a' }],
+            medicationLogs: [],
+            attachments: [{ _id: 'attachment-a' }],
+            reminders: [],
+            entitlement: { plan: 'free' },
+            stats: { members: 1, medicines: 1, illnessRecords: 1, medicationLogs: 0 },
+          }
+        },
+        saveMedicine() {
+          return { id: 'medicine-a' }
+        },
+      },
+    },
+    globals: {
+      getApp: () => app,
+      wx: {},
+    },
+  })
+
+  const dashboardFirst = await api.getDashboardSummary()
+  const dashboardSecond = await api.getDashboardSummary()
+  const profileFirst = await api.getProfileBootstrap()
+  const profileSecond = await api.getProfileBootstrap()
+
+  assert.equal(getHomeCalls, 2)
+  assert.strictEqual(dashboardFirst, dashboardSecond)
+  assert.strictEqual(profileFirst, profileSecond)
+  assert.equal(dashboardFirst.hasSupportingData, true)
+  assert.equal(profileFirst.members.length, 1)
+
+  await api.saveMedicine({ name: '退热药' })
+  await api.getDashboardSummary()
+  await api.getProfileBootstrap()
+  assert.equal(getHomeCalls, 4)
+})
+
+test('dashboard and profile pages use scoped bootstrap APIs instead of full home payloads', () => {
+  const dashboardSource = fs.readFileSync(path.join(root, 'miniprogram/pages/dashboard/index.js'), 'utf8')
+  const profileSource = fs.readFileSync(path.join(root, 'miniprogram/pages/profile/index.js'), 'utf8')
+  const appSource = fs.readFileSync(path.join(root, 'miniprogram/app.js'), 'utf8')
+
+  assert.match(dashboardSource, /api\.getDashboardSummary\(/)
+  assert.doesNotMatch(dashboardSource, /api\.getHome\(/)
+  assert.match(profileSource, /api\.getProfileBootstrap\(/)
+  assert.doesNotMatch(profileSource, /api\.getHome\(/)
+  assert.match(appSource, /getDashboardSummary\(\)/)
 })
 
 test('loaded tabs reuse the shared cache on return instead of forcing a full reload', () => {

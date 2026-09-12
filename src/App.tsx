@@ -77,6 +77,7 @@ interface AdminRevenue {
   averageOrderAmount: number
   yearlyOrders: number
   monthlyOrders: number
+  unlimitedOrders: number
 }
 
 interface AdminMembership {
@@ -276,7 +277,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [couponBatchForm, setCouponBatchForm] = useState<CouponBatchForm>({
-    name: '小红书年度会员兑换码',
+    name: '小红书安心版兑换码',
     prefix: 'XHSVIP',
     quantity: '50',
     codeLength: '8',
@@ -1010,11 +1011,12 @@ function CommercePage({
           />
         </article>
         <article className="panel">
-          <PanelTitle title="套餐结构" subtitle="月度与年度订单分布" />
+          <PanelTitle title="套餐结构" subtitle="安心版与畅享版订单分布" />
           <MetricRows
             rows={[
-              ['年度订单', dashboard.revenue.yearlyOrders],
-              ['月度订单', dashboard.revenue.monthlyOrders],
+              ['安心版（年度）订单', dashboard.revenue.yearlyOrders],
+              ['安心版（月度）订单', dashboard.revenue.monthlyOrders],
+              ['畅享版订单', dashboard.revenue.unlimitedOrders],
               ['累计收入', formatMoney(dashboard.revenue.revenueAmount)],
               ['优惠金额', formatMoney(dashboard.revenue.discountAmount)],
             ]}
@@ -1198,8 +1200,9 @@ function CouponBatchGenerator({
         <label>
           <span>兑换套餐</span>
           <select value={batchForm.redeemPlanId} onChange={(event) => onBatchFormChange('redeemPlanId', event.target.value)}>
-            <option value="yearly_pro">年度会员</option>
-            <option value="monthly_pro">月度会员</option>
+            <option value="yearly_pro">安心版（年度）</option>
+            <option value="monthly_pro">安心版（月度）</option>
+            <option value="unlimited_pro">畅享版</option>
           </select>
         </label>
         <label>
@@ -1786,7 +1789,7 @@ function tableColumns(
       { key: 'name', label: '批次名称' },
       { key: 'prefix', label: '前缀' },
       { key: 'channel', label: '渠道' },
-      { key: 'redeemPlanId', label: '套餐' },
+      { key: 'redeemPlanName', label: '兑换套餐', render: (row) => formatMembershipPlanName(row.redeemPlanName || row.redeemPlanId) },
       { key: 'generatedCount', label: '生成' },
       { key: 'usedQuantity', label: '已兑换' },
       { key: 'status', label: '状态' },
@@ -1822,6 +1825,8 @@ function tableColumns(
           )
         },
       },
+      { key: 'redeemPlanName', label: '兑换套餐', render: (row) => formatMembershipPlanName(row.redeemPlanName || row.redeemPlanId) },
+      { key: 'redeemDurationDays', label: '有效天数' },
       { key: 'issueStatus', label: '发放', render: (row) => formatIssueStatus(row.issueStatus) },
       { key: 'status', label: '状态', render: (row) => formatCouponCodeStatus(row.status) },
       { key: 'issuedChannel', label: '渠道' },
@@ -1842,7 +1847,7 @@ function tableColumns(
     families: [
       ...common,
       { key: 'name', label: '家庭名称' },
-      { key: 'plan', label: '版本' },
+      { key: 'planName', label: '会员版本', render: (row) => formatMembershipPlanName(row.planName || row.plan) },
       { key: 'ownerOpenid', label: '创建者' },
       { key: 'proExpireAt', label: '会员到期', render: (row) => formatValue(row.proExpireAt) },
       { key: 'createdAt', label: '创建时间', render: (row) => formatValue(row.createdAt) },
@@ -2016,6 +2021,19 @@ function formatCell(value: unknown) {
 
 const formatValue = formatAdminDateTime
 
+function formatMembershipPlanName(value: unknown) {
+  const planNames: Record<string, string> = {
+    free: '基础版',
+    yearly_pro: '安心版（年度）',
+    monthly_pro: '安心版（月度）',
+    unlimited_pro: '畅享版',
+    '免费会员': '基础版',
+    '付费会员': '安心版',
+    '无限会员': '畅享版',
+  }
+  return planNames[String(value || '')] || String(value || '-')
+}
+
 function formatCouponRuleStatus(value: unknown) {
   return String(value) === 'disabled' ? '已失效' : '可用'
 }
@@ -2154,6 +2172,7 @@ function mockDashboard(): AdminDashboardData {
       monthlyOrders: 0,
       revenueAmount: 0,
       yearlyOrders: 0,
+      unlimitedOrders: 0,
     },
     risk: {
       expiringMedicines: 0,

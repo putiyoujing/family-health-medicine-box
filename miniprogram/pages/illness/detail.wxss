@@ -236,6 +236,52 @@
   gap: 12rpx;
 }
 
+.ai-processing-banner {
+  margin-top: 20rpx;
+  padding: 18rpx 20rpx;
+  border: 1rpx solid #bfe8dc;
+  border-radius: 18rpx;
+  background: #effbf7;
+}
+
+.ai-processing-title {
+  color: #258977;
+  font-weight: 600;
+}
+
+.medicine-candidate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  padding: 18rpx 0;
+  border-top: 1rpx solid #e4efeb;
+}
+
+.medicine-candidate-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.medicine-candidate-status {
+  margin-top: 8rpx;
+  color: #268d7f;
+  font-size: 24rpx;
+}
+
+.medicine-candidate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  width: 180rpx;
+}
+
+.medicine-candidate-actions .ghost-btn {
+  min-height: 58rpx;
+  padding: 0 14rpx;
+  font-size: 23rpx;
+}
+
 .attachment-preview {
   position: relative;
   overflow: hidden;
@@ -306,7 +352,7 @@
 
 .course-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16rpx;
   margin: 28rpx 0 36rpx;
 }
@@ -342,6 +388,7 @@
   line-height: 76rpx;
 }
 
+.edit-record-btn,
 .close-course-btn,
 .delete-record-btn {
   width: 100%;
@@ -353,6 +400,12 @@
   font-weight: 800;
   line-height: 76rpx;
   white-space: nowrap;
+}
+
+.edit-record-btn {
+  color: #257b69;
+  background: #eef8f4;
+  border: 1rpx solid #c7e5da;
 }
 
 .close-course-btn {

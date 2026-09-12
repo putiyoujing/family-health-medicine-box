@@ -9,10 +9,10 @@
     <view class="creation-summary">
       <view>
         <view class="record-title">已创建 {{ownedFamilyCount}} / {{maxOwnedFamilies}} 个</view>
-        <view class="muted" wx:if="{{multiFamilyPlan === 'free'}}">免费版可创建 1 个家庭，会员最多可创建 3 个</view>
+          <view class="muted" wx:if="{{multiFamilyPlan === 'free'}}">基础版可创建 1 个家庭，会员最多可创建 3 个</view>
         <view class="muted" wx:else>会员最多可创建 3 个家庭，每个家庭独立管理成员和记录</view>
       </view>
-      <text class="pill">{{multiFamilyPlan === 'free' ? '免费版' : '会员'}}</text>
+          <text class="pill">{{multiFamilyPlan === 'free' ? '基础版' : '会员'}}</text>
     </view>
     <button class="primary-btn create-family-btn" wx:if="{{canCreateFamily && !showCreateForm}}" bindtap="openCreate">创建新家庭</button>
     <button class="ghost-btn create-family-btn" wx:elif="{{multiFamilyPlan === 'free' && !showCreateForm}}" bindtap="goMembership">兑换会员后创建多个家庭</button>

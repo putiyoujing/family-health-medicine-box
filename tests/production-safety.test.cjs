@@ -206,7 +206,7 @@ test('release version keeps a new user as guest, then forwards the native author
               result: {
                 openid: 'release-user',
                 user: { nickname: '正式用户' },
-                currentFamilyId: 'release-family',
+                currentFamilyId: '',
               },
             }
           },
@@ -259,7 +259,7 @@ test('resetting a deleted account clears its stale family session before a new p
               result: {
                 openid: 'new-user',
                 user: { nickname: options.data.profile.nickname },
-                currentFamilyId: 'new-family',
+                currentFamilyId: '',
               },
             }
           },
@@ -284,7 +284,7 @@ test('resetting a deleted account clears its stale family session before a new p
     avatarPreset: 'sprout',
   })
   assert.equal(login.openid, 'new-user')
-  assert.equal(login.currentFamilyId, 'new-family')
+  assert.equal(login.currentFamilyId, '')
   assert.equal(cloudCalls, 1)
 })
 

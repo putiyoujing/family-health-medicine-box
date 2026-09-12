@@ -11,6 +11,18 @@ const auth = tcb.init({ env: cloud.DYNAMIC_CURRENT_ENV }).auth()
 const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
 const DEFAULT_ADMIN_AUTH_UID = String(process.env.DEFAULT_ADMIN_AUTH_UID || '').trim()
 
+const MEMBERSHIP_PLAN_META = Object.freeze({
+  free: { planId: 'free', name: '基础版', membershipTier: 'free' },
+  yearly_pro: { planId: 'yearly_pro', name: '安心版（年度）', membershipTier: 'paid', durationDays: 365 },
+  monthly_pro: { planId: 'monthly_pro', name: '安心版（月度）', membershipTier: 'paid', durationDays: 30 },
+  unlimited_pro: { planId: 'unlimited_pro', name: '畅享版', membershipTier: 'unlimited', durationDays: 365 },
+})
+const MEMBERSHIP_TIER_NAMES = Object.freeze({
+  free: '基础版',
+  paid: '安心版',
+  unlimited: '畅享版',
+})
+
 const DATA_TABLES = [
   { id: 'users', name: '用户表', collection: 'users', statKey: 'users' },
   { id: 'families', name: '家庭表', collection: 'families', statKey: 'families' },
@@ -337,10 +349,10 @@ async function getDashboard() {
     recentUsers: recentUsers.data.map(summarizeUser),
     recentIllness: recentIllness.data,
     recentMedication: recentMedication.data,
-    recentOrders: recentOrders.data,
-    recentSubscriptions: recentSubscriptions.data,
+    recentOrders: decorateMembershipPlanRows(recentOrders.data),
+    recentSubscriptions: decorateMembershipPlanRows(recentSubscriptions.data),
     recentCoupons: recentCoupons.data,
-    recentCouponBatches: recentCouponBatches.data,
+    recentCouponBatches: decorateMembershipPlanRows(recentCouponBatches.data),
     recentCouponCodes: await decorateCouponCodeRows(recentCouponCodes.data),
     recentAiUsage: recentAiUsage.data,
     expiringMedicines: expiringMedicinesAll.slice(0, 20),
@@ -479,6 +491,9 @@ async function decorateAdminRows(collection, rows) {
   if (collection === 'coupon_codes') return decorateCouponCodeRows(rows)
   if (collection === 'feedback') return decorateFeedbackRows(rows)
   if (collection === 'users') return rows.map(summarizeUser)
+  if (['coupon_code_batches', 'orders', 'subscriptions'].includes(collection)) {
+    return decorateMembershipPlanRows(rows)
+  }
   return rows
 }
 
@@ -489,7 +504,7 @@ function matchesKeyword(row, keyword) {
 async function decorateCouponCodeRows(rows) {
   const openids = [...new Set(rows.map((row) => String(row.redeemedByOpenid || '')).filter(Boolean))]
   if (!openids.length) {
-    return rows.map(omitInternalIdentifiers)
+    return rows.map((row) => decorateMembershipPlanRow(omitInternalIdentifiers(row)))
   }
   const usersByOpenid = new Map()
   for (let index = 0; index < openids.length; index += 20) {
@@ -505,11 +520,32 @@ async function decorateCouponCodeRows(rows) {
   return rows.map((row) => {
     const user = usersByOpenid.get(row.redeemedByOpenid)
     return {
-      ...omitInternalIdentifiers(row),
+      ...decorateMembershipPlanRow(omitInternalIdentifiers(row)),
       redeemedUserId: user?.publicUserId || '',
       redeemedUserNickname: user?.nickname || '',
     }
   })
+}
+
+function decorateMembershipPlanRows(rows) {
+  return rows.map((row) => decorateMembershipPlanRow(row))
+}
+
+function decorateMembershipPlanRow(row) {
+  if (!row) return row
+  const plan = getMembershipPlanMeta(row.planId || row.redeemPlanId || row.redeemedPlanId)
+  const tier = row.membershipTier || row.redeemedMembershipTier
+  const tierName = MEMBERSHIP_TIER_NAMES[String(tier || '')]
+  return {
+    ...row,
+    planName: plan ? plan.name : tierName || row.planName || '',
+    redeemPlanName: plan ? plan.name : tierName || row.redeemPlanName || '',
+    membershipTier: plan ? plan.membershipTier : tier || '',
+  }
+}
+
+function getMembershipPlanMeta(planId) {
+  return MEMBERSHIP_PLAN_META[String(planId || '')] || null
 }
 
 async function decorateFeedbackRows(rows) {
@@ -575,7 +611,7 @@ async function getUserDetail(payload = {}) {
     families: families.map((family) => ({
       ...summarizeFamily(family),
       role: (roles.find((item) => item.familyId === family._id) || {}).role || '',
-      subscription: latestActiveSubscription(subscriptions, family._id),
+      subscription: decorateMembershipPlanRow(latestActiveSubscription(subscriptions, family._id)),
     })),
   }
 }
@@ -621,7 +657,7 @@ async function getFamilyDetail(payload = {}, admin) {
       }
     }),
     roles: roles.data.map((role) => ({ familyId: role.familyId, memberId: role.memberId || '', role: role.role, createdAt: role.createdAt })),
-    subscription: latestActiveSubscription(subscriptions.data, familyId),
+    subscription: decorateMembershipPlanRow(latestActiveSubscription(subscriptions.data, familyId)),
     stats: {
       medicines: medicines.data.length,
       illnessRecords: illnessRecords.data.length,
@@ -717,11 +753,14 @@ function summarizeUser(user) {
 }
 
 function summarizeFamily(family) {
+  const tier = family.membershipTier || (family.plan === 'pro' ? 'paid' : 'free')
   return {
     _id: family._id,
     createdAt: family.createdAt,
     name: family.name || '',
     plan: family.plan || 'free',
+    membershipTier: tier,
+    planName: MEMBERSHIP_TIER_NAMES[tier] || MEMBERSHIP_TIER_NAMES.free,
     proExpireAt: family.proExpireAt || null,
   }
 }
@@ -871,7 +910,14 @@ async function batchGenerateCouponCodes(adminId, payload = {}) {
   const codeLength = Math.min(Math.max(Number(payload.codeLength || 8), 6), 16)
   const prefix = normalizeCodePrefix(payload.prefix || 'XHSVIP')
   const redeemPlanId = payload.redeemPlanId || payload.planId || 'yearly_pro'
-  const redeemDurationDays = Number(payload.redeemDurationDays || 365)
+  const plan = getMembershipPlanMeta(redeemPlanId)
+  if (!plan || plan.planId === 'free') {
+    throw new Error('兑换套餐无效，请选择安心版或畅享版')
+  }
+  const redeemDurationDays = Number(payload.redeemDurationDays || plan.durationDays || 365)
+  if (!Number.isFinite(redeemDurationDays) || redeemDurationDays < 1 || redeemDurationDays > 3650) {
+    throw new Error('兑换码会员时长无效')
+  }
   const now = db.serverDate()
 
   const batchResult = await db.collection('coupon_code_batches').add({
@@ -881,6 +927,8 @@ async function batchGenerateCouponCodes(adminId, payload = {}) {
       purpose: payload.purpose || 'membership_redeem',
       channel: payload.channel || 'xiaohongshu',
       redeemPlanId,
+      redeemPlanName: plan.name,
+      membershipTier: plan.membershipTier,
       redeemDurationDays,
       quantity,
       codeLength,
@@ -911,6 +959,8 @@ async function batchGenerateCouponCodes(adminId, payload = {}) {
         activatedSubscriptionId: '',
         redeemedAt: null,
         redeemPlanId,
+        redeemPlanName: plan.name,
+        membershipTier: plan.membershipTier,
         redeemDurationDays,
         createdAt: now,
         updatedAt: now,
@@ -931,6 +981,9 @@ async function batchGenerateCouponCodes(adminId, payload = {}) {
 
   return {
     batchId: batchResult._id,
+    redeemPlanId,
+    redeemPlanName: plan.name,
+    membershipTier: plan.membershipTier,
     generatedCount: codes.length,
     codes,
   }
@@ -999,6 +1052,8 @@ async function exportCouponCodes(payload = {}) {
 
   const rows = (await decorateCouponCodeRows(result.data)).map((item) => ({
     code: item.code,
+    redeemPlanName: item.redeemPlanName || item.planName || '',
+    membershipTier: item.membershipTier || '',
     createdAt: item.createdAt || '',
     status: item.status,
     issueStatus: item.issueStatus || 'unissued',
@@ -1016,7 +1071,7 @@ async function exportCouponCodes(payload = {}) {
 }
 
 function buildCodesCsv(rows) {
-  const header = ['code', 'status', 'issueStatus', 'issuedChannel', 'externalOrderId', 'issuedToNote', 'createdAt', 'redeemedAt', 'redeemedUser']
+  const header = ['code', 'redeemPlanName', 'membershipTier', 'status', 'issueStatus', 'issuedChannel', 'externalOrderId', 'issuedToNote', 'createdAt', 'redeemedAt', 'redeemedUser']
   const lines = rows.map((row) =>
     header
       .map((key) => `"${String(row[key] || '').replace(/"/g, '""')}"`)
@@ -1143,12 +1198,14 @@ function buildRevenue(orders) {
   const discountAmount = paid.reduce((sum, order) => sum + Number(order.discountAmount || 0), 0)
   const yearlyOrders = paid.filter((order) => order.planId === 'yearly_pro').length
   const monthlyOrders = paid.filter((order) => order.planId === 'monthly_pro').length
+  const unlimitedOrders = paid.filter((order) => order.planId === 'unlimited_pro').length
   return {
     revenueAmount,
     discountAmount,
     averageOrderAmount: paid.length ? Math.round(revenueAmount / paid.length) : 0,
     yearlyOrders,
     monthlyOrders,
+    unlimitedOrders,
   }
 }
 

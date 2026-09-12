@@ -15,6 +15,7 @@ const HOME_MUTATION_ACTIONS = new Set([
   'deleteAttachment',
   'removeFamilyUser',
   'parseAttachment',
+  'parseIllnessText',
   'saveAttachment',
   'saveCourseEvent',
   'saveIllness',
@@ -33,6 +34,8 @@ let homeCacheFamilyId = ''
 let homeCacheTime = 0
 let homeCacheGeneration = 0
 let homeRequest = null
+const dashboardCacheState = createScopedCacheState()
+const profileCacheState = createScopedCacheState()
 
 async function callHealthApi(action, payload = {}) {
   const app = getApp()
@@ -63,8 +66,11 @@ async function callHealthApi(action, payload = {}) {
   }
 
   const data = result.result.data
-  if (data && data.currentFamilyId && app.globalData) {
-    app.globalData.currentFamilyId = data.currentFamilyId
+  if ((action === 'getHome' || action === 'getDashboardSummary') && data && data.features && app.globalData) {
+    app.globalData.imageParsingEnabled = Boolean(data.features.imageParsingEnabled)
+  }
+  if (data && Object.prototype.hasOwnProperty.call(data, 'currentFamilyId') && app.globalData) {
+    app.globalData.currentFamilyId = data.currentFamilyId || ''
   }
   if (data && data.family && data.family._id && app.globalData && !app.globalData.currentFamilyId) {
     app.globalData.currentFamilyId = data.family._id
@@ -204,12 +210,114 @@ function isHomeCacheFresh(familyId = getCurrentFamilyId()) {
     && Date.now() - homeCacheTime < HOME_CACHE_TTL_MS
 }
 
+async function getDashboardSummary(options = {}) {
+  return getScopedData(
+    'getDashboardSummary',
+    options,
+    dashboardCacheState,
+    () => buildDashboardSummary(demo.getHome()),
+  )
+}
+
+async function getProfileBootstrap(options = {}) {
+  return getScopedData(
+    'getProfileBootstrap',
+    options,
+    profileCacheState,
+    () => buildProfileBootstrap(demo.getHome()),
+  )
+}
+
+function getCachedHome() {
+  return isHomeCacheFresh() ? homeCache : null
+}
+
 function invalidateHomeCache() {
   homeCache = null
   homeCacheFamilyId = ''
   homeCacheTime = 0
   homeCacheGeneration += 1
   homeRequest = null
+  invalidateScopedCache(dashboardCacheState)
+  invalidateScopedCache(profileCacheState)
+}
+
+function createScopedCacheState() {
+  return {
+    data: null,
+    familyId: '',
+    time: 0,
+    generation: 0,
+    request: null,
+  }
+}
+
+function invalidateScopedCache(state) {
+  state.data = null
+  state.familyId = ''
+  state.time = 0
+  state.generation += 1
+  state.request = null
+}
+
+async function getScopedData(action, options, state, demoHandler) {
+  const familyId = getCurrentFamilyId()
+  if (!options.force && state.data && state.familyId === familyId && Date.now() - state.time < HOME_CACHE_TTL_MS) {
+    return state.data
+  }
+  if (!options.force && state.request && state.request.familyId === familyId) {
+    return state.request.promise
+  }
+
+  const generation = state.generation
+  const promise = callHealthOrDemo(action, {}, demoHandler)
+    .then((data) => {
+      const resolvedFamilyId = (data && data.currentFamilyId)
+        || (data && data.family && data.family._id)
+        || familyId
+      const app = getApp()
+      const currentFamilyId = getCurrentFamilyId()
+      if (generation === state.generation && resolvedFamilyId === currentFamilyId) {
+        state.data = data
+        state.familyId = resolvedFamilyId
+        state.time = Date.now()
+      }
+      return data
+    })
+    .finally(() => {
+      if (state.request && state.request.promise === promise) {
+        state.request = null
+      }
+    })
+  state.request = { familyId, promise }
+  return promise
+}
+
+function buildDashboardSummary(home = {}) {
+  return {
+    safetyNotice: home.safetyNotice,
+    features: home.features,
+    user: home.user,
+    family: home.family,
+    families: home.families || [],
+    currentFamilyId: home.currentFamilyId || '',
+    members: home.members || [],
+    medicines: home.medicines || [],
+    illnessRecords: home.illnessRecords || [],
+    medicationLogs: home.medicationLogs || [],
+    stats: home.stats || {},
+    hasSupportingData: Boolean((home.attachments || []).length || (home.reminders || []).length),
+  }
+}
+
+function buildProfileBootstrap(home = {}) {
+  return {
+    user: home.user,
+    family: home.family,
+    currentFamilyId: home.currentFamilyId || '',
+    members: home.members || [],
+    entitlement: home.entitlement || null,
+  }
 }
 
 function getCurrentFamilyId() {
@@ -333,6 +441,10 @@ async function parseAttachment(payload) {
   return callHealthOrDemo('parseAttachment', payload, demo.parseAttachment)
 }
 
+async function parseIllnessText(payload) {
+  return callHealthOrDemo('parseIllnessText', payload, demo.parseIllnessText)
+}
+
 async function getAiTask(taskId) {
   return callHealthOrDemo('getAiTask', { taskId }, () => ({ task: { _id: taskId, status: 'success' } }))
 }
@@ -385,6 +497,9 @@ module.exports = {
   deleteAttachment,
   getFamilyInvite,
   getHome,
+  getDashboardSummary,
+  getProfileBootstrap,
+  getCachedHome,
   invalidateHomeCache,
   isHomeCacheFresh,
   getAiTask,
@@ -396,6 +511,7 @@ module.exports = {
   listMyFamilies,
   previewOrder,
   parseAttachment,
+  parseIllnessText,
   redeemMembershipCode,
   removeFamilyUser,
   confirmAiParseResult,

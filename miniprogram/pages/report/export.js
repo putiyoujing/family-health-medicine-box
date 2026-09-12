@@ -8,6 +8,10 @@ const IMAGE_CONTENT_TOP = 154
 const IMAGE_FOOTER_HEIGHT = 134
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: false,
     illnessRecordId: '',

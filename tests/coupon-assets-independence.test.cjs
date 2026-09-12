@@ -41,4 +41,6 @@ test('coupon page has its own generator instead of the membership-code generator
   assert.match(app, /title="生成优惠券码"/)
   assert.match(app, /const showCouponGenerator = type === 'coupons'/)
   assert.match(app, /const showMembershipCodeGenerator = type === 'couponBatches' \|\| type === 'couponCodes'/)
+  assert.match(app, /redeemPlanId: 'yearly_pro'/)
+  assert.match(app, /value="unlimited_pro">畅享版/)
 })

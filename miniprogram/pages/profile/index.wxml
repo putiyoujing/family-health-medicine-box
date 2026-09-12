@@ -29,7 +29,7 @@
     <view class="membership-head">
       <view>
         <view class="card-kicker">会员权益</view>
-        <view class="membership-title">{{loggedIn ? (entitlement.planName || '免费版') : '登录后查看当前等级'}}</view>
+        <view class="membership-title">{{loggedIn ? (entitlement.planName || '基础版') : '登录后查看当前等级'}}</view>
       </view>
       <view class="membership-action">{{isFreeMembership ? '兑换会员' : '查看权益'}} <text>›</text></view>
     </view>
@@ -63,9 +63,9 @@
     <view class="services-head family-head">
       <view>
         <view class="section-heading">家庭管理</view>
-        <view class="family-name">{{family.name || '我的家庭健康记录'}}</view>
+        <view class="family-name">{{family._id ? family.name : '尚未创建家庭'}}</view>
       </view>
-      <view class="family-count">{{members.length || 0}} / {{memberLimit}} 位</view>
+      <view class="family-count">{{family._id ? (members.length || 0) + ' / ' + memberLimit + ' 位' : '创建或加入'}}</view>
     </view>
     <view class="family-action">
       <view class="family-action-icon mint">家</view>

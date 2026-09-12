@@ -19,6 +19,10 @@ const genderOptions = [
 ]
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     saving: false,

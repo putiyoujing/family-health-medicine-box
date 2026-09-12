@@ -1,7 +1,14 @@
 const api = require('../../services/api')
 const { formatDateTime, memberName, nowDateTimeInput } = require('../../utils/format')
-const { ensureLoginReady, ensureMedicationReady } = require('../../utils/operation-guards')
+const {
+  canEditFamilyRecords,
+  ensureFamilyWriteAccess,
+  ensureLoginReady,
+  ensureMedicationReady,
+} = require('../../utils/operation-guards')
 const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
+const { buildMedicineCandidates } = require('../../utils/medicine-candidates')
+const { EVENT_IDS, countBucket, track, trackServiceError } = require('../../utils/analytics')
 
 const eventTypes = [
   { label: '记录症状', value: 'symptom' },
@@ -36,10 +43,17 @@ const emptyEventForm = {
 }
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     id: '',
     loading: true,
+    loadError: '',
+    imageParsingEnabled: false,
     family: null,
+    canEditRecords: false,
     record: null,
     member: null,
     members: [],
@@ -48,6 +62,7 @@ Page({
     timeline: [],
     medicationLogs: [],
     attachments: [],
+    medicineCandidates: [],
     healthTodos: [],
     completing: false,
     showCompletionForm: false,
@@ -59,7 +74,8 @@ Page({
     eventForm: createEventForm(),
   },
 
-  onLoad(options) {
+  onLoad(options = {}) {
+    this.processingHint = options.processing === '1'
     this.setData({
       id: options.id || '',
       showEventForm: options.action === 'add',
@@ -70,19 +86,30 @@ Page({
     this.load()
   },
 
-  async load() {
+  onUnload() {
+    this.stopProcessingPolling()
+  },
+
+  async load(options = {}) {
     if (!this.data.id) {
+      this.setData({ loading: false, loadError: '缺少病程 ID' })
       wx.showToast({ title: '缺少病程 ID', icon: 'none' })
       return
     }
-    this.setData({ loading: true })
+    if (!options.silent) {
+      this.setData({ loading: true, loadError: '' })
+    }
     try {
       const loggedIn = await ensureLoginReady({ silent: true })
       if (!loggedIn) {
-        this.setData({ loading: false })
+        this.setData({ loading: false, loadError: '请先登录后查看病程' })
         return
       }
       const home = await api.getHome()
+      const imageParsingEnabled = Boolean(
+        (home.features && home.features.imageParsingEnabled)
+        || (getApp().globalData && getApp().globalData.useDemoData),
+      )
       const record = home.illnessRecords.find((item) => item._id === this.data.id)
       if (!record) {
         throw new Error('未找到这次病程')
@@ -115,8 +142,27 @@ Page({
           displayText: `${item.medicineNameSnapshot || '未命名药品'} ${item.doseQuantity || 0}${item.doseUnit || ''}`,
         }))
       const timeline = mergeTimeline(courseEvents, medicationLogs)
+      const medicineCandidates = applyMedicineConfirmations(
+        buildMedicineCandidates(record.prescriptionText),
+        record._id,
+      )
+      if (record.aiProcessingStatus === 'completed' && !this.resultViewTracked) {
+        this.resultViewTracked = true
+        track(EVENT_IDS.RECORD_RESULT_VIEW, { image_type: 'mixed', status: 'success' })
+      }
+      if (medicineCandidates.length && !this.medicineSuggestionTracked) {
+        this.medicineSuggestionTracked = true
+        track(EVENT_IDS.MEDICINE_SUGGEST_VIEW, {
+          count_bucket: countBucket(medicineCandidates.length),
+          status: 'success',
+        })
+      }
+      const aiProcessing = isAiProcessing(record) || this.processingHint
+      this.processingHint = false
       this.setData({
         loading: false,
+        loadError: '',
+        imageParsingEnabled,
         record: {
           ...record,
           completed: isCompleted(record),
@@ -125,14 +171,17 @@ Page({
           timeText: formatDateTime(record.startedAt),
           symptomText: (record.symptoms || []).join('、') || '未填症状',
           temperatureText: hasValue(record.temperatureMax) ? `${record.temperatureMax}℃` : '未记录',
+          aiProcessing,
         },
         family: home.family,
+        canEditRecords: canEditFamilyRecords(home.family),
         member,
         members: home.members || [],
         medicines: home.medicines || [],
         prescribedMedicines,
         timeline,
         medicationLogs,
+        medicineCandidates,
         attachments: home.attachments.filter((item) => item.relatedType === 'illness' && item.relatedId === record._id),
         healthTodos: buildIllnessTodos(home, record._id),
         showEventForm: visitDraft ? true : this.data.showEventForm,
@@ -141,18 +190,138 @@ Page({
           : this.data.pendingAttachments,
         eventForm: createEventForm(eventForm),
       })
+      const app = getApp()
+      if (app.globalData) {
+        app.globalData.imageParsingEnabled = imageParsingEnabled
+      }
+      this.syncProcessingPolling({ ...record, aiProcessing })
     } catch (error) {
-      this.setData({ loading: false })
-      wx.showToast({ title: error.message || '加载失败', icon: 'none' })
+      this.setData({ loading: false, loadError: error.message || '加载失败，请稍后重试' })
+      trackServiceError('illness_detail_load')
+      if (!options.silent) {
+        wx.showToast({ title: error.message || '加载失败', icon: 'none' })
+      }
     }
   },
 
   toggleEventForm() {
+    if (!this.data.canEditRecords) {
+      return
+    }
     const showEventForm = !this.data.showEventForm
     if (!showEventForm) {
       clearVisitDraft(this.data.id)
     }
     this.setData({ showEventForm })
+  },
+
+  async editRecord() {
+    if (!this.data.record || !await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+      return
+    }
+    wx.navigateTo({ url: `/pages/illness/form?id=${this.data.record._id}` })
+  },
+
+  previewAttachment(event) {
+    const index = Number(event.currentTarget.dataset.index)
+    const urls = (this.data.attachments || [])
+      .map((item) => item.tempFilePath || item.fileId || item.fileID)
+      .filter(Boolean)
+    if (!urls.length || !Number.isInteger(index) || !urls[index]) {
+      return
+    }
+    wx.previewImage({
+      urls,
+      current: urls[index],
+    })
+  },
+
+  startAttachmentReview() {
+    if (!this.data.canEditRecords || !this.data.imageParsingEnabled || !this.data.record || !this.data.attachments.length) {
+      return
+    }
+    const app = getApp()
+    if (app.globalData) {
+      app.globalData.pendingIllnessReview = {
+        ...(app.globalData.pendingIllnessReview || {}),
+        illnessId: this.data.record._id,
+        memberId: this.data.record.memberId,
+        attachments: this.data.attachments,
+        returnUrl: `/pages/illness/detail?id=${this.data.record._id}`,
+      }
+    }
+    wx.navigateTo({ url: '/pages/illness/review' })
+  },
+
+  addRecognizedMedicine(event) {
+    if (!this.data.canEditRecords) {
+      return
+    }
+    const candidateIndex = Number(event.currentTarget.dataset.index)
+    const candidate = this.data.medicineCandidates[candidateIndex]
+    const record = this.data.record
+    if (!candidate || !record) {
+      return
+    }
+    const app = getApp()
+    const pending = app.globalData.pendingIllnessReview || {
+      illnessId: record._id,
+      memberId: record.memberId,
+      medicineConfirmations: {},
+    }
+    pending.medicineConfirmations = pending.medicineConfirmations || {}
+    const token = `${record._id}:${candidate.id}`
+    pending.medicineConfirmations[token] = { action: 'pending' }
+    app.globalData.pendingIllnessReview = pending
+    app.globalData.pendingMedicinePrefill = {
+      token,
+      memberId: record.memberId,
+      name: candidate.name,
+      specification: candidate.specification || '',
+      note: `来自本次病程识别：${candidate.text}`,
+    }
+    wx.navigateTo({
+      url: `/pages/medicines/form?memberId=${encodeURIComponent(record.memberId)}&fromAiReview=1`,
+    })
+  },
+
+  skipRecognizedMedicine(event) {
+    if (!this.data.canEditRecords) {
+      return
+    }
+    const candidateIndex = Number(event.currentTarget.dataset.index)
+    const candidate = this.data.medicineCandidates[candidateIndex]
+    const record = this.data.record
+    if (!candidate || !record) {
+      return
+    }
+    const app = getApp()
+    const pending = app.globalData.pendingIllnessReview || {
+      illnessId: record._id,
+      memberId: record.memberId,
+      medicineConfirmations: {},
+    }
+    pending.medicineConfirmations = pending.medicineConfirmations || {}
+    pending.medicineConfirmations[`${record._id}:${candidate.id}`] = { action: 'skipped' }
+    app.globalData.pendingIllnessReview = pending
+    this.setData({
+      medicineCandidates: applyMedicineConfirmations(this.data.medicineCandidates, record._id),
+    })
+    track(EVENT_IDS.MEDICINE_SKIP, { status: 'success' })
+  },
+
+  syncProcessingPolling(record) {
+    this.stopProcessingPolling()
+    if (isAiProcessing(record)) {
+      this.processingPollTimer = setTimeout(() => this.load({ silent: true }), 1500)
+    }
+  },
+
+  stopProcessingPolling() {
+    if (this.processingPollTimer) {
+      clearTimeout(this.processingPollTimer)
+      this.processingPollTimer = null
+    }
   },
 
   selectEventType(event) {
@@ -334,6 +503,9 @@ Page({
   },
 
   removeAttachment(event) {
+    if (!this.data.canEditRecords) {
+      return
+    }
     const index = Number(event.currentTarget.dataset.index)
     if (!Number.isInteger(index)) {
       return
@@ -344,6 +516,9 @@ Page({
   },
 
   goMedication() {
+    if (!this.data.canEditRecords) {
+      return
+    }
     if (!ensureMedicationReady({
       currentFamilyId: this.data.family && this.data.family._id,
       family: this.data.family,
@@ -362,6 +537,9 @@ Page({
   },
 
   goHealthTodo() {
+    if (!this.data.canEditRecords) {
+      return
+    }
     const record = this.data.record
     wx.navigateTo({
       url: `/pages/reminders/index?memberId=${record.memberId}&illnessRecordId=${record._id}`,
@@ -369,7 +547,7 @@ Page({
   },
 
   closeCourse() {
-    if (this.data.completing || !this.data.record || isCompleted(this.data.record)) {
+    if (!this.data.canEditRecords || this.data.completing || !this.data.record || isCompleted(this.data.record)) {
       return
     }
     this.setData({ showCompletionForm: true })
@@ -427,6 +605,9 @@ Page({
   },
 
   async remove() {
+    if (!this.data.canEditRecords) {
+      return
+    }
     const confirmed = await confirm('删除后将无法查看这次病程及其跟踪记录，且无法恢复。确认删除吗？', '删除病程')
     if (!confirmed) {
       return
@@ -444,6 +625,9 @@ Page({
   },
 
   editHealthTodo(event) {
+    if (!this.data.canEditRecords) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     const record = this.data.record
     if (!id || !record) {
@@ -455,6 +639,9 @@ Page({
   },
 
   async completeHealthTodo(event) {
+    if (!this.data.canEditRecords) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     const confirmed = await confirm('完成后会取消尚未发送的提醒。确认已完成这项待办吗？', '完成待办')
     if (!id || !confirmed) {
@@ -473,6 +660,9 @@ Page({
   },
 
   async deleteHealthTodo(event) {
+    if (!this.data.canEditRecords) {
+      return
+    }
     const id = event.currentTarget.dataset.id
     const confirmed = await confirm('删除后将不再显示，也不会发送尚未触发的提醒。确认删除吗？', '删除待办')
     if (!id || !confirmed) {
@@ -597,6 +787,42 @@ function reminderTime(item) {
   }
   const parsed = new Date(String(item.remindAt || '').replace(' ', 'T')).getTime()
   return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed
+}
+
+function isAiProcessing(record) {
+  return !!(record && (
+    record.aiProcessing === true
+    || record.aiProcessingStatus === 'processing'
+  ))
+}
+
+function applyMedicineConfirmations(candidates, illnessId) {
+  const app = getApp()
+  const pending = app.globalData && app.globalData.pendingIllnessReview
+  const confirmations = pending && pending.illnessId === illnessId
+    ? pending.medicineConfirmations
+    : null
+  if (!confirmations) {
+    return candidates
+  }
+  return candidates.map((candidate) => {
+    const confirmation = confirmations[`${illnessId}:${candidate.id}`]
+    if (!confirmation) {
+      return candidate
+    }
+    if (confirmation.action === 'skipped') {
+      return { ...candidate, action: 'skipped', actionText: '暂不加入药箱' }
+    }
+    if (confirmation.medicineId) {
+      return {
+        ...candidate,
+        action: 'added',
+        actionText: '已加入药箱',
+        medicineId: confirmation.medicineId,
+      }
+    }
+    return candidate
+  })
 }
 
 function hasValue(value) {

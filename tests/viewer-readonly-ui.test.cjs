@@ -52,7 +52,7 @@ test('guests retain write entries for login while viewers remain read-only', () 
     'createMedication',
   ])
 
-  assert.match(illnessTemplate, /<button class="primary-btn add-btn" wx:if="\{\{showWriteEntries\}\}"/)
+  assert.match(illnessTemplate, /<view class="illness-entry-actions" wx:if="\{\{showWriteEntries\}\}">/)
   assert.match(illnessTemplate, /<view class="card-actions" wx:if="\{\{showWriteEntries\}\}">/)
   assert.match(illnessSource, /const canEditRecords = canEditFamilyRecords\(home\.family\)/)
   assertGuestWriteEntries(illnessSource, ['createRecord', 'editRecord', 'appendRecord', 'quickSimilar'])
@@ -66,7 +66,7 @@ test('guests retain write entries for login while viewers remain read-only', () 
     assert.match(source, /showGuest(?:Home|State)\(\)[\s\S]*showWriteEntries:\s*true/)
     assert.match(source, /showWriteEntries:\s*canEditRecords/)
   })
-  assert.match(guardSource, /async function ensureFamilyWriteAccess\(canEditRecords\)[\s\S]*await ensureLoginReady\(\)/)
+  assert.match(guardSource, /async function ensureFamilyWriteAccess\(canEditRecords(?:, home = null, options = \{\})?\)[\s\S]*await ensureLoginReady\(\)/)
   assert.match(medicationTemplate, /wx:if="\{\{!loggedIn \|\| canEdit\}\}"/)
   assert.match(profileTemplate, /<view class="family-card" bindtap="openFamily">/)
   assert.doesNotMatch(profileTemplate, /<view wx:if="\{\{loggedIn\}\}" class="family-card"/)
@@ -89,12 +89,28 @@ test('family member modal scrolls its body while keeping the action bar outside'
   assert.match(styles, /\.modal-actions\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*safe-area-inset-bottom/)
 })
 
+test('viewer cannot see or trigger write controls in illness detail or family member modal', () => {
+  const detailTemplate = read('miniprogram/pages/illness/detail.wxml')
+  const detailSource = read('miniprogram/pages/illness/detail.js')
+  const familyTemplate = read('miniprogram/pages/family/index.wxml')
+  const familySource = read('miniprogram/pages/family/index.js')
+
+  assert.match(detailTemplate, /canEditRecords && !record\.completed/)
+  assert.match(detailTemplate, /illness-todo-actions" wx:if="\{\{canEditRecords\}\}"/)
+  assert.match(detailTemplate, /delete-record-btn" wx:if="\{\{canEditRecords\}\}"/)
+  assert.match(detailSource, /if \(!this\.data\.canEditRecords\) \{[\s\S]{0,80}return/)
+  assert.match(familyTemplate, /memberModalMode === 'view'/)
+  assert.match(familyTemplate, /save-member-btn" wx:if="\{\{memberModalMode !== 'view'\}\}"/)
+  assert.match(familySource, /memberModalMode: this\.data\.canEditFamily \? 'edit' : 'view'/)
+  assert.match(familySource, /if \(this\.data\.memberModalMode === 'view'\)/)
+})
+
 function assertGuestWriteEntries(source, methodNames) {
   methodNames.forEach((methodName) => {
     const methodStart = source.indexOf(`${methodName}(`)
     assert.ok(methodStart >= 0, `${methodName} should exist`)
     const methodBody = source.slice(methodStart, methodStart + 220)
-    assert.match(methodBody, /ensureFamilyWriteAccess\(this\.data\.canEditRecords\)/)
+    assert.match(methodBody, /ensureFamilyWriteAccess\(this\.data\.canEditRecords(?:, home)?/)
   })
 }
 

@@ -68,7 +68,6 @@ exports.main = async (event = {}) => {
   if (!authorizedProfile.nickname || (!authorizedProfile.avatarUrl && !authorizedProfile.avatarPreset)) {
     throw new Error('authorized user profile is required')
   }
-  const currentFamilyId = await provisionDefaultFamily(openid, now, authorizedProfile)
   const publicUserId = await createUniquePublicUserId()
 
   await db.collection('users').doc(userId).set({
@@ -80,7 +79,7 @@ exports.main = async (event = {}) => {
       publicUserId,
       gender: authorizedProfile.gender,
       birthday: '',
-      currentFamilyId,
+      currentFamilyId: '',
       createdAt: now,
       updatedAt: now,
       lastLoginAt: now,
@@ -98,10 +97,10 @@ exports.main = async (event = {}) => {
       publicUserId,
       gender: authorizedProfile.gender,
       birthday: '',
-      currentFamilyId,
+      currentFamilyId: '',
     },
-    currentFamilyId,
-    familyId: currentFamilyId,
+    currentFamilyId: '',
+    familyId: '',
   }
 }
 
@@ -138,63 +137,7 @@ async function ensureCurrentFamily(openid, user) {
     return activeRoles[0].familyId
   }
 
-  return provisionDefaultFamily(openid, db.serverDate(), user)
-}
-
-async function provisionDefaultFamily(openid, now, profile) {
-  const familyId = stableId('family', openid)
-  const roleId = stableId('owner_role', openid)
-  const memberId = stableId('owner_member', `${familyId}:${openid}`)
-  const familyRef = db.collection('families').doc(familyId)
-
-  const familyResult = await familyRef.get().catch(() => ({ data: null }))
-  if (!familyResult.data) {
-    await familyRef.set({
-      data: {
-        ownerOpenid: openid,
-        name: '我的家庭健康记录',
-        membersOpenids: [openid],
-        plan: 'free',
-        proExpireAt: null,
-        proSource: '',
-        proUpdatedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      },
-    })
-  }
-
-  await db.collection('family_members').doc(memberId).set({
-    data: {
-      familyId,
-      name: (profile && profile.nickname) || createDefaultProfile(openid).nickname,
-      relation: '本人',
-      gender: profile.gender || '',
-      birthday: '',
-      allergyHistory: '',
-      medicalHistory: '',
-      note: '',
-      isOwnerProfile: true,
-      createdBy: openid,
-      updatedBy: openid,
-      createdAt: now,
-      updatedAt: now,
-    },
-  })
-
-  await db.collection('family_roles').doc(roleId).set({
-    data: {
-      familyId,
-      openid,
-      role: 'owner',
-      memberId,
-      memberLinkedAt: now,
-      createdAt: now,
-      updatedAt: now,
-    },
-  })
-
-  return familyId
+  return ''
 }
 
 async function ensureOwnerMember(openid, role, user) {

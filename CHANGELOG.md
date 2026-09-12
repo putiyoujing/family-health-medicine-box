@@ -23,7 +23,7 @@ All notable changes are recorded here. Versions follow the mini-program upload v
 - Pass the complete project gate with 165 automated tests and 22 static release safeguards.
 - No cloud-function deployment, database migration, permission change, or production-data rewrite has been performed while preparing this version.
 - The mini-program performance, image, button, and invitation changes do not require a database migration; the admin and cloud-function source changes remain undeployed pending their own production verification.
-- Experience upload, WeChat review, and public release remain pending.
+- Experience upload completed on 2026-09-12; WeChat review and public release remain pending.
 
 ## [1.0.14] - 2026-07-27
 

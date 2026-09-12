@@ -4,13 +4,18 @@ const { ensureLoginReady } = require('../../utils/operation-guards')
 const { syncTabBar } = require('../../utils/tab-bar')
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     loggedIn: false,
     family: {},
     entitlement: {
       plan: 'free',
-      planName: '免费版',
+      tier: 'free',
+      planName: '基础版',
       limits: {
         maxMembers: 3,
       },
@@ -46,7 +51,7 @@ Page({
 
   async loadHome(options = {}) {
     try {
-      const home = await api.getHome({ force: Boolean(options.force) })
+      const home = await api.getProfileBootstrap({ force: Boolean(options.force) })
       const user = home.user || {}
       const entitlement = home.entitlement || this.data.entitlement
       const members = (home.members || []).map((member) => ({
@@ -176,5 +181,7 @@ function getProfileInitial(user = {}) {
 }
 
 function isFreePlan(entitlement = {}) {
-  return entitlement.plan === 'free' || String(entitlement.planName || '').includes('免费')
+  return entitlement.tier === 'free'
+    || entitlement.plan === 'free'
+    || /免费|基础/.test(String(entitlement.planName || ''))
 }

@@ -1,3 +1,5 @@
+const { EVENT_IDS, track, trackServiceError } = require('./analytics')
+
 async function ensureLoginReady(options = {}) {
   if (isLoggedIn()) {
     return true
@@ -28,12 +30,41 @@ function canEditFamilyRecords(family = {}) {
   return ['owner', 'admin', 'member'].includes(family.role)
 }
 
-async function ensureFamilyWriteAccess(canEditRecords) {
+async function ensureFamilyWriteAccess(canEditRecords, home = null, options = {}) {
   if (canEditRecords) {
     return true
   }
-  await ensureLoginReady()
+  if (!await ensureLoginReady()) {
+    return false
+  }
+
+  if (options.createFamily && home && !hasFamily(home)) {
+    try {
+      const api = require('../services/api')
+      await api.createFamily({
+        name: options.familyName || '我的家庭健康记录',
+      })
+      const refreshedHome = await api.getHome({ force: true })
+      Object.assign(home, refreshedHome)
+      track(EVENT_IDS.FAMILY_CREATE_RESULT, {
+        entry: options.entry || 'write_entry',
+        status: 'success',
+      })
+      return true
+    } catch (error) {
+      track(EVENT_IDS.FAMILY_CREATE_RESULT, {
+        entry: options.entry || 'write_entry',
+        status: 'fail',
+      })
+      trackServiceError('family_create')
+      wx.showToast({ title: error.message || '创建家庭失败', icon: 'none' })
+    }
+  }
   return false
+}
+
+function hasFamily(home = {}) {
+  return !!(home.currentFamilyId || (home.family && home.family._id))
 }
 
 function openGlobalAuthLayer() {
@@ -101,13 +132,13 @@ function ensureHasFamily(home = {}) {
     openGlobalAuthLayer()
     return false
   }
-  if (home.currentFamilyId || (home.family && home.family._id)) {
+  if (hasFamily(home)) {
     return true
   }
 
   wx.showModal({
     title: '先创建家庭空间',
-    content: '健康记录、药箱和用药都需要归属到一个家庭空间。请先创建或加入家庭。',
+    content: '健康记录、药箱和用药都需要归属到一个家庭空间。请先创建或加入家庭；记录病程或添加药品时会自动创建。',
     confirmText: '去个人中心',
     cancelText: '稍后',
     success: (result) => {

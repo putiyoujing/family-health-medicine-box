@@ -1,7 +1,7 @@
 .profile-page {
   position: relative;
   padding-top: 32rpx;
-  padding-bottom: 64rpx;
+  padding-bottom: calc(132rpx + env(safe-area-inset-bottom));
   overflow: hidden;
 }
 

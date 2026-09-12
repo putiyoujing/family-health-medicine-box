@@ -1,0 +1,114 @@
+.review-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin: 0 0 24rpx;
+  color: #236f65;
+  font-size: 26rpx;
+}
+
+.text-review-card {
+  margin-top: 24rpx;
+}
+
+.text-original {
+  margin: 18rpx 0;
+  padding: 20rpx;
+  color: #334b47;
+  line-height: 1.6;
+  background: #f7fbf9;
+  border-radius: 18rpx;
+}
+
+.error-text {
+  margin: 12rpx 0;
+  color: #c65b56;
+  line-height: 1.5;
+}
+
+.text-review-card .text-ai-card {
+  margin-top: 22rpx;
+  padding: 22rpx;
+  border: 1rpx solid #d6ebe4;
+  border-radius: 22rpx;
+  background: #f5fbf8;
+}
+
+.text-review-card .text-ai-card .muted {
+  margin: 10rpx 0 18rpx;
+}
+
+.review-image-wrap {
+  height: 360rpx;
+  margin-bottom: 18rpx;
+  overflow: hidden;
+  border-radius: 24rpx;
+  background: #f0f5f3;
+}
+
+.review-image {
+  width: 100%;
+  height: 100%;
+}
+
+.review-image-title {
+  margin-bottom: 26rpx;
+  color: #334b47;
+  font-weight: 600;
+}
+
+.review-hint {
+  margin: 14rpx 0 22rpx;
+}
+
+.review-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18rpx;
+  margin: 24rpx 0;
+}
+
+.medicine-confirm-panel {
+  margin: 26rpx 0;
+  padding: 22rpx;
+  border: 1rpx solid #dcebe6;
+  border-radius: 20rpx;
+  background: #f7fbf9;
+}
+
+.medicine-confirm-note {
+  margin: 10rpx 0 18rpx;
+}
+
+.medicine-candidate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  padding: 18rpx 0;
+  border-top: 1rpx solid #e4efeb;
+}
+
+.medicine-candidate-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.medicine-candidate-status {
+  margin-top: 8rpx;
+  color: #268d7f;
+  font-size: 24rpx;
+}
+
+.medicine-candidate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  width: 180rpx;
+}
+
+.medicine-candidate-actions .ghost-btn {
+  min-height: 58rpx;
+  padding: 0 14rpx;
+  font-size: 23rpx;
+}

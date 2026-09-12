@@ -7,6 +7,10 @@ const { syncTabBar } = require('../../utils/tab-bar')
 const DEFAULT_TAG_OPTIONS = ['儿童用药', '老人父母', '常规用药', '退烧', '感冒咳嗽', '鼻腔护理', '肠胃', '过敏', '外用', '常备', '处方药', '低库存关注']
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     family: null,
@@ -204,7 +208,8 @@ Page({
   },
 
   async createMedicine() {
-    if (!await ensureFamilyWriteAccess(this.data.canEditRecords)) {
+    const home = getHomeSnapshot(this.data)
+    if (!await ensureFamilyWriteAccess(this.data.canEditRecords, home, { createFamily: true, entry: 'medicine_add' })) {
       return
     }
     wx.navigateTo({ url: '/pages/medicines/form' })
@@ -309,5 +314,14 @@ function buildFilterState(medicines, members, selected) {
     memberFilters,
     activeFilterLabel: activeParts.length ? `筛选 ${activeParts.length}` : '筛选',
     activeFilterText: activeParts.length ? `已筛选：${activeParts.join(' / ')}` : '',
+  }
+}
+
+function getHomeSnapshot(data = {}) {
+  return {
+    currentFamilyId: data.family && data.family._id,
+    family: data.family,
+    members: data.members || [],
+    medicines: data.medicines || [],
   }
 }

@@ -4,6 +4,10 @@ const { ensureLoginReady, ensureMedicationReady } = require('../../utils/operati
 const { syncTabBar } = require('../../utils/tab-bar')
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     loading: true,
     family: null,

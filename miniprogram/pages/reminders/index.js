@@ -25,6 +25,10 @@ const emptyForm = {
 }
 
 Page({
+  onShareAppMessage() {
+    return require('../../utils/share').getDefaultShareConfig()
+  },
+
   data: {
     typeOptions,
     typeIndex: 0,
