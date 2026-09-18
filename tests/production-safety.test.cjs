@@ -94,6 +94,9 @@ test('development version waits for an explicit authorization before creating it
         getAccountInfoSync() {
           return { miniProgram: { envVersion: 'develop' } }
         },
+        getDeviceInfo() {
+          return { platform: 'devtools' }
+        },
         login() {
           wxLoginCalls += 1
         },
@@ -129,6 +132,41 @@ test('development version waits for an explicit authorization before creating it
   assert.equal(login.user.avatarUrl, 'https://example.com/avatar.jpg')
   assert.equal(wxLoginCalls, 0)
   assert.equal(cloudCalls, 0)
+})
+
+test('development version on a real device keeps the CloudBase path', async () => {
+  let appDefinition
+  let cloudInitCalls = 0
+  loadCjsModule(path.join(root, 'miniprogram/app.js'), {
+    globals: {
+      console: createSilentConsole(),
+      App(definition) {
+        appDefinition = definition
+      },
+      wx: {
+        getAccountInfoSync() {
+          return { miniProgram: { envVersion: 'develop' } }
+        },
+        getDeviceInfo() {
+          return { platform: 'ios' }
+        },
+        cloud: {
+          init() {
+            cloudInitCalls += 1
+          },
+          async callFunction() {
+            throw new Error('authorized user profile is required')
+          },
+        },
+      },
+    },
+  })
+
+  appDefinition.onLaunch.call(appDefinition)
+  assert.equal(appDefinition.globalData.useDemoData, false)
+  assert.equal(appDefinition.globalData.envId, 'family-health-prod-d9csm29f27d75')
+  assert.equal(cloudInitCalls, 1)
+  await appDefinition.restoreLoginPromise
 })
 
 test('trial version silently restores an existing CloudBase user on launch', async () => {

@@ -94,6 +94,32 @@ test('new medicine uses household categories without silently preselecting one',
   ])
 })
 
+test('confirmed image parsing fills the medicine form when returning from review', async () => {
+  const { app, pageDefinition, toasts } = loadFormModule()
+  const page = createPageInstance(pageDefinition)
+  await page.load()
+  app.globalData.pendingMedicineParseResult = {
+    imageKind: 'medicine_box',
+    output: {
+      name: '测试药品',
+      specification: '10mg x 12片',
+      expireDate: '2028-12-31',
+      manufacturer: '测试制药有限公司',
+      approvalNo: '国药准字 TEST123',
+    },
+  }
+
+  page.onShow()
+
+  assert.equal(page.data.form.name, '测试药品')
+  assert.equal(page.data.form.specification, '10mg x 12片')
+  assert.equal(page.data.form.expireDate, '2028-12-31')
+  assert.match(page.data.form.note, /生产厂家：测试制药有限公司/)
+  assert.match(page.data.form.note, /批准文号：国药准字 TEST123/)
+  assert.equal(app.globalData.pendingMedicineParseResult, null)
+  assert.equal(toasts.at(-1), '识别结果已填入，请核对')
+})
+
 test('medicine form loads an existing medicine and keeps its custom category selectable', async () => {
   const { pageDefinition } = loadFormModule({
     home: {

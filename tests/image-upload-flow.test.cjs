@@ -18,6 +18,29 @@ test('photo source choices map camera actions to camera and gallery actions to a
   assert.deepEqual(Array.from(getMediaSourceType(1, 1)), ['album'])
 })
 
+test('image selection requests the existing global privacy layer before chooseMedia', async () => {
+  let requestedLayer = null
+  const layer = { showPrivacyDialog() {} }
+  const { ensureImagePrivacyAuthorization } = loadCjsModule(uploadHelper, {
+    globals: {
+      getApp: () => ({
+        requestPrivacyAuthorization(receivedLayer) {
+          requestedLayer = receivedLayer
+          return Promise.resolve(true)
+        },
+      }),
+    },
+  })
+
+  assert.equal(await ensureImagePrivacyAuthorization({
+    selectComponent(selector) {
+      assert.equal(selector, '#global-auth-layer')
+      return layer
+    },
+  }), true)
+  assert.equal(requestedLayer, layer)
+})
+
 test('upload failures preserve the platform reason and explain privacy failures', () => {
   const { getImageUploadErrorMessage, isImageSelectionCanceled } = loadCjsModule(uploadHelper)
 
@@ -27,6 +50,10 @@ test('upload failures preserve the platform reason and explain privacy failures'
       errno: 112,
     }, '单据图片'),
     '微信后台尚未声明照片或摄像头权限，请在「设置 → 服务内容声明 → 用户隐私保护指引」完成配置后重试。',
+  )
+  assert.equal(
+    getImageUploadErrorMessage({ errMsg: 'chooseMedia:fail privacy permission is not authorized' }, '检查图片'),
+    '请先同意隐私保护指引后再选择图片。',
   )
   assert.equal(
     getImageUploadErrorMessage({ errMsg: 'uploadFile:fail permission denied' }, '药品图片'),

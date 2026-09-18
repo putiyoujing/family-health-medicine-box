@@ -113,3 +113,29 @@ test('demo core journey persists linked records, deducts stock, and builds an il
   assert.match(report.reportText, /Test Medicine/)
   assert.match(report.reportText, /no reaction/)
 })
+
+test('parsed prescription medicines are synced to the demo medicine cabinet and visit timeline', () => {
+  const demo = loadCjsModule(path.join(root, 'miniprogram/services/demo-data.js'))
+  const member = demo.getHome().members[0]
+  const illness = demo.saveIllness({
+    memberId: member._id,
+    startedAt: '2026-07-13 08:00',
+    symptoms: ['咳嗽'],
+    status: '观察中',
+  })
+
+  demo.applyAiOutputToIllness(illness.id, 'prescription', {
+    medicinesText: '布洛芬混悬液 100ml；阿莫西林胶囊 0.25g',
+  })
+
+  const home = demo.getHome()
+  const medicines = home.medicines.filter((item) => item.memberId === member._id && item.source === '处方识别')
+  const visitEvent = home.courseEvents.find((item) => item.illnessRecordId === illness.id && item.source === 'illness_created')
+  assert.deepEqual(new Set(Array.from(medicines, (item) => item.name)), new Set(['阿莫西林胶囊', '布洛芬混悬液']))
+  assert.equal(medicines.every((item) => item.remainingQuantity === 1), true)
+  assert.equal(visitEvent.eventType, 'visit')
+  assert.deepEqual(
+    new Set(Array.from(visitEvent.prescribedMedicines, (item) => item.medicineNameSnapshot)),
+    new Set(['阿莫西林胶囊', '布洛芬混悬液']),
+  )
+})

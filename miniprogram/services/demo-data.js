@@ -1163,6 +1163,12 @@ function saveAttachment(payload = {}) {
   } else {
     state.attachments.unshift(record)
   }
+  if (record.relatedType === 'illness' && isVisitImageKind(record.imageKind)) {
+    const illness = state.illnessRecords.find((item) => item._id === record.relatedId)
+    if (illness && !['已恢复', '已关闭'].includes(illness.status) && !illness.endedAt) {
+      illness.status = '已就医'
+    }
+  }
   return clone({ id: record._id, ...record })
 }
 
@@ -1278,21 +1284,23 @@ function parseAttachment(payload = {}) {
   const taskId = newId('ai-task')
   const attachment = state.attachments.find((item) => item._id === payload.attachmentId || item._id === payload.attachmentIds?.[0])
   const output = buildParseOutput(payload.imageKind)
+  const appliedToIllness = payload.autoApply
+    ? applyAiOutputToIllness(payload.illnessId || (attachment && attachment.relatedId), payload.imageKind, output)
+    : false
   if (attachment) {
     attachment.aiStructured = output
-    attachment.aiSummary = '已完成图片整理，可继续修改'
-    attachment.parseStatus = 'parsed'
-    applyAiOutputToIllness(attachment.relatedId, payload.imageKind, output)
+    attachment.aiSummary = '已完成图片整理，已自动写入病程'
+    attachment.parseStatus = appliedToIllness ? 'confirmed' : 'parsed'
   }
   return clone({
     task: {
       _id: taskId,
-      status: 'success',
+      status: appliedToIllness ? 'confirmed' : 'success',
       imageKind: payload.imageKind || '',
       relatedType: payload.relatedType || '',
     },
     output,
-    appliedToIllness: Boolean(attachment && attachment.relatedType === 'illness'),
+    appliedToIllness,
   })
 }
 
@@ -1315,11 +1323,67 @@ function parseIllnessText(payload = {}) {
     medicinesText: '',
     summary: text,
   }
-  applyAiOutputToIllness(payload.illnessId, 'text', output)
+  const appliedToIllness = payload.autoApply
+    ? applyAiOutputToIllness(payload.illnessId, 'text', output)
+    : false
   return clone({
-    task: { _id: newId('ai-task'), status: 'success', taskType: 'text_parse' },
+    task: { _id: newId('ai-task'), status: appliedToIllness ? 'confirmed' : 'success', taskType: 'text_parse' },
     output,
-    appliedToIllness: Boolean(payload.illnessId),
+    appliedToIllness,
+  })
+}
+
+function processQuickIllness(payload = {}) {
+  const illness = state.illnessRecords.find((item) => item._id === payload.illnessId)
+  if (!illness) {
+    throw new Error('未找到这次病程')
+  }
+  illness.aiProcessing = true
+  illness.aiProcessingStatus = 'processing'
+  illness.aiProcessingError = ''
+  const errors = []
+  if (payload.includeText !== false && (illness.quickInputText || illness.symptomDescription)) {
+    try {
+      parseIllnessText({ illnessId: illness._id, text: illness.quickInputText || illness.symptomDescription, autoApply: true })
+    } catch (error) {
+      errors.push(`文字：${error.message || '整理失败'}`)
+    }
+  }
+  let imageProcessed = 0
+  state.attachments
+    .filter((item) => item.relatedType === 'illness' && item.relatedId === illness._id && item.parseStatus !== 'confirmed')
+    .forEach((attachment) => {
+      try {
+        parseAttachment({
+          illnessId: illness._id,
+          attachmentId: attachment._id,
+          attachmentIds: [attachment._id],
+          fileId: attachment.fileId,
+          imageKind: attachment.imageKind,
+          relatedType: 'illness',
+          autoApply: true,
+        })
+        imageProcessed += 1
+      } catch (error) {
+        errors.push(`${attachment.imageKind || '图片'}：${error.message || '整理失败'}`)
+      }
+    })
+  if (illness.prescriptionText) {
+    try {
+      syncPrescriptionMedicines(illness, illness.prescriptionText)
+    } catch (error) {
+      errors.push(`药箱同步：${error.message || '同步失败'}`)
+    }
+  }
+  illness.aiProcessing = false
+  illness.aiProcessingStatus = errors.length ? 'partial' : 'completed'
+  illness.aiProcessingError = errors.join('；')
+  illness.aiProcessingFinishedAt = nowText()
+  return clone({
+    illnessId: illness._id,
+    imageProcessed,
+    status: illness.aiProcessingStatus,
+    error: illness.aiProcessingError,
   })
 }
 
@@ -1341,11 +1405,11 @@ function applyAiOutputToIllness(illnessId, imageKind, output = {}) {
   const fields = imageKind === 'text'
     ? ['symptoms', 'temperatureMax', 'hospitalName', 'doctorDiagnosis', 'doctorAdvice', 'examinationResult', 'medicinesText', 'summary']
     : imageKind === 'medical_record'
-      ? ['doctorDiagnosis', 'doctorAdvice', 'summary']
+      ? ['symptoms', 'doctorDiagnosis', 'doctorAdvice', 'summary']
       : imageKind === 'prescription'
-        ? ['doctorDiagnosis', 'doctorAdvice', 'medicinesText', 'summary']
+        ? ['symptoms', 'doctorDiagnosis', 'doctorAdvice', 'medicinesText', 'summary']
         : imageKind === 'examination'
-          ? ['examinationResult', 'summary']
+          ? ['symptoms', 'examinationResult', 'summary']
           : []
   fields.forEach((field) => {
     const value = output[field]
@@ -1357,7 +1421,105 @@ function applyAiOutputToIllness(illnessId, imageKind, output = {}) {
       illness[field === 'medicinesText' ? 'prescriptionText' : field] = value
     }
   })
+  if (isVisitEvidence(imageKind, output) && !['已恢复', '已关闭'].includes(illness.status) && !illness.endedAt) {
+    illness.status = '已就医'
+  }
+  if (output.medicinesText) {
+    syncPrescriptionMedicines(illness, output.medicinesText)
+  }
   return true
+}
+
+function syncPrescriptionMedicines(illness, medicinesText) {
+  const candidates = parsePrescriptionMedicineText(medicinesText)
+  const medicineIds = []
+  candidates.forEach((candidate) => {
+    const existing = state.medicines.find((item) => (
+      item.memberId === illness.memberId
+      && normalizeMedicineMatch(item.name) === normalizeMedicineMatch(candidate.name)
+      && normalizeMedicineMatch(item.specification) === normalizeMedicineMatch(candidate.specification)
+    ))
+    const medicine = existing || {
+      _id: newId('medicine'),
+      memberId: illness.memberId,
+      memberNameSnapshot: getMemberName(illness.memberId),
+      name: candidate.name,
+      category: '其他',
+      tags: ['处方药'],
+      specification: candidate.specification,
+      packageSize: 0,
+      packageUnit: '',
+      totalQuantity: 1,
+      remainingQuantity: 1,
+      unit: '盒',
+      expireDate: '',
+      location: '家庭药箱',
+      source: '处方识别',
+      indicationsText: '',
+      instructionText: '',
+      note: `来自病程处方识别：${candidate.text}`,
+    }
+    if (!existing) {
+      state.medicines.unshift(medicine)
+    }
+    medicineIds.push(medicine._id)
+  })
+  const event = state.courseEvents.find((item) => (
+    item.illnessRecordId === illness._id && item.source === 'illness_created'
+  ))
+  if (event && medicineIds.length) {
+    const prescribedMedicineIds = Array.from(new Set([
+      ...(event.prescribedMedicineIds || []),
+      ...medicineIds,
+    ]))
+    event.eventType = 'visit'
+    event.prescribedMedicineIds = prescribedMedicineIds
+    event.prescribedMedicines = prescribedMedicineIds.map((medicineId) => {
+      const medicine = state.medicines.find((item) => item._id === medicineId)
+      return {
+        medicineId,
+        medicineNameSnapshot: medicine ? medicine.name : '',
+        unitSnapshot: medicine ? medicine.unit : '',
+      }
+    })
+  }
+  return medicineIds
+}
+
+function parsePrescriptionMedicineText(value) {
+  return Array.from(new Map(
+    String(value || '')
+      .split(/[\r\n；;]+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((text) => text.replace(/^\s*\d+[.、)）]\s*/, '').replace(/^(处方药品|药品|用药情况)\s*[：:]\s*/, ''))
+      .map((text) => {
+        const nameMatch = text.match(/^([^（(\s：:，,]+)/)
+        const name = nameMatch ? nameMatch[1].trim() : text
+        const specification = text.slice(name.length).replace(/^[：:，,\s]+/, '').trim()
+        return [
+          `${normalizeMedicineMatch(name)}|${normalizeMedicineMatch(specification)}`,
+          { text, name, specification },
+        ]
+      }),
+  ).values())
+}
+
+function normalizeMedicineMatch(value) {
+  return String(value || '').replace(/\s+/g, '').toLowerCase()
+}
+
+function isVisitImageKind(imageKind) {
+  return ['medical_record', 'examination', 'prescription'].includes(String(imageKind || '').trim())
+}
+
+function isVisitEvidence(imageKind, output = {}) {
+  if (isVisitImageKind(imageKind)) {
+    return true
+  }
+  return imageKind === 'text'
+    && ['hospitalName', 'doctorDiagnosis', 'examinationResult', 'medicinesText']
+      .some((field) => String(output[field] || '').trim())
 }
 
 function exportReport(payload = {}) {
@@ -1731,6 +1893,7 @@ function buildQuickRecordUsage() {
 function buildParseOutput(imageKind) {
   if (imageKind === 'medical_record') {
     return {
+      symptoms: [],
       doctorDiagnosis: '',
       doctorAdvice: '',
       summary: '',
@@ -1745,6 +1908,7 @@ function buildParseOutput(imageKind) {
   }
   if (imageKind === 'prescription') {
     return {
+      symptoms: [],
       doctorDiagnosis: '',
       doctorAdvice: '',
       summary: '',
@@ -1752,6 +1916,7 @@ function buildParseOutput(imageKind) {
   }
   if (imageKind === 'examination') {
     return {
+      symptoms: [],
       examinationResult: '',
       summary: '',
     }
@@ -1952,6 +2117,7 @@ function clone(value) {
 module.exports = {
   acceptFamilyInvite,
   applyCoupon,
+  applyAiOutputToIllness,
   completeIllness,
   completeReminder,
   confirmAiParseResult,
@@ -1976,6 +2142,7 @@ module.exports = {
   mockPaymentSuccess,
   parseAttachment,
   parseIllnessText,
+  processQuickIllness,
   previewOrder,
   redeemMembershipCode,
   removeFamilyUser,

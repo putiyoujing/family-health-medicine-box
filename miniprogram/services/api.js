@@ -16,6 +16,7 @@ const HOME_MUTATION_ACTIONS = new Set([
   'removeFamilyUser',
   'parseAttachment',
   'parseIllnessText',
+  'processQuickIllness',
   'saveAttachment',
   'saveCourseEvent',
   'saveIllness',
@@ -445,6 +446,10 @@ async function parseIllnessText(payload) {
   return callHealthOrDemo('parseIllnessText', payload, demo.parseIllnessText)
 }
 
+async function processQuickIllness(payload) {
+  return callHealthOrDemo('processQuickIllness', payload, demo.processQuickIllness)
+}
+
 async function getAiTask(taskId) {
   return callHealthOrDemo('getAiTask', { taskId }, () => ({ task: { _id: taskId, status: 'success' } }))
 }
@@ -512,6 +517,7 @@ module.exports = {
   previewOrder,
   parseAttachment,
   parseIllnessText,
+  processQuickIllness,
   redeemMembershipCode,
   removeFamilyUser,
   confirmAiParseResult,
