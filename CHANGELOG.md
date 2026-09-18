@@ -2,7 +2,7 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
-## [1.0.16] - 2026-09-18
+## [1.1.0] - 2026-09-18
 
 ### Changed
 
