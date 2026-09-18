@@ -34,6 +34,7 @@ const VIEW_ROLES = ['owner', 'admin', 'member', 'viewer']
 const EDIT_ROLES = ['owner', 'admin', 'member']
 const MANAGE_ROLES = ['owner', 'admin']
 const IMAGE_KINDS = ['medical_record', 'medicine_box', 'instruction', 'prescription', 'examination']
+const VISIT_IMAGE_KINDS = ['medical_record', 'examination', 'prescription']
 const FREE_MAX_OWNED_FAMILIES = 1
 const PRO_MAX_OWNED_FAMILIES = 3
 const ALREADY_IN_FAMILY_MESSAGE =
@@ -169,6 +170,8 @@ exports.main = async (event = {}) => {
         return ok(await parseAttachment(openid, familyId, payload))
       case 'parseIllnessText':
         return ok(await parseIllnessText(openid, familyId, payload))
+      case 'processQuickIllness':
+        return ok(await processQuickIllness(openid, familyId, payload))
       case 'getAiTask':
         return ok(await getAiTask(openid, familyId, payload.taskId))
       case 'confirmAiParseResult':
@@ -1293,7 +1296,7 @@ async function saveAttachment(openid, familyId, payload) {
   if (!id && payload.relatedType === 'illness' && payload.relatedId && payload.imageKind) {
     const family = await getCurrentFamily(openid, familyId)
     assertRole(family.role, EDIT_ROLES)
-    const illness = await assertFamilyRecord('illness', payload.relatedId, family._id)
+    const illness = await assertFamilyRecord('illness_records', payload.relatedId, family._id)
     if (illness.entrySource === 'quick') {
       const imageCount = await safeCount('attachments', {
         familyId: family._id,
@@ -1307,7 +1310,11 @@ async function saveAttachment(openid, familyId, payload) {
       }
     }
   }
-  return saveRecord(openid, familyId, 'attachments', payload)
+  const result = await saveRecord(openid, familyId, 'attachments', payload)
+  if (payload.relatedType === 'illness' && payload.relatedId && isVisitImageKind(payload.imageKind)) {
+    await markIllnessVisited(openid, familyId, payload.relatedId)
+  }
+  return result
 }
 
 async function syncInitialCourseEvent(openid, familyId, illnessRecordId, payload) {
@@ -1980,11 +1987,25 @@ async function parseAttachment(openid, familyId, payload) {
       prompt: buildVisionPrompt(imageKind),
     })
     const normalizedOutput = normalizeVisionOutput(imageKind, visionResult.output)
+    if (!hasVisionContent(normalizedOutput)) {
+      throw new Error('图片未识别出可用内容，请重新拍摄或手动填写')
+    }
+    const appliedToIllness = payload.autoApply
+      ? await applyAiOutputToIllness(
+        openid,
+        family._id,
+        attachment.relatedType === 'illness' ? attachment.relatedId : '',
+        imageKind,
+        normalizedOutput,
+      )
+      : false
     await db.collection('ai_tasks').doc(result._id).update({
       data: {
         output: normalizedOutput,
         rawOutput: visionResult.rawContent,
-        status: 'success',
+        status: appliedToIllness ? 'confirmed' : 'success',
+        confirmedBy: appliedToIllness ? openid : '',
+        confirmedAt: appliedToIllness ? db.serverDate() : null,
         tokenUsage: visionResult.usage,
         updatedAt: db.serverDate(),
       },
@@ -1994,23 +2015,18 @@ async function parseAttachment(openid, familyId, payload) {
       data: {
         aiStructured: normalizedOutput,
         aiSummary: buildAiSummary(imageKind, normalizedOutput),
-        parseStatus: 'parsed',
+        parseStatus: appliedToIllness ? 'confirmed' : 'parsed',
+        parseConfirmedBy: appliedToIllness ? openid : '',
+        parseConfirmedAt: appliedToIllness ? db.serverDate() : null,
         aiTaskId: result._id,
         updatedBy: openid,
         updatedAt: db.serverDate(),
       },
     })
-    const appliedToIllness = await applyAiOutputToIllness(
-      openid,
-      family._id,
-      attachment.relatedType === 'illness' ? attachment.relatedId : '',
-      imageKind,
-      normalizedOutput,
-    )
     return {
       task: {
         _id: result._id,
-        status: 'success',
+        status: appliedToIllness ? 'confirmed' : 'success',
         imageKind,
         model: visionResult.model,
       },
@@ -2067,27 +2083,26 @@ async function parseIllnessText(openid, familyId, payload) {
       prompt: buildTextParsePrompt(text),
     })
     const normalizedOutput = normalizeTextParseOutput(textResult.output)
+    const illnessId = payload.illnessId || ''
+    const appliedToIllness = payload.autoApply
+      ? await applyAiOutputToIllness(openid, family._id, illnessId, 'text', normalizedOutput)
+      : false
     await db.collection('ai_tasks').doc(result._id).update({
       data: {
         output: normalizedOutput,
         rawOutput: textResult.rawContent,
-        status: 'success',
+        status: appliedToIllness ? 'confirmed' : 'success',
+        confirmedBy: appliedToIllness ? openid : '',
+        confirmedAt: appliedToIllness ? db.serverDate() : null,
         tokenUsage: textResult.usage,
         updatedAt: db.serverDate(),
       },
     })
     await recordAiUsage(family._id, openid, 'text_parse', result._id)
-    const appliedToIllness = await applyAiOutputToIllness(
-      openid,
-      family._id,
-      payload.illnessId || '',
-      'text',
-      normalizedOutput,
-    )
     return {
       task: {
         _id: result._id,
-        status: 'success',
+        status: appliedToIllness ? 'confirmed' : 'success',
         taskType: 'text_parse',
         model: textResult.model,
       },
@@ -2106,7 +2121,119 @@ async function parseIllnessText(openid, familyId, payload) {
   }
 }
 
-async function applyAiOutputToIllness(openid, familyId, illnessId, imageKind, output) {
+async function processQuickIllness(openid, familyId, payload) {
+  const family = await getCurrentFamily(openid, familyId)
+  assertRole(family.role, EDIT_ROLES)
+  const illnessId = String(payload.illnessId || '').trim()
+  if (!illnessId) {
+    throw new Error('illnessId is required')
+  }
+  const illness = await assertFamilyRecord('illness_records', illnessId, family._id)
+  const attachmentResult = await db
+    .collection('attachments')
+    .where({
+      familyId: family._id,
+      relatedType: 'illness',
+      relatedId: illnessId,
+      deletedAt: _.exists(false),
+    })
+    .orderBy('createdAt', 'asc')
+    .limit(20)
+    .get()
+  const attachments = attachmentResult.data || []
+
+  await db.collection('illness_records').doc(illnessId).update({
+    data: {
+      aiProcessing: true,
+      aiProcessingStatus: 'processing',
+      aiProcessingStartedAt: db.serverDate(),
+      aiProcessingError: '',
+      updatedBy: openid,
+      updatedAt: db.serverDate(),
+    },
+  })
+
+  const errors = []
+  let textProcessed = false
+  let imageProcessed = 0
+  const text = String(illness.quickInputText || illness.symptomDescription || '').trim()
+  if (text && payload.includeText !== false) {
+    try {
+      await parseIllnessText(openid, family._id, {
+        illnessId,
+        text,
+        autoApply: true,
+      })
+      textProcessed = true
+    } catch (error) {
+      errors.push(`文字：${String(error.message || '整理失败')}`)
+    }
+  }
+
+  for (const attachment of attachments) {
+    if (!attachment.fileId || attachment.parseStatus === 'confirmed') {
+      continue
+    }
+    try {
+      await parseAttachment(openid, family._id, {
+        fileId: attachment.fileId,
+        attachmentIds: [attachment._id],
+        imageKind: attachment.imageKind || 'medicine_box',
+        relatedType: 'illness',
+        autoApply: true,
+      })
+      imageProcessed += 1
+    } catch (error) {
+      errors.push(`${attachment.imageKind || '图片'}：${String(error.message || '整理失败')}`)
+    }
+  }
+
+  try {
+    const latestIllness = await assertFamilyRecord('illness_records', illnessId, family._id)
+    if (latestIllness.prescriptionText) {
+      const medicineIds = await syncPrescriptionMedicines(openid, family._id, latestIllness, latestIllness.prescriptionText)
+      await syncPrescriptionMedicineLinks(openid, family._id, illnessId, medicineIds)
+    }
+  } catch (error) {
+    errors.push(`药箱同步：${String(error.message || '同步失败')}`)
+  }
+
+  const errorMessage = errors.join('；').slice(0, 500)
+  await db.collection('illness_records').doc(illnessId).update({
+    data: {
+      aiProcessing: false,
+      aiProcessingStatus: errors.length ? 'partial' : 'completed',
+      aiProcessingFinishedAt: db.serverDate(),
+      aiProcessingError: errorMessage,
+      updatedBy: openid,
+      updatedAt: db.serverDate(),
+    },
+  })
+  return {
+    illnessId,
+    textProcessed,
+    imageProcessed,
+    status: errors.length ? 'partial' : 'completed',
+    error: errorMessage,
+  }
+}
+
+async function markIllnessVisited(openid, familyId, illnessId) {
+  const illness = await assertFamilyRecord('illness_records', illnessId, familyId)
+  if (['已恢复', '已关闭'].includes(illness.status) || illness.endedAt || illness.status === '已就医') {
+    return false
+  }
+  await db.collection('illness_records').doc(illnessId).update({
+    data: {
+      status: '已就医',
+      updatedBy: openid,
+      updatedAt: db.serverDate(),
+    },
+  })
+  return true
+}
+
+async function applyAiOutputToIllness(openid, familyId, illnessId, imageKind, output, options = {}) {
   const id = String(illnessId || '').trim()
   if (!id) {
     return false
@@ -2119,39 +2246,70 @@ async function applyAiOutputToIllness(openid, familyId, illnessId, imageKind, ou
   const fields = imageKind === 'text'
     ? ['symptoms', 'temperatureMax', 'hospitalName', 'doctorDiagnosis', 'doctorAdvice', 'examinationResult', 'medicinesText', 'summary']
     : imageKind === 'medical_record'
-      ? ['doctorDiagnosis', 'doctorAdvice', 'summary']
+      ? ['symptoms', 'doctorDiagnosis', 'doctorAdvice', 'summary']
       : imageKind === 'prescription'
-        ? ['doctorDiagnosis', 'doctorAdvice', 'medicinesText', 'summary']
+        ? ['symptoms', 'doctorDiagnosis', 'doctorAdvice', 'medicinesText', 'summary']
         : imageKind === 'examination'
-          ? ['examinationResult', 'summary']
+          ? ['symptoms', 'examinationResult', 'summary']
           : []
 
   fields.forEach((field) => {
     const value = output && output[field]
     if (field === 'symptoms') {
-      if (Array.isArray(value) && value.length) {
+      if (Array.isArray(value) && (value.length || options.clearEmpty)) {
         update.symptoms = value
       }
       return
     }
     if (field === 'temperatureMax') {
       const temperature = Number(value)
-      if (Number.isFinite(temperature)) {
+      if (value !== '' && value !== null && value !== undefined && Number.isFinite(temperature)) {
         update.temperatureMax = temperature
+      } else if (options.clearEmpty) {
+        update.temperatureMax = ''
       }
       return
     }
     const text = textValue(value)
-    if (text) {
+    if (text || options.clearEmpty) {
       update[field === 'medicinesText' ? 'prescriptionText' : field] = text
     }
   })
 
-  if (Object.keys(update).length === 2) {
+  if (isVisitEvidence(imageKind, output)) {
+    const current = await assertFamilyRecord('illness_records', id, familyId)
+    if (!['已恢复', '已关闭'].includes(current.status) && !current.endedAt) {
+      update.status = '已就医'
+    }
+  }
+
+  const recognizedMedicineText = buildRecognizedMedicineText(imageKind, output)
+  const hasIllnessUpdate = Object.keys(update).length > 2
+  if (hasIllnessUpdate) {
+    await db.collection('illness_records').doc(id).update({ data: update })
+  }
+  if (recognizedMedicineText) {
+    const illness = await assertFamilyRecord('illness_records', id, familyId)
+    const source = imageKind === 'prescription' ? '处方识别' : '图片识别'
+    const medicineIds = await syncPrescriptionMedicines(openid, familyId, illness, recognizedMedicineText, source)
+    await syncPrescriptionMedicineLinks(openid, familyId, id, medicineIds)
+  }
+  return hasIllnessUpdate || Boolean(recognizedMedicineText)
+}
+
+function isVisitImageKind(imageKind) {
+  return VISIT_IMAGE_KINDS.includes(String(imageKind || '').trim())
+}
+
+function isVisitEvidence(imageKind, output = {}) {
+  if (isVisitImageKind(imageKind)) {
+    return true
+  }
+  if (imageKind !== 'text') {
     return false
   }
-  await db.collection('illness_records').doc(id).update({ data: update })
-  return true
+  return ['hospitalName', 'doctorDiagnosis', 'examinationResult', 'medicinesText']
+    .some((field) => Boolean(textValue(output[field])))
 }
 
 async function getAiTask(openid, familyId, taskId) {
@@ -2213,7 +2371,9 @@ async function confirmAiParseResult(openid, familyId, payload) {
         .map((attachment) => attachment.relatedId),
     ))
     for (const illnessId of illnessIds) {
-      await applyAiOutputToIllness(openid, family._id, illnessId, task.imageKind, output)
+      await applyAiOutputToIllness(openid, family._id, illnessId, task.imageKind, output, {
+        clearEmpty: task.status === 'confirmed',
+      })
     }
   } else {
     await applyAiOutputToIllness(
@@ -2222,6 +2382,7 @@ async function confirmAiParseResult(openid, familyId, payload) {
       payload.illnessId || (task.input && task.input.illnessId) || '',
       'text',
       output,
+      { clearEmpty: task.status === 'confirmed' },
     )
   }
   const now = db.serverDate()
@@ -3117,6 +3278,7 @@ function hasAny(text, keywords) {
 function buildParseDraft(imageKind) {
   if (imageKind === 'medical_record') {
     return {
+      symptoms: [],
       doctorDiagnosis: '',
       doctorAdvice: '',
       summary: '',
@@ -3131,6 +3293,7 @@ function buildParseDraft(imageKind) {
   }
   if (imageKind === 'prescription') {
     return {
+      symptoms: [],
       doctorDiagnosis: '',
       doctorAdvice: '',
       medicinesText: '',
@@ -3139,6 +3302,7 @@ function buildParseDraft(imageKind) {
   }
   if (imageKind === 'examination') {
     return {
+      symptoms: [],
       examinationResult: '',
       summary: '',
     }
@@ -3195,7 +3359,7 @@ function normalizeTextParseOutput(output) {
   const temperature = source.temperatureMax
   const numericTemperature = temperature !== '' && temperature !== null ? Number(temperature) : NaN
   return {
-    symptoms: Array.from(new Set(rawSymptoms.map((item) => textValue(item)).filter(Boolean))),
+    symptoms: normalizeSymptoms(rawSymptoms),
     temperatureMax: Number.isFinite(numericTemperature) ? numericTemperature : '',
     hospitalName: textValue(source.hospitalName),
     doctorDiagnosis: textValue(source.doctorDiagnosis),
@@ -3208,7 +3372,7 @@ function normalizeTextParseOutput(output) {
 
 function buildVisionPrompt(imageKind) {
   const schema = Object.keys(buildParseDraft(imageKind))
-    .map((field) => `"${field}": ""`)
+    .map((field) => `"${field}": ${field === 'symptoms' ? '[]' : '""'}`)
     .join(', ')
   return [
     '你是家庭健康记录中的图片资料整理模块，不是医生。',
@@ -3216,23 +3380,291 @@ function buildVisionPrompt(imageKind) {
     '请严格返回 JSON 对象，不要返回 Markdown、解释或代码围栏。',
     `资料类型为 ${imageKind}，返回字段必须包含：{${schema}, "documentType": "", "rawText": "", "confidence": 0}`,
     '看不清或图片中不存在的字段填写空字符串；confidence 为 0 到 1 之间的识别把握度。',
+    '病例、处方或检查图片中的 symptoms 只填写图片明确写出的症状或主诉，不要根据诊断名称推断；只代表资料记录，不代表你在做诊断。',
     '处方图片中的 medicinesText 请逐项整理药名、规格和用法用量；只代表医生开具记录，不代表用户已经购买或正在使用。',
   ].join('\n')
 }
 
 function normalizeVisionOutput(imageKind, output) {
-  const source = output && typeof output === 'object' && !Array.isArray(output) ? output : {}
+  const source = unwrapVisionOutput(output)
   const normalized = buildParseDraft(imageKind)
   Object.keys(normalized).forEach((field) => {
-    normalized[field] = textValue(source[field])
+    normalized[field] = field === 'symptoms'
+      ? normalizeSymptoms(readVisionValue(source, field))
+      : textValue(readVisionValue(source, field))
   })
-  normalized.documentType = textValue(source.documentType)
-  normalized.rawText = textValue(source.rawText)
-  const confidence = Number(source.confidence)
+  normalized.documentType = textValue(readVisionValue(source, 'documentType'))
+  normalized.rawText = textValue(readVisionValue(source, 'rawText'))
+  fillVisionFieldsFromRawText(imageKind, normalized)
+  if (!normalized.summary && normalized.rawText && Object.hasOwn(normalized, 'summary')) {
+    normalized.summary = normalized.rawText
+  }
+  const confidence = Number(readVisionValue(source, 'confidence'))
   normalized.confidence = Number.isFinite(confidence)
     ? Math.max(0, Math.min(1, confidence))
     : 0
   return normalized
+}
+
+const VISION_FIELD_ALIASES = {
+  doctorDiagnosis: ['doctorDiagnosis', 'doctorRecord', 'doctor_record', 'diagnosis', 'diagnoses', '医生记录', '医生诊断', '诊断'],
+  doctorAdvice: ['doctorAdvice', 'doctor_advice', 'advice', '医生建议', '医嘱', '建议'],
+  summary: ['summary', 'caseSummary', 'case_summary', 'summaryText', '病例摘要', '摘要'],
+  name: ['name', 'medicineName', '药品名称', '药名'],
+  specification: ['specification', '规格'],
+  expireDate: ['expireDate', 'expiryDate', 'expirationDate', '有效期'],
+  manufacturer: ['manufacturer', '厂家', '生产厂家'],
+  approvalNo: ['approvalNo', 'approvalNumber', '批准文号'],
+  instructionText: ['instructionText', 'instructions', '说明书重点', '用法用量'],
+  contraindications: ['contraindications', '禁忌', '注意事项'],
+  medicinesText: ['medicinesText', 'medicines', 'prescription', '处方药品', '药品与用法'],
+  examinationResult: ['examinationResult', 'examination', 'testResult', '检查结果'],
+  documentType: ['documentType', 'document_type', '资料类型', '文档类型'],
+  rawText: ['rawText', 'raw_text', 'ocrText', 'text', '原文'],
+  confidence: ['confidence', '置信度', '识别置信度'],
+}
+
+function unwrapVisionOutput(output) {
+  const source = output && typeof output === 'object' && !Array.isArray(output) ? output : {}
+  const nestedCandidates = [source.output, source.result, source.data, source.fields]
+  return nestedCandidates.reduce((merged, candidate) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      return merged
+    }
+    return Object.entries(candidate).reduce((result, [key, value]) => {
+      if (hasVisionValue(value) || !hasVisionValue(result[key])) {
+        result[key] = value
+      }
+      return result
+    }, { ...merged })
+  }, source)
+}
+
+function readVisionValue(source, field) {
+  const keys = VISION_FIELD_ALIASES[field] || [field]
+  return keys.reduce((value, key) => (
+    value !== '' && value !== undefined && value !== null
+      ? value
+      : source[key]
+  ), '')
+}
+
+function hasVisionContent(output) {
+  return Object.entries(output || {}).some(([key, value]) => (
+    !['confidence', 'documentType', 'rawText'].includes(key) && Boolean(textValue(value))
+  ))
+}
+
+function hasVisionValue(value) {
+  if (Array.isArray(value)) {
+    return value.some(hasVisionValue)
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value).some(hasVisionValue)
+  }
+  return typeof value === 'string'
+    ? Boolean(value.trim())
+    : value !== null && value !== undefined
+}
+
+const VISION_RAW_TEXT_LABELS = {
+  medical_record: {
+    symptoms: ['症状', '主要症状', '主诉', '临床表现'],
+    doctorDiagnosis: ['医生记录', '医生诊断', '诊断'],
+    doctorAdvice: ['医嘱', '诊疗意见'],
+  },
+  prescription: {
+    symptoms: ['症状', '主要症状', '主诉'],
+    doctorDiagnosis: ['医生记录', '医生诊断', '诊断'],
+    doctorAdvice: ['医嘱', '诊疗意见'],
+    medicinesText: ['处方药品', '用药情况', '药品'],
+  },
+  examination: {
+    symptoms: ['症状', '主要症状', '主诉'],
+    examinationResult: ['检查结果', '辅助检查结果', '检验结果'],
+  },
+  medicine_box: {
+    name: ['药品名称', '通用名称', '药名'],
+    specification: ['规格'],
+    expireDate: ['有效期至', '有效期', '失效期'],
+    manufacturer: ['生产厂家', '生产企业', '厂家'],
+    approvalNo: ['批准文号'],
+  },
+  instruction: {
+    name: ['药品名称', '通用名称', '药名'],
+    instructionText: ['用法用量', '说明书重点'],
+    contraindications: ['禁忌', '注意事项'],
+  },
+}
+
+function fillVisionFieldsFromRawText(imageKind, normalized) {
+  const rawText = String(normalized.rawText || '').trim()
+  const labelsByField = VISION_RAW_TEXT_LABELS[imageKind]
+  if (!rawText || !labelsByField) {
+    return
+  }
+  Object.entries(labelsByField).forEach(([field, labels]) => {
+    if (!hasFieldValue(normalized[field])) {
+      const value = extractVisionLabeledText(rawText, labels)
+      normalized[field] = field === 'symptoms' ? normalizeSymptoms(value) : value
+    }
+  })
+}
+
+async function syncPrescriptionMedicines(openid, familyId, illness, medicinesText, source = '处方识别') {
+  const candidates = parsePrescriptionMedicineText(medicinesText)
+  if (!candidates.length || !illness.memberId) {
+    return []
+  }
+  const member = await assertFamilyRecord('family_members', illness.memberId, familyId)
+  const existingResult = await db
+    .collection('medicines')
+    .where({
+      familyId,
+      memberId: illness.memberId,
+      deletedAt: _.exists(false),
+    })
+    .limit(100)
+    .get()
+  const existingMedicines = existingResult.data || []
+  const medicineIds = []
+
+  for (const candidate of candidates) {
+    const existing = existingMedicines.find((item) => (
+      normalizeMedicineMatch(item.name) === normalizeMedicineMatch(candidate.name)
+      && normalizeMedicineMatch(item.specification) === normalizeMedicineMatch(candidate.specification)
+    ))
+    if (existing) {
+      medicineIds.push(existing._id)
+      continue
+    }
+
+    await assertRecordQuota(familyId, 'medicines')
+    const medicineId = createDeterministicDocumentId(
+      'prescription_medicine',
+      familyId,
+      illness.memberId,
+      candidate.name,
+      candidate.specification,
+    )
+    const data = {
+      familyId,
+      memberId: illness.memberId,
+      memberNameSnapshot: member.name || '',
+      name: candidate.name,
+      category: '其他',
+      tags: ['处方药'],
+      specification: candidate.specification,
+      packageSize: 0,
+      packageUnit: '',
+      totalQuantity: 1,
+      remainingQuantity: 1,
+      unit: '盒',
+      expireDate: '',
+      location: '家庭药箱',
+      source,
+      indicationsText: '',
+      instructionText: '',
+      note: `来自病程${source}：${candidate.text}`,
+      createdBy: openid,
+      createdAt: db.serverDate(),
+      updatedBy: openid,
+      updatedAt: db.serverDate(),
+    }
+    await db.collection('medicines').doc(medicineId).set({ data })
+    existingMedicines.push({ _id: medicineId, ...data })
+    medicineIds.push(medicineId)
+  }
+  return Array.from(new Set(medicineIds))
+}
+
+function buildRecognizedMedicineText(imageKind, output = {}) {
+  if (imageKind === 'prescription') {
+    return textValue(output.medicinesText)
+  }
+  if (!['medicine_box', 'instruction'].includes(imageKind)) {
+    return ''
+  }
+  return [textValue(output.name), textValue(output.specification)]
+    .filter(Boolean)
+    .join(' ')
+}
+
+async function syncPrescriptionMedicineLinks(openid, familyId, illnessRecordId, medicineIds) {
+  if (!medicineIds.length) {
+    return
+  }
+  const family = await getCurrentFamily(openid, familyId)
+  const result = await db
+    .collection('course_events')
+    .where({
+      familyId: family._id,
+      illnessRecordId,
+      source: 'illness_created',
+      deletedAt: _.exists(false),
+    })
+    .limit(1)
+    .get()
+  if (!result.data.length) {
+    return
+  }
+  const event = result.data[0]
+  const existingIds = Array.isArray(event.prescribedMedicineIds) ? event.prescribedMedicineIds : []
+  const prescribedMedicineIds = Array.from(new Set([...existingIds, ...medicineIds]))
+  const prescribedMedicineRecords = await assertFamilyRecords('medicines', prescribedMedicineIds, family._id)
+  await db.collection('course_events').doc(event._id).update({
+    data: {
+      eventType: 'visit',
+      prescribedMedicineIds,
+      prescribedMedicines: prescribedMedicineRecords.map((item) => ({
+        medicineId: item._id,
+        medicineNameSnapshot: item.name || '',
+        unitSnapshot: item.unit || '',
+      })),
+      updatedBy: openid,
+      updatedAt: db.serverDate(),
+    },
+  })
+}
+
+function parsePrescriptionMedicineText(value) {
+  return Array.from(new Map(
+    String(value || '')
+      .split(/[\r\n；;]+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((text) => text.replace(/^\s*\d+[.、)）]\s*/, '').replace(/^(处方药品|药品|用药情况)\s*[：:]\s*/, ''))
+      .map((text) => {
+        const nameMatch = text.match(/^([^（(\s：:，,]+)/)
+        const name = nameMatch ? nameMatch[1].trim() : text
+        const specification = text.slice(name.length).replace(/^[：:，,\s]+/, '').trim()
+        return [
+          `${normalizeMedicineMatch(name)}|${normalizeMedicineMatch(specification)}`,
+          { text, name, specification },
+        ]
+      }),
+  ).values())
+}
+
+function normalizeMedicineMatch(value) {
+  return textValue(value).replace(/\s+/g, '').toLowerCase()
+}
+
+function extractVisionLabeledText(rawText, labels) {
+  const lines = String(rawText || '').split(/[\r\n]+/).map((line) => line.trim()).filter(Boolean)
+  for (const line of lines) {
+    for (const label of labels) {
+      const match = line.match(new RegExp(`^${escapeRegExp(label)}\\s*[：:]\\s*(.+)$`))
+      if (match && match[1]) {
+        return match[1].trim()
+      }
+    }
+  }
+  return ''
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function textValue(value) {
@@ -3242,7 +3674,28 @@ function textValue(value) {
   if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value)
   }
+  if (Array.isArray(value)) {
+    return value.map(textValue).filter(Boolean).join('；')
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value)
+      .map(([key, item]) => {
+        const text = textValue(item)
+        return text ? `${key}：${text}` : ''
+      })
+      .filter(Boolean)
+      .join('；')
+  }
   return ''
+}
+
+function hasFieldValue(value) {
+  return Array.isArray(value) ? value.length > 0 : Boolean(textValue(value))
+}
+
+function normalizeSymptoms(value) {
+  const values = Array.isArray(value) ? value : String(value || '').split(/[、,，；;\n]+/)
+  return Array.from(new Set(values.map((item) => textValue(item)).filter(Boolean)))
 }
 
 function buildAiSummary(imageKind, output) {
@@ -3310,3 +3763,6 @@ function fail(message) {
     message,
   }
 }
+
+module.exports.normalizeVisionOutput = normalizeVisionOutput
+module.exports.hasVisionContent = hasVisionContent

@@ -4,14 +4,14 @@
 
 保证用户第一次打开小程序、没有真实云数据、只有创建者本人档案、没有药品、没有病程记录时，每一个入口都有明确的下一步，不出现空选择器、无效保存、静默失败或误以为已经记录成功。
 
-当前开发测试版本默认开启 `ENABLE_DEV_MOCK_LOGIN`。在微信开发者工具中启动时，会跳过 `wx.login()` 和云函数，直接使用本地测试身份完成登录：
+当前开发测试版本默认开启 `ENABLE_DEV_MOCK_LOGIN`。仅在微信开发者工具模拟器中启动时，会跳过 `wx.login()` 和云函数，直接使用本地测试身份完成登录；iOS/Android 真机即使使用开发版，也会连接真实 CloudBase 环境和云函数：
 
 - `openid`: `devtools-openid`
 - `nickname`: `测试用户`
 - `currentFamilyId`: `demo-family-001`
 - `loginMode`: `test`
 
-该开关只对 `envVersion=develop` 生效，体验版和正式版会强制走真实登录。需要在开发者工具中联调真实登录时，把 `miniprogram/app.js` 顶部的 `ENABLE_DEV_MOCK_LOGIN` 临时改为 `false`，并配置云环境。
+该开关只对 `envVersion=develop` 且运行平台为 `devtools` 生效，体验版、正式版和真实设备会强制走真实登录。需要在开发者工具模拟器中联调真实登录时，把 `miniprogram/app.js` 顶部的 `ENABLE_DEV_MOCK_LOGIN` 临时改为 `false`，并配置云环境。
 
 ## 全局状态机
 

@@ -1,7 +1,12 @@
 const api = require('../../services/api')
 const { nowDateTimeInput } = require('../../utils/format')
 const { ensureHasMembers, ensureLoginReady } = require('../../utils/operation-guards')
-const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
+const {
+  ensureImagePrivacyAuthorization,
+  getImageUploadErrorMessage,
+  getMediaSourceType,
+  isImageSelectionCanceled,
+} = require('../../utils/image-upload')
 const {
   EVENT_IDS,
   countBucket,
@@ -11,6 +16,7 @@ const {
 } = require('../../utils/analytics')
 
 const MAX_IMAGES_PER_SLOT = 3
+const VISIT_IMAGE_KINDS = ['medical_record', 'examination', 'prescription']
 
 const slotDefinitions = [
   { label: '病例 / 问诊单', hint: '门诊病历、问诊记录、医生诊断', imageKind: 'medical_record' },
@@ -48,6 +54,7 @@ Page({
   },
 
   onLoad() {
+    this.imageUploadNoticeShown = false
     track(EVENT_IDS.QUICK_RECORD_START, { entry: 'quick' })
     this.load()
   },
@@ -157,21 +164,27 @@ Page({
       wx.showToast({ title: `这一类最多上传 ${MAX_IMAGES_PER_SLOT} 张`, icon: 'none' })
       return
     }
-    const confirmed = await new Promise((resolve) => {
-      wx.showModal({
-        title: '上传健康图片？',
-        content: '图片可能包含健康或身份信息，请先遮挡无关姓名、证件号等内容。',
-        success: (result) => resolve(Boolean(result.confirm)),
-        fail: () => resolve(false),
+    if (!this.imageUploadNoticeShown) {
+      const confirmed = await new Promise((resolve) => {
+        wx.showModal({
+          title: '上传健康图片？',
+          content: '图片可能包含健康或身份信息，请先遮挡无关姓名、证件号等内容。',
+          success: (result) => resolve(Boolean(result.confirm)),
+          fail: () => resolve(false),
+        })
       })
-    })
-    if (!confirmed) {
-      return
+      if (!confirmed) {
+        return
+      }
+      this.imageUploadNoticeShown = true
     }
     const uploaded = []
     let duplicateCount = 0
     try {
       const sourceResult = await wx.showActionSheet({ itemList: ['拍照', '从相册选择'] })
+      if (!await ensureImagePrivacyAuthorization(this)) {
+        return
+      }
       const chooseResult = await wx.chooseMedia({
         count: remaining,
         mediaType: ['image'],
@@ -330,16 +343,15 @@ Page({
       return
     }
 
-    const shouldReviewAi = Boolean(this.data.imageParsingEnabled && (files.length || inputText))
-    const basePayload = buildBasePayload(member._id, inputText)
+    const shouldAutoProcess = Boolean(this.data.imageParsingEnabled && (files.length || inputText))
+    const basePayload = buildBasePayload(member._id, inputText, files)
     this.setData({ saving: true })
     wx.showLoading({ title: '保存病程' })
     try {
       const saved = await api.saveIllness(basePayload)
       track(EVENT_IDS.RECORD_CREATED, { entry: 'quick', status: 'success' })
-      const savedAttachments = []
       for (const file of files) {
-        const attachment = await api.saveAttachment({
+        await api.saveAttachment({
           relatedType: 'illness',
           relatedId: saved.id,
           fileType: 'image',
@@ -348,32 +360,18 @@ Page({
           ocrText: '',
           aiSummary: '等待智能整理。',
         })
-        savedAttachments.push({
-          ...attachment,
-          fileId: file.fileID,
-          tempFilePath: file.tempFilePath || '',
-          imageKind: file.imageKind,
-        })
       }
 
       wx.hideLoading()
       this.setData({ saving: false })
-      const detailUrl = `/pages/illness/detail?id=${saved.id}`
-      if (shouldReviewAi) {
-        const app = getApp()
-        if (app.globalData) {
-          app.globalData.pendingIllnessReview = {
-            illnessId: saved.id,
-            memberId: member._id,
-            inputText,
-            attachments: savedAttachments,
-            returnUrl: detailUrl,
-          }
-        }
-        wx.redirectTo({ url: '/pages/illness/review' })
-      } else {
-        wx.redirectTo({ url: detailUrl })
+      const detailUrl = `/pages/illness/detail?id=${saved.id}${shouldAutoProcess ? '&processing=1' : ''}`
+      if (shouldAutoProcess) {
+        api.processQuickIllness({ illnessId: saved.id }).catch((error) => {
+          trackServiceError('quick_record_background_parse')
+          console.error('quick record background parse failed', error)
+        })
       }
+      wx.redirectTo({ url: detailUrl })
     } catch (error) {
       wx.hideLoading()
       this.setData({ saving: false })
@@ -442,7 +440,8 @@ function hasImage(slots, sourcePath) {
   )))
 }
 
-function buildBasePayload(memberId, inputText) {
+function buildBasePayload(memberId, inputText, files = []) {
+  const hasVisitEvidence = files.some((file) => VISIT_IMAGE_KINDS.includes(file.imageKind))
   const payload = {
     entrySource: 'quick',
     memberId,
@@ -456,10 +455,10 @@ function buildBasePayload(memberId, inputText) {
     doctorAdvice: '',
     examinationResult: '',
     prescribedMedicineIds: [],
-    status: '观察中',
+    status: hasVisitEvidence ? '已就医' : '观察中',
     summary: inputText || '快速记录一次生病',
     quickInputText: inputText,
-    initialEventType: 'symptom',
+    initialEventType: hasVisitEvidence ? 'visit' : 'symptom',
     initialEventNote: inputText || '快速记录一次生病',
   }
   return payload

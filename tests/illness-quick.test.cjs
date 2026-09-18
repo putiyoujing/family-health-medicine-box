@@ -22,7 +22,7 @@ test('quick illness page is registered without voice prompt and exposes categori
   assert.doesNotMatch(template, /class="page-title"/)
   assert.match(template, /src="\{\{file\.fileID \|\| file\.tempFilePath\}\}"/)
   assert.doesNotMatch(template, /bindtap="startTextParse"/)
-  assert.match(template, /提交并保存病程后，再整理文字和图片/)
+  assert.match(template, /提交后会在后台自动整理文字和图片/)
   assert.deepEqual(Array.from(page.buildSlots(), (slot) => slot.label), [
     '病例 / 问诊单',
     '检查报告',
@@ -30,6 +30,28 @@ test('quick illness page is registered without voice prompt and exposes categori
     '药品图片',
   ])
   assert.doesNotMatch(template, /bindtap="startRecord"|recorderManager|startRecord|wx\.getRecorderManager/)
+})
+
+test('health image reminder is guarded once per current page course', () => {
+  const sources = [
+    fs.readFileSync(pagePath, 'utf8'),
+    fs.readFileSync(path.join(root, 'miniprogram/pages/illness/form.js'), 'utf8'),
+    fs.readFileSync(path.join(root, 'miniprogram/pages/illness/detail.js'), 'utf8'),
+    fs.readFileSync(path.join(root, 'miniprogram/pages/medicines/form.js'), 'utf8'),
+  ]
+
+  for (const source of sources) {
+    assert.match(source, /if \(!this\.imageUploadNoticeShown\)/)
+    assert.match(source, /this\.imageUploadNoticeShown = true/)
+  }
+})
+
+test('quick illness attachment save validates the production illness_records collection', () => {
+  const cloudSource = fs.readFileSync(path.join(root, 'cloudfunctions/healthApi/index.js'), 'utf8')
+  const saveAttachmentSource = cloudSource.match(/async function saveAttachment[\s\S]*?\r?\n}\r?\n\r?\nasync function syncInitialCourseEvent/)[0]
+
+  assert.match(saveAttachmentSource, /assertFamilyRecord\('illness_records', payload\.relatedId, family\.\_id\)/)
+  assert.doesNotMatch(saveAttachmentSource, /assertFamilyRecord\('illness', payload\.relatedId/)
 })
 
 test('quick illness saves images and sends them to explicit user review before parsing', async () => {
@@ -52,6 +74,10 @@ test('quick illness saves images and sends them to explicit user review before p
         saveAttachment: async (payload) => {
           calls.push({ action: 'saveAttachment', payload })
           return { id: `attachment-${calls.filter((item) => item.action === 'saveAttachment').length}` }
+        },
+        processQuickIllness: async (payload) => {
+          calls.push({ action: 'processQuickIllness', payload })
+          return { status: 'completed' }
         },
         parseIllnessText: async (payload) => {
           calls.push({ action: 'textParse', payload })
@@ -131,15 +157,16 @@ test('quick illness saves images and sends them to explicit user review before p
   await instance.submit()
   await new Promise((resolve) => setTimeout(resolve, 0))
 
-  assert.equal(redirectUrl, '/pages/illness/review')
+  assert.equal(redirectUrl, '/pages/illness/detail?id=illness-a&processing=1')
   assert.equal(calls[0].payload.entrySource, 'quick')
   assert.equal(calls.filter((item) => item.action === 'saveAttachment').length, 1)
   assert.equal(calls.filter((item) => item.action === 'saveIllness').length, 1)
+  assert.equal(calls.some((item) => item.action === 'processQuickIllness'), true)
   assert.equal(calls.some((item) => item.action === 'parse'), false)
   assert.equal(calls.some((item) => item.action === 'textParse'), false)
   assert.equal(calls.some((item) => item.action === 'confirm'), false)
-  assert.equal(app.globalData.pendingIllnessReview.illnessId, 'illness-a')
-  assert.equal(app.globalData.pendingIllnessReview.returnUrl, '/pages/illness/detail?id=illness-a')
+  assert.equal(calls[0].payload.status, '已就医')
+  assert.equal(calls[0].payload.initialEventType, 'visit')
 })
 
 test('quick illness saves raw text before any AI parsing', async () => {
@@ -158,6 +185,10 @@ test('quick illness saves raw text before any AI parsing', async () => {
         confirmAiParseResult: async (payload) => {
           calls.push({ action: 'confirm', payload })
           return { status: 'confirmed' }
+        },
+        processQuickIllness: async (payload) => {
+          calls.push({ action: 'processQuickIllness', payload })
+          return { status: 'completed' }
         },
         saveIllness: async (payload) => {
           savedPayload = payload
@@ -194,8 +225,8 @@ test('quick illness saves raw text before any AI parsing', async () => {
   assert.deepEqual(Array.from(savedPayload.symptoms), [])
   assert.equal(savedPayload.temperatureMax, null)
   assert.equal(savedPayload.symptomDescription, '昨晚开始发烧并咳嗽，最高 38.6℃。')
-  assert.equal(redirectUrl, '/pages/illness/review')
-  assert.equal(app.globalData.pendingIllnessReview.illnessId, 'illness-text-a')
-  assert.equal(app.globalData.pendingIllnessReview.inputText, '昨晚开始发烧并咳嗽，最高 38.6℃。')
+  assert.equal(savedPayload.status, '观察中')
+  assert.equal(redirectUrl, '/pages/illness/detail?id=illness-text-a&processing=1')
+  assert.equal(calls.find((item) => item.action === 'processQuickIllness').payload.illnessId, 'illness-text-a')
   assert.equal(calls.some((item) => item.action === 'confirm'), false)
 })

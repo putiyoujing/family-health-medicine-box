@@ -24,7 +24,7 @@
     <view class="field">
       <text class="field-label">描述这次生病情况</text>
       <textarea class="textarea quick-input" value="{{inputText}}" bindinput="onInput" maxlength="2000" placeholder="例如：昨晚开始发烧，最高 38.6℃，今天去医院检查后开了药。"></textarea>
-      <view class="muted quick-ai-hint" wx:if="{{imageParsingEnabled && inputText}}">提交并保存病程后，再整理文字和图片；整理结果会逐项核对。</view>
+      <view class="muted quick-ai-hint" wx:if="{{imageParsingEnabled && inputText}}">提交后会在后台自动整理文字和图片，并保存到病程中。</view>
     </view>
   </view>
 

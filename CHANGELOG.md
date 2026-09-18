@@ -2,6 +2,22 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
+## [1.1.0] - 2026-09-18
+
+### Changed
+
+- Complete the quick-record background parsing flow for text, medical records, examinations, prescriptions, medicine packages, and instructions.
+- Automatically create or reuse recognized medicines in the household medicine cabinet without touching existing user records.
+- Show the health-image privacy reminder only once per current illness record, then open the camera or album directly.
+- Keep append-record timestamps at the current time and correct the dashboard and illness status-pill layout.
+
+### Verification
+
+- `npm run check` passed with 221 tests and all static release gates.
+- `healthApi` was updated in CloudBase environment `family-health-prod-d9csm29f27d75` and verified `Active / Available`.
+- No database migration, bulk rewrite, deletion, or production health-data cleanup is included.
+- Mini-program experience upload remains a separate release step; formal WeChat production release requires the WeChat review/release workflow.
+
 ## [1.0.15] - Unreleased
 
 ### Changed

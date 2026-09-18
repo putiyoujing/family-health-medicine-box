@@ -6,7 +6,12 @@ const {
   ensureLoginReady,
   ensureMedicationReady,
 } = require('../../utils/operation-guards')
-const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
+const {
+  ensureImagePrivacyAuthorization,
+  getImageUploadErrorMessage,
+  getMediaSourceType,
+  isImageSelectionCanceled,
+} = require('../../utils/image-upload')
 const { buildMedicineCandidates } = require('../../utils/medicine-candidates')
 const { EVENT_IDS, countBucket, track, trackServiceError } = require('../../utils/analytics')
 
@@ -75,10 +80,13 @@ Page({
   },
 
   onLoad(options = {}) {
+    this.imageUploadNoticeShown = false
     this.processingHint = options.processing === '1'
+    const showEventForm = options.action === 'add'
     this.setData({
       id: options.id || '',
-      showEventForm: options.action === 'add',
+      showEventForm,
+      ...(showEventForm ? { eventForm: createEventForm() } : {}),
     })
   },
 
@@ -143,7 +151,11 @@ Page({
         }))
       const timeline = mergeTimeline(courseEvents, medicationLogs)
       const medicineCandidates = applyMedicineConfirmations(
-        buildMedicineCandidates(record.prescriptionText),
+        applyMedicineCabinetMatches(
+          buildMedicineCandidates(record.prescriptionText),
+          home.medicines || [],
+          record.memberId,
+        ),
         record._id,
       )
       if (record.aiProcessingStatus === 'completed' && !this.resultViewTracked) {
@@ -211,8 +223,10 @@ Page({
     const showEventForm = !this.data.showEventForm
     if (!showEventForm) {
       clearVisitDraft(this.data.id)
+      this.setData({ showEventForm })
+      return
     }
-    this.setData({ showEventForm })
+    this.setData({ showEventForm, eventForm: createEventForm() })
   },
 
   async editRecord() {
@@ -240,17 +254,19 @@ Page({
     if (!this.data.canEditRecords || !this.data.imageParsingEnabled || !this.data.record || !this.data.attachments.length) {
       return
     }
-    const app = getApp()
-    if (app.globalData) {
-      app.globalData.pendingIllnessReview = {
-        ...(app.globalData.pendingIllnessReview || {}),
-        illnessId: this.data.record._id,
-        memberId: this.data.record.memberId,
-        attachments: this.data.attachments,
-        returnUrl: `/pages/illness/detail?id=${this.data.record._id}`,
-      }
+    if (this.data.record.aiProcessing) {
+      return
     }
-    wx.navigateTo({ url: '/pages/illness/review' })
+    this.processingHint = true
+    this.setData({ 'record.aiProcessing': true })
+    wx.showToast({ title: '已开始后台整理', icon: 'none' })
+    api.processQuickIllness({ illnessId: this.data.record._id, includeText: false })
+      .then(() => this.load({ silent: true }))
+      .catch((error) => {
+        trackServiceError('illness_background_parse')
+        wx.showToast({ title: error.message || '后台整理失败', icon: 'none' })
+        this.load({ silent: true })
+      })
   },
 
   addRecognizedMedicine(event) {
@@ -453,18 +469,24 @@ Page({
       wx.showToast({ title: `每次就诊最多 ${MAX_VISIT_ATTACHMENTS} 张`, icon: 'none' })
       return
     }
-    const confirmed = await confirm(
-      '图片可能包含敏感健康或身份信息。请先遮挡无关姓名、证件号等内容，确认后再选择并上传。',
-      '上传健康图片？',
-    )
-    if (!confirmed) {
-      return
+    if (!this.imageUploadNoticeShown) {
+      const confirmed = await confirm(
+        '图片可能包含敏感健康或身份信息。请先遮挡无关姓名、证件号等内容，确认后再选择并上传。',
+        '上传健康图片？',
+      )
+      if (!confirmed) {
+        return
+      }
+      this.imageUploadNoticeShown = true
     }
     const uploaded = []
     try {
       const sourceResult = await wx.showActionSheet({
         itemList: ['拍照', '从相册选择'],
       })
+      if (!await ensureImagePrivacyAuthorization(this)) {
+        return
+      }
       const chooseResult = await wx.chooseMedia({
         count: remaining,
         mediaType: ['image'],
@@ -823,6 +845,22 @@ function applyMedicineConfirmations(candidates, illnessId) {
     }
     return candidate
   })
+}
+
+function applyMedicineCabinetMatches(candidates, medicines, memberId) {
+  return candidates.map((candidate) => {
+    const matchedMedicine = medicines.find((medicine) => (
+      (!medicine.memberId || medicine.memberId === memberId)
+      && normalizeMedicineMatch(medicine.name) === normalizeMedicineMatch(candidate.name)
+    ))
+    return matchedMedicine
+      ? { ...candidate, action: 'added', actionText: '已加入药箱', medicineId: matchedMedicine._id }
+      : candidate
+  })
+}
+
+function normalizeMedicineMatch(value) {
+  return String(value || '').replace(/\s+/g, '').toLowerCase()
 }
 
 function hasValue(value) {
