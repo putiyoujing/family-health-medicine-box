@@ -11,7 +11,18 @@ if (!privateKeyPath) {
 
 const project = new ci.Project({
   appid,
-  ignores: ['node_modules/**/*', '.git/**/*', 'dist/**/*', 'screenshots/**/*', 'images/**/*'],
+  ignores: [
+    'node_modules/**/*',
+    '.git/**/*',
+    'dist/**/*',
+    'screenshots/**/*',
+    'images/**/*',
+    'docs/**/*',
+    'tests/**/*',
+    'src/**/*',
+    '*.md',
+    'AGENTS.md',
+  ],
   privateKeyPath: path.resolve(privateKeyPath),
   type: 'miniProgram',
   projectPath: path.resolve(__dirname, '..'),
