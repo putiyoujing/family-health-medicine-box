@@ -188,10 +188,13 @@ async function createOrder(openid, payload) {
   await assertFamilyManager(openid, familyId)
   const plan = await getPlan(payload.planId)
   const idempotencyKey = String(payload.idempotencyKey || '').trim()
+  const deterministicOrderId = idempotencyKey
+    ? `idem_${crypto.createHash('sha256').update(`${openid}:${idempotencyKey}`).digest('hex').slice(0, 24)}`
+    : ''
   if (idempotencyKey) {
-    const existing = await db.collection('orders').where({ payerOpenid: openid, idempotencyKey }).limit(1).get()
-    if (existing.data.length) {
-      return formatOrder(existing.data[0])
+    const existing = await safeGetDoc('orders', deterministicOrderId)
+    if (existing) {
+      return formatOrder(existing)
     }
   }
   const coupon = payload.couponCode ? await findCouponForOrder(payload.couponCode, openid, familyId, plan) : null
@@ -200,8 +203,7 @@ async function createOrder(openid, payload) {
   const membershipChange = await getMembershipChangeContext(familyId)
   const orderNo = await createOrderNo()
   const now = db.serverDate()
-  const result = await db.collection('orders').add({
-    data: {
+  const orderData = {
       orderNo,
       familyId,
       payerOpenid: openid,
@@ -225,13 +227,16 @@ async function createOrder(openid, payload) {
       paymentReady: false,
       createdAt: now,
       updatedAt: now,
-    },
-  })
+  }
+  const result = deterministicOrderId
+    ? await db.collection('orders').doc(deterministicOrderId).set({ data: orderData })
+    : await db.collection('orders').add({ data: orderData })
+  const orderId = deterministicOrderId || result._id
   if (coupon) {
-    await markCouponPending(coupon, openid, familyId, result._id, plan.planId, discountAmount)
+    await markCouponPending(coupon, openid, familyId, orderId, plan.planId, discountAmount)
   }
   return {
-    orderId: result._id,
+    orderId,
     orderNo,
     status: 'pending',
     plan,
@@ -833,8 +838,7 @@ async function createOrderNo() {
 
 async function markCouponPending(coupon, openid, familyId, orderId, planId, discountAmount) {
   try {
-    await db.collection('coupon_redemptions').add({
-      data: {
+    await db.collection('coupon_redemptions').doc(`pending_${orderId}`).set({ data: {
         couponId: coupon._id,
         code: coupon.code,
         userOpenid: openid,
@@ -846,8 +850,7 @@ async function markCouponPending(coupon, openid, familyId, orderId, planId, disc
         status: 'pending',
         createdAt: db.serverDate(),
         updatedAt: db.serverDate(),
-      },
-    })
+      } })
   } catch (error) {
     console.warn('coupon_redemptions pending failed', error.message)
   }

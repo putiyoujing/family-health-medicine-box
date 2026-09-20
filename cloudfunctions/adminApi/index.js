@@ -1244,6 +1244,10 @@ async function refundOrder(payload = {}, admin = {}) {
       proExpireAt: order.previousExpireAt || null,
     }
   await db.collection('families').doc(order.familyId).update({ data: { ...familyUpdate, updatedAt: now } })
+  if (order.couponId) {
+    await db.collection('coupon_redemptions').where({ couponId: order.couponId, orderId, status: 'used' }).update({ data: { status: 'refunded', refundedAt: now, updatedAt: now } })
+    await db.collection('coupons').doc(order.couponId).update({ data: { usedQuantity: _.inc(-1), updatedAt: now } })
+  }
   return { orderId, status: 'refunded' }
 }
 
