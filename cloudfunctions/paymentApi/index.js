@@ -281,6 +281,7 @@ async function redeemMembershipCode(openid, payload) {
   const codeRecord = initialCodeRecord
   validateMembershipCode(codeRecord)
   validateMembershipCodeBatch(initialBatch)
+  await claimMembershipCode(codeRecord)
   const initialPlanConfig = resolveMembershipCodePlan(initialCodeRecord, initialBatch)
   const redeemDurationDays = initialPlanConfig.durationDays
   const plan = {
@@ -490,14 +491,8 @@ async function mockPaymentSuccess(openid, payload) {
   const membershipChange = await getMembershipChangeContext(order.familyId)
   const tradeNo = `MOCK${Date.now()}`
 
-  await db.collection('orders').doc(orderId).update({
-    data: {
-      status: 'paid',
-      paymentTradeNo: tradeNo,
-      paidAt: now,
-      updatedAt: now,
-    },
-  })
+  const claimed = await claimPendingOrder(orderId, { status: 'paid', paymentTradeNo: tradeNo, paidAt: now, updatedAt: now })
+  if (!claimed) return { orderId, status: 'paid', familyId: order.familyId }
 
   const subscriptionResult = await db.collection('subscriptions').add({
     data: {
@@ -620,6 +615,21 @@ async function getPlan(planId) {
   const builtInPlan = PLANS.find((item) => item.planId === planId)
   if (!builtInPlan) throw new Error('plan not found')
   return builtInPlan
+}
+
+async function claimPendingOrder(orderId, data) {
+  const collection = db.collection('orders')
+  const conditionalQuery = collection.where({ _id: orderId, status: 'pending' })
+  if (typeof conditionalQuery.update !== 'function') {
+    await collection.doc(orderId).update({ data })
+    return true
+  }
+  const result = await conditionalQuery.update({ data })
+  const updated = Number(result && result.stats && result.stats.updated || result && result.updated || 0)
+  if (updated === 1) return true
+  const current = await collection.doc(orderId).get()
+  if (current.data && current.data.status === 'paid') return false
+  throw new Error('order is not payable')
 }
 
 async function findCouponForOrder(code, openid, familyId, plan) {
@@ -910,6 +920,17 @@ async function getMembershipChangeContext(familyId) {
     previousPlanId: family?.planId || 'free',
     previousMembershipTier: family?.membershipTier || 'free',
   }
+}
+
+async function claimMembershipCode(codeRecord) {
+  const expectedStatus = codeRecord.status || 'active'
+  const collection = db.collection('coupon_codes')
+  const conditionalQuery = collection.where({ _id: codeRecord._id, status: expectedStatus })
+  if (typeof conditionalQuery.update !== 'function') return
+  const result = await conditionalQuery.update({ data: { status: 'processing', processingAt: db.serverDate(), updatedAt: db.serverDate() } })
+  const updated = Number(result && result.stats && result.stats.updated || result && result.updated || 0)
+  if (updated !== 1) throw new Error('这个会员兑换码正在兑换或已被使用')
+  codeRecord.status = 'processing'
 }
 
 async function getSubscriptionExpireAt(familyId, durationDays) {
