@@ -27,12 +27,12 @@
   wx:if="{{loginVisible}}"
   show="{{loginVisible}}"
   root-portal="{{true}}"
+  ext-class="auth-login-sheet"
   mask="{{true}}"
   maskClosable="{{false}}"
   closabled="{{!submitting}}"
   title="家人健康记 申请"
   subTitle="获取你的昵称、头像"
-  buttons="{{loginButtons}}"
   bindbuttontap="onLoginButtonTap"
   bindclose="cancelLogin"
 >
@@ -69,5 +69,21 @@
         bindnicknamereview="onNicknameReview"
       />
     </view>
+  </view>
+  <view slot="footer" class="auth-login-actions">
+    <button
+      class="auth-login-action"
+      type="default"
+      data-value="cancel"
+      bindtap="onLoginButtonTap"
+      disabled="{{submitting}}"
+    >拒绝</button>
+    <button
+      class="auth-login-action"
+      type="primary"
+      data-value="confirm"
+      bindtap="onLoginButtonTap"
+      disabled="{{submitting}}"
+    >允许</button>
   </view>
 </mp-half-screen-dialog>

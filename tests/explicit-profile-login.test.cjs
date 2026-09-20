@@ -13,6 +13,7 @@ test('login uses the official global layer and direct native profile controls wi
   const componentConfig = readJson('miniprogram/components/global-auth-layer/index.json')
   const template = read('miniprogram/components/global-auth-layer/index.wxml')
   const styles = read('miniprogram/components/global-auth-layer/index.wxss')
+  const componentSource = read('miniprogram/components/global-auth-layer/index.js')
   const profileTemplate = read('miniprogram/pages/profile/index.wxml')
 
   assert.equal(appConfig.pages.includes('pages/login/index'), false)
@@ -28,19 +29,25 @@ test('login uses the official global layer and direct native profile controls wi
   assert.equal((template.match(/root-portal="{{true}}"/g) || []).length, 2)
   assert.match(template, /<mp-dialog[\s\S]+wx:if="{{privacyVisible}}"/)
   assert.match(template, /<mp-half-screen-dialog[\s\S]+wx:if="{{loginVisible}}"/)
+  assert.match(template, /<mp-half-screen-dialog[\s\S]+ext-class="auth-login-sheet"/)
   assert.match(template, /open-type="agreePrivacyAuthorization"/)
+  assert.doesNotMatch(template, /buttons="{{loginButtons}}"/)
+  assert.match(template, /<view slot="footer" class="auth-login-actions">[\s\S]+>拒绝<\/button>[\s\S]+>允许<\/button>/)
   assert.match(template, /<button[\s\S]+class="avatar-row"[\s\S]+open-type="chooseAvatar"/)
   assert.match(template, /<view class="avatar-value"[^>]*>[\s\S]+class="avatar-preview"[\s\S]+class="field-arrow"/)
   assert.match(template, /class="avatar-row"[\s\S]+style="[^"]*width:\s*100%;[^"]*justify-content:\s*space-between;/)
   assert.match(template, /class="avatar-value"[\s\S]+style="[^"]*margin-left:\s*auto;[^"]*justify-content:\s*flex-end;/)
   assert.match(template, /<input[^>]+type="nickname"/)
-  assert.match(template, /buttons="{{loginButtons}}"/)
   assert.match(template, /bindbuttontap="onLoginButtonTap"/)
+  assert.match(componentSource, /currentTarget[\s\S]+dataset[\s\S]+value/)
   assert.match(
     styles,
     /\.avatar-value\s*{[^}]*margin-left:\s*auto;[^}]*display:\s*flex;[^}]*justify-content:\s*flex-end;/,
   )
-  assert.doesNotMatch(template, /<mp-form|<mp-cells|<mp-cell|slot="footer"/)
+  const appStyles = read('miniprogram/app.wxss')
+  assert.match(appStyles, /\.auth-login-sheet\s*{[^}]*bottom:\s*0;/)
+  assert.match(appStyles, /\.auth-login-sheet \.weui-half-screen-dialog__ft\s*{[^}]*env\(safe-area-inset-bottom\)/)
+  assert.doesNotMatch(template, /<mp-form|<mp-cells|<mp-cell/)
   assert.doesNotMatch(template, /getPhoneNumber|手机号|随机头像昵称/)
   assert.match(profileTemplate, /<global-auth-layer id="global-auth-layer"/)
 })
@@ -144,8 +151,8 @@ test('privacy approval, avatar choice and nickname submission resolve the same p
   component.onChooseAvatar({ detail: { avatarUrl: 'wxfile://avatar.jpg' } })
   component.onNicknameInput({ detail: { value: 'Alice' } })
   assert.equal(await component.onLoginButtonTap({
-    detail: {
-      item: {
+    currentTarget: {
+      dataset: {
         value: 'confirm',
       },
     },
@@ -265,6 +272,60 @@ test('privacy authorization is coordinated once at app level with the official a
     event: 'agree',
     buttonId: 'privacy-agree-button',
   })
+})
+
+test('detaching an auth layer restores only its own tab and releases its privacy request', async () => {
+  let app
+  let definition
+  let currentPage
+  let privacyListener
+  const requests = []
+  loadCjsModule(path.join(root, 'miniprogram/app.js'), {
+    globals: {
+      App(value) { app = value },
+      wx: {
+        onNeedPrivacyAuthorization(listener) { privacyListener = listener },
+        requirePrivacyAuthorize(options) {
+          requests.push(options)
+          privacyListener(() => {})
+        },
+      },
+    },
+  })
+  app.registerPrivacyAuthorization()
+  loadCjsModule(componentPath, {
+    stubs: { '../../utils/operation-guards': { async requestWechatLogin() { return true } } },
+    globals: {
+      Component(value) { definition = value },
+      getApp: () => app,
+      getCurrentPages: () => [currentPage],
+      wx: { showToast() {} },
+    },
+  })
+  const oldTab = { setData(value) { this.hidden = value.authMaskVisible } }
+  const newTab = { hidden: true, setData(value) { this.hidden = value.authMaskVisible } }
+  currentPage = { getTabBar: () => oldTab }
+  const oldLayer = createComponentInstance(definition)
+  const oldRequest = oldLayer.open()
+  assert.equal(oldTab.hidden, true)
+  assert.equal(oldLayer.data.privacyVisible, true)
+  currentPage = { getTabBar: () => newTab }
+  definition.lifetimes.detached.call(oldLayer)
+  assert.equal(await oldRequest, false)
+  assert.equal(oldTab.hidden, false)
+  assert.equal(newTab.hidden, true)
+  assert.equal(app.privacyRequestPromise, null)
+  assert.equal(app.activeAuthLayer, null)
+
+  const newLayer = createComponentInstance(definition)
+  const newRequest = newLayer.open()
+  assert.equal(newLayer.data.privacyVisible, true)
+  requests[0].fail()
+  assert.equal(app.activeAuthLayer, newLayer)
+  assert.ok(app.privacyRequestPromise)
+  newLayer.onPrivacyReject()
+  assert.equal(await newRequest, false)
+  assert.equal(newTab.hidden, false)
 })
 
 test('profile login entry waits for the global layer and refreshes the current page without navigation', () => {

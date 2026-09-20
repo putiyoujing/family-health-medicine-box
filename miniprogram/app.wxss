@@ -244,3 +244,12 @@ button::after {
   font-size: 22rpx;
   text-align: center;
 }
+
+.auth-login-sheet {
+  bottom: 0;
+}
+
+.auth-login-sheet .weui-half-screen-dialog__ft {
+  padding-bottom: calc(36rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(36rpx + env(safe-area-inset-bottom));
+}

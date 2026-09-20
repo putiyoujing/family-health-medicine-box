@@ -182,7 +182,7 @@ test('text parse confirmation normalizes edited fields and writes them to the il
   assert.equal(fixture.illnessUpdates[0].data.temperatureMax, 38.6)
 })
 
-test('successful text parsing writes the AI result to the saved illness before review confirmation', async () => {
+test('successful text parsing keeps the AI result pending until review confirmation', async () => {
   const fixture = createHealthCloudStub({ attachmentFamilyId: 'family-a' })
   const healthApi = loadCjsModule(path.join(root, 'cloudfunctions/healthApi/index.js'), {
     stubs: {
@@ -212,11 +212,8 @@ test('successful text parsing writes the AI result to the saved illness before r
   })
 
   assert.equal(result.ok, true, result.message)
-  assert.equal(result.data.appliedToIllness, true)
-  assert.equal(fixture.illnessUpdates.length, 1)
-  assert.deepEqual(Array.from(fixture.illnessUpdates[0].data.symptoms), ['咳嗽'])
-  assert.equal(fixture.illnessUpdates[0].data.temperatureMax, 38.6)
-  assert.equal(fixture.illnessUpdates[0].data.summary, '咳嗽伴发热')
+  assert.equal(result.data.appliedToIllness, false)
+  assert.equal(fixture.illnessUpdates.length, 0)
 })
 
 function createPaymentCloudStub() {

@@ -1282,7 +1282,6 @@ function parseAttachment(payload = {}) {
     attachment.aiStructured = output
     attachment.aiSummary = '已完成图片整理，可继续修改'
     attachment.parseStatus = 'parsed'
-    applyAiOutputToIllness(attachment.relatedId, payload.imageKind, output)
   }
   return clone({
     task: {
@@ -1292,7 +1291,7 @@ function parseAttachment(payload = {}) {
       relatedType: payload.relatedType || '',
     },
     output,
-    appliedToIllness: Boolean(attachment && attachment.relatedType === 'illness'),
+    appliedToIllness: false,
   })
 }
 
@@ -1315,11 +1314,10 @@ function parseIllnessText(payload = {}) {
     medicinesText: '',
     summary: text,
   }
-  applyAiOutputToIllness(payload.illnessId, 'text', output)
   return clone({
     task: { _id: newId('ai-task'), status: 'success', taskType: 'text_parse' },
     output,
-    appliedToIllness: Boolean(payload.illnessId),
+    appliedToIllness: false,
   })
 }
 

@@ -80,3 +80,18 @@
   margin-left: 32rpx;
   text-align: right;
 }
+
+.auth-login-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.auth-login-action {
+  flex: 1;
+  min-width: 0;
+  height: 96rpx;
+  line-height: 96rpx;
+  font-size: 32rpx;
+  border-radius: 12rpx;
+  margin: 0;
+}
