@@ -478,6 +478,15 @@ async function createOrder(payload) {
   return callPaymentOrDemo('createOrder', payload, demo.createOrder)
 }
 
+async function listOrdersForUser(payload = {}) {
+  return callPaymentOrDemo('listOrdersForUser', payload, demo.listOrdersForUser)
+}
+
+async function getOrderForUser(payload = {}) {
+  return callPaymentOrDemo('getOrderForUser', payload, demo.getOrderForUser)
+}
+
+
 async function applyCoupon(payload) {
   return callPaymentOrDemo('applyCoupon', payload, demo.applyCoupon)
 }
@@ -510,9 +519,11 @@ module.exports = {
   getAiTask,
   getMembershipStatus,
   getPlans,
+  getOrderForUser,
   listFamilyRoles,
   listMedicationHistory,
   listCouponsForUser,
+  listOrdersForUser,
   listMyFamilies,
   previewOrder,
   parseAttachment,

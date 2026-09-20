@@ -220,12 +220,38 @@ interface MembershipSettings {
   membershipPurchaseGuide: string
 }
 
+interface MembershipPlanSetting {
+  planId: string
+  name: string
+  price: string
+  durationDays: number
+  badge: string
+  benefitsText: string
+}
+
 const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
+const DEFAULT_MEMBERSHIP_PLANS: MembershipPlanSetting[] = [
+  { planId: 'monthly_pro', name: '安心版（月度）', price: '9.90', durationDays: 30, badge: '灵活体验', benefitsText: '3 个家庭 · 10 位成员 · 100 个附件 · 快速记录 30 次/月' },
+  { planId: 'yearly_pro', name: '安心版（年度）', price: '99.00', durationDays: 365, badge: '年度更划算', benefitsText: '3 个家庭 · 10 位成员 · 100 个附件 · 快速记录 30 次/月' },
+  { planId: 'monthly_unlimited', name: '畅享版（月度）', price: '19.90', durationDays: 30, badge: '不限次数', benefitsText: '3 个家庭 · 10 位成员 · 100 个附件 · 快速记录不限次数' },
+  { planId: 'yearly_unlimited', name: '畅享版（年度）', price: '199.00', durationDays: 365, badge: '年度更划算', benefitsText: '3 个家庭 · 10 位成员 · 100 个附件 · 快速记录不限次数' },
+]
 const DEV_ADMIN_API_BASE = import.meta.env.DEV && !cloudbaseApp ? '/api/admin' : ''
 const DEV_ADMIN_API_TOKEN = DEV_ADMIN_API_BASE ? 'local-dev-token' : ''
 
 function createCouponCode() {
   return `COUPON-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+}
+
+function normalizeMembershipPlanSetting(plan: Record<string, unknown>): MembershipPlanSetting {
+  return {
+    planId: String(plan.planId || ''),
+    name: String(plan.name || ''),
+    price: (Number(plan.price || 0) / 100).toFixed(2),
+    durationDays: Number(plan.durationDays || 30),
+    badge: String(plan.badge || ''),
+    benefitsText: String(plan.benefitsText || ''),
+  }
 }
 const API_BASE = DEV_ADMIN_API_BASE
 const ADMIN_ACTIVE_PAGE_STORAGE_KEY = 'family-health-admin-active-page'
@@ -310,9 +336,11 @@ function App() {
   const [feedbackEditor, setFeedbackEditor] = useState<FeedbackEditor | null>(null)
   const [savingFeedback, setSavingFeedback] = useState(false)
   const [disablingRecordId, setDisablingRecordId] = useState('')
+  const [refundingRecordId, setRefundingRecordId] = useState('')
   const [membershipSettings, setMembershipSettings] = useState<MembershipSettings>({
     membershipPurchaseGuide: DEFAULT_MEMBERSHIP_PURCHASE_GUIDE,
   })
+  const [membershipPlans, setMembershipPlans] = useState<MembershipPlanSetting[]>(DEFAULT_MEMBERSHIP_PLANS)
   const [membershipSettingsMessage, setMembershipSettingsMessage] = useState('')
   const [savingMembershipSettings, setSavingMembershipSettings] = useState(false)
   const isConfigured = Boolean(cloudbaseApp || API_BASE)
@@ -414,8 +442,14 @@ function App() {
 
   useEffect(() => {
     if (activePage !== 'commerce' || !isConfigured) return
-    void callAdminApi<MembershipSettings>('getMembershipSettings')
-      .then(setMembershipSettings)
+    void Promise.all([
+      callAdminApi<MembershipSettings>('getMembershipSettings'),
+      callAdminApi<{ plans: Array<Record<string, unknown>> }>('getMembershipPlans'),
+    ])
+      .then(([settings, planData]) => {
+        setMembershipSettings(settings)
+        setMembershipPlans((planData.plans || []).map(normalizeMembershipPlanSetting))
+      })
       .catch((err: unknown) => {
         setMembershipSettingsMessage(err instanceof Error ? err.message : '会员兑换提示加载失败')
       })
@@ -515,6 +549,21 @@ function App() {
     }
   }
 
+  async function refundOrder(row: Record<string, unknown>) {
+    const orderId = String(row._id || '')
+    if (!orderId || !window.confirm('确认对该订单执行后台退款吗？退款后会员权益将被取消。')) return
+    setRefundingRecordId(orderId)
+    setError('')
+    try {
+      await callAdminApi('refundOrder', { orderId, reason: '后台人工退款' })
+      await Promise.all([loadTable('orders', tableOffsets.orders || 0), refreshDashboard()])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '订单退款失败')
+    } finally {
+      setRefundingRecordId('')
+    }
+  }
+
   function openFeedbackEditor(row: Record<string, unknown>) {
     setFeedbackEditor({ id: String(row._id || ''), operatorNote: String(row.operatorNote || ''), status: String(row.status || 'new') })
   }
@@ -558,6 +607,29 @@ function App() {
       setMembershipSettingsMessage('已保存，用户重新进入会员中心后生效。')
     } catch (err) {
       setMembershipSettingsMessage(err instanceof Error ? err.message : '会员兑换提示保存失败')
+    } finally {
+      setSavingMembershipSettings(false)
+    }
+  }
+
+  function updateMembershipPlan(planId: string, key: keyof Omit<MembershipPlanSetting, 'planId' | 'durationDays'>, value: string) {
+    setMembershipPlans((current) => current.map((plan) => plan.planId === planId ? { ...plan, [key]: value } : plan))
+  }
+
+  async function saveMembershipPlans() {
+    if (!isConfigured) {
+      setMembershipSettingsMessage('当前是演示数据模式，配置真实管理接口后才能保存。')
+      return
+    }
+    setSavingMembershipSettings(true)
+    try {
+      const saved = await callAdminApi<{ plans: Array<Record<string, unknown>> }>('updateMembershipPlans', {
+        plans: membershipPlans.map((plan) => ({ ...plan, price: Math.round(Number(plan.price || 0) * 100) })),
+      })
+      setMembershipPlans((saved.plans || []).map(normalizeMembershipPlanSetting))
+      setMembershipSettingsMessage('套餐价格与权益说明已保存。')
+    } catch (err) {
+      setMembershipSettingsMessage(err instanceof Error ? err.message : '套餐配置保存失败')
     } finally {
       setSavingMembershipSettings(false)
     }
@@ -756,6 +828,7 @@ function App() {
             latestCouponBatchId={latestCouponBatchId}
             downloadingBatchId={downloadingBatchId}
             membershipSettings={membershipSettings}
+            membershipPlans={membershipPlans}
             membershipSettingsMessage={membershipSettingsMessage}
             savingMembershipSettings={savingMembershipSettings}
             onBatchFormChange={updateCouponBatchForm}
@@ -766,6 +839,8 @@ function App() {
               setMembershipSettingsMessage('')
             }}
             onSaveMembershipSettings={() => void saveMembershipSettings()}
+            onMembershipPlanChange={updateMembershipPlan}
+            onSaveMembershipPlans={() => void saveMembershipPlans()}
           />
         )}
         {activePage === 'risk' && <RiskPage dashboard={dashboard} />}
@@ -801,9 +876,11 @@ function App() {
             downloadingBatchId={downloadingBatchId}
             latestCouponBatchId={latestCouponBatchId}
             disablingRecordId={disablingRecordId}
+            refundingRecordId={refundingRecordId}
             search={tableSearches[activeTable]}
             onDisableCoupon={(row) => void disableCouponRecord('coupons', row)}
             onDisableCouponCode={(row) => void disableCouponRecord('couponCodes', row)}
+            onRefundOrder={(row) => void refundOrder(row)}
             onEditFeedback={openFeedbackEditor}
             onSearchChange={(key, value) => updateTableSearch(activeTable, key, value)}
             onSearch={() => void searchTable(activeTable)}
@@ -926,6 +1003,7 @@ function CommercePage({
   latestCouponBatchId,
   downloadingBatchId,
   membershipSettings,
+  membershipPlans,
   membershipSettingsMessage,
   savingMembershipSettings,
   onBatchFormChange,
@@ -933,6 +1011,8 @@ function CommercePage({
   onDownloadBatch,
   onMembershipSettingsChange,
   onSaveMembershipSettings,
+  onMembershipPlanChange,
+  onSaveMembershipPlans,
 }: {
   batchForm: CouponBatchForm
   batchMessage: string
@@ -942,6 +1022,7 @@ function CommercePage({
   latestCouponBatchId: string
   downloadingBatchId: string
   membershipSettings: MembershipSettings
+  membershipPlans: MembershipPlanSetting[]
   membershipSettingsMessage: string
   savingMembershipSettings: boolean
   onBatchFormChange: (key: keyof CouponBatchForm, value: string) => void
@@ -949,6 +1030,8 @@ function CommercePage({
   onDownloadBatch: (batchId: string) => void
   onMembershipSettingsChange: (value: string) => void
   onSaveMembershipSettings: () => void
+  onMembershipPlanChange: (planId: string, key: keyof Omit<MembershipPlanSetting, 'planId' | 'durationDays'>, value: string) => void
+  onSaveMembershipPlans: () => void
 }) {
   return (
     <>
@@ -1047,6 +1130,22 @@ function CommercePage({
             {membershipSettingsMessage || (!isConfigured ? '演示页面不会写入真实配置。' : '')}
           </p>
         </div>
+      </section>
+
+      <section className="panel membership-settings-panel">
+        <PanelTitle title="会员套餐配置" subtitle="价格单位为元；保存后小程序会员中心读取最新价格与权益说明" />
+        <div className="plan-settings-grid">
+          {membershipPlans.map((plan) => (
+            <article className="plan-setting-card" key={plan.planId}>
+              <strong>{plan.name}</strong>
+              <label><span>展示名称</span><input value={plan.name} onChange={(event) => onMembershipPlanChange(plan.planId, 'name', event.target.value)} /></label>
+              <label><span>价格（元）</span><input min="0" step="0.01" type="number" value={plan.price} onChange={(event) => onMembershipPlanChange(plan.planId, 'price', event.target.value)} /></label>
+              <label><span>徽标</span><input value={plan.badge} onChange={(event) => onMembershipPlanChange(plan.planId, 'badge', event.target.value)} /></label>
+              <label><span>权益说明</span><textarea maxLength={160} value={plan.benefitsText} onChange={(event) => onMembershipPlanChange(plan.planId, 'benefitsText', event.target.value)} /></label>
+            </article>
+          ))}
+        </div>
+        <div className="membership-settings-actions"><button disabled={savingMembershipSettings} onClick={onSaveMembershipPlans} type="button">{savingMembershipSettings ? '保存中…' : '保存套餐配置'}</button><p>{membershipSettingsMessage}</p></div>
       </section>
 
       <CouponBatchGenerator
@@ -1349,9 +1448,11 @@ function DetailTablePage({
   downloadingBatchId,
   latestCouponBatchId,
   disablingRecordId,
+  refundingRecordId,
   search,
   onDisableCoupon,
   onDisableCouponCode,
+  onRefundOrder,
   onEditFeedback,
   onSearchChange,
   onSearch,
@@ -1381,9 +1482,11 @@ function DetailTablePage({
   downloadingBatchId: string
   latestCouponBatchId: string
   disablingRecordId: string
+  refundingRecordId: string
   search: TableSearch
   onDisableCoupon: (row: Record<string, unknown>) => void
   onDisableCouponCode: (row: Record<string, unknown>) => void
+  onRefundOrder: (row: Record<string, unknown>) => void
   onEditFeedback: (row: Record<string, unknown>) => void
   onSearchChange: (key: keyof TableSearch, value: string) => void
   onSearch: () => void
@@ -1393,7 +1496,7 @@ function DetailTablePage({
   onOpenUser: (row: Record<string, unknown>) => void
 }) {
   const meta = dataTables.find((table) => table.id === type)
-  const columns = tableColumns(type, { disablingRecordId, onCopyCouponCode, onDisableCoupon, onDisableCouponCode, onDownloadBatch, onEditFeedback, downloadingBatchId })
+  const columns = tableColumns(type, { disablingRecordId, refundingRecordId, onCopyCouponCode, onDisableCoupon, onDisableCouponCode, onRefundOrder, onDownloadBatch, onEditFeedback, downloadingBatchId })
   const showCouponGenerator = type === 'coupons'
   const showMembershipCodeGenerator = type === 'couponBatches' || type === 'couponCodes'
   return (
@@ -1738,10 +1841,12 @@ function tableColumns(
   type: ListType,
   actions: {
     disablingRecordId?: string
+    refundingRecordId?: string
     downloadingBatchId?: string
     onCopyCouponCode?: (code: string) => void
     onDisableCoupon?: (row: Record<string, unknown>) => void
     onDisableCouponCode?: (row: Record<string, unknown>) => void
+    onRefundOrder?: (row: Record<string, unknown>) => void
     onDownloadBatch?: (batchId: string) => void
     onEditFeedback?: (row: Record<string, unknown>) => void
   } = {},
@@ -1897,6 +2002,15 @@ function tableColumns(
       { key: 'discountAmount', label: '优惠', render: (row) => formatMoney(row.discountAmount) },
       { key: 'status', label: '状态' },
       { key: 'createdAt', label: '创建时间', render: (row) => formatValue(row.createdAt) },
+      {
+        key: 'action',
+        label: '操作',
+        render: (row) => {
+          const id = String(row._id || '')
+          const canRefund = row.status === 'paid'
+          return <button className="table-action-button danger-action" disabled={!id || !canRefund || actions.refundingRecordId === id} type="button" onClick={() => actions.onRefundOrder?.(row)}>{row.status === 'refunded' ? '已退款' : actions.refundingRecordId === id ? '处理中…' : '退款'}</button>
+        },
+      },
     ],
     subscriptions: [
       ...common,

@@ -52,13 +52,37 @@ const PLANS = [
     benefits: PRO_LIMITS,
   },
   {
+    planId: 'yearly_unlimited',
+    name: '畅享版（年度）',
+    price: 19900,
+    displayPrice: '199',
+    durationDays: 365,
+    badge: '年度更划算',
+    sort: 2,
+    membershipTier: 'unlimited',
+    benefits: UNLIMITED_LIMITS,
+  },
+  {
+    planId: 'monthly_unlimited',
+    name: '畅享版（月度）',
+    price: 1990,
+    displayPrice: '19.9',
+    durationDays: 30,
+    badge: '不限次数',
+    sort: 3,
+    membershipTier: 'unlimited',
+    benefits: UNLIMITED_LIMITS,
+  },
+  // 兼容历史兑换码，不在会员中心作为可购买套餐展示。
+  {
     planId: 'unlimited_pro',
-    name: '畅享版',
-    price: 0,
-    displayPrice: '兑换激活',
+    name: '畅享版（年度）',
+    price: 19900,
+    displayPrice: '199',
     durationDays: 365,
     badge: '不限次数',
-    sort: 2,
+    sort: 99,
+    visible: false,
     membershipTier: 'unlimited',
     benefits: UNLIMITED_LIMITS,
   },
@@ -84,6 +108,10 @@ exports.main = async (event = {}) => {
         return ok(await redeemMembershipCode(openid, payload))
       case 'listCouponsForUser':
         return ok(await listCouponsForUser(openid, payload))
+      case 'listOrdersForUser':
+        return ok(await listOrdersForUser(openid, payload))
+      case 'getOrderForUser':
+        return ok(await getOrderForUser(openid, payload))
       case 'mockPaymentSuccess':
         return ok(await mockPaymentSuccess(openid, payload))
       default:
@@ -101,7 +129,7 @@ async function getPlans() {
     getMembershipPurchaseGuide(),
   ])
   return {
-    plans: dbPlans.length ? mergePlanDefaults(dbPlans) : PLANS,
+    plans: (dbPlans.length ? mergePlanDefaults(dbPlans) : PLANS).filter((plan) => plan.visible !== false),
     membershipPurchaseGuide,
   }
 }
@@ -114,7 +142,7 @@ function mergePlanDefaults(dbPlans) {
       ? {
         ...builtInPlan,
         ...plan,
-        name: builtInPlan.name,
+        name: String(plan.name || builtInPlan.name),
         membershipTier: builtInPlan.membershipTier,
         benefits: {
           ...builtInPlan.benefits,
@@ -157,9 +185,17 @@ async function createOrder(openid, payload) {
   const familyId = await resolveFamilyId(openid, payload.familyId)
   await assertFamilyManager(openid, familyId)
   const plan = await getPlan(payload.planId)
+  const idempotencyKey = String(payload.idempotencyKey || '').trim()
+  if (idempotencyKey) {
+    const existing = await db.collection('orders').where({ payerOpenid: openid, idempotencyKey }).limit(1).get()
+    if (existing.data.length) {
+      return formatOrder(existing.data[0])
+    }
+  }
   const coupon = payload.couponCode ? await findCouponForOrder(payload.couponCode, openid, familyId, plan) : null
   const discountAmount = coupon ? calcDiscount(plan, coupon) : 0
   const payableAmount = Math.max(0, plan.price - discountAmount)
+  const membershipChange = await getMembershipChangeContext(familyId)
   const orderNo = await createOrderNo()
   const now = db.serverDate()
   const result = await db.collection('orders').add({
@@ -174,9 +210,17 @@ async function createOrder(openid, payload) {
       payableAmount,
       couponId: coupon ? coupon._id : '',
       couponCode: coupon ? coupon.code : '',
+      couponName: coupon ? coupon.name || '' : '',
+      previousPlan: membershipChange.previousPlan,
+      previousPlanId: membershipChange.previousPlanId,
+      previousMembershipTier: membershipChange.previousMembershipTier,
+      previousExpireAt: membershipChange.previousExpireAt,
       status: 'pending',
-      paymentProvider: 'mock',
+      paymentProvider: 'official_virtual_payment',
+      paymentMode: 'manual',
       paymentTradeNo: '',
+      idempotencyKey,
+      paymentReady: false,
       createdAt: now,
       updatedAt: now,
     },
@@ -194,6 +238,11 @@ async function createOrder(openid, payload) {
     discountAmount,
     payableAmount,
     familyId,
+    payment: {
+      ready: false,
+      provider: 'official_virtual_payment',
+      reason: 'official payment parameters are not configured',
+    },
   }
 }
 
@@ -321,14 +370,12 @@ async function listCouponsForUser(openid, payload) {
   const familyId = await resolveFamilyId(openid, payload.familyId)
   await assertFamilyAccess(openid, familyId)
   const plan = payload.planId ? await getPlan(payload.planId) : null
-  const result = await db
-    .collection('coupons')
-    .where({
-      status: 'active',
-      deletedAt: _.exists(false),
-    })
-    .limit(50)
-    .get()
+  const [result, userRedemptions, familyRedemptions] = await Promise.all([
+    db.collection('coupons').where({ deletedAt: _.exists(false) }).limit(100).get(),
+    db.collection('coupon_redemptions').where({ userOpenid: openid, status: 'used' }).limit(100).get(),
+    db.collection('coupon_redemptions').where({ familyId, status: 'used' }).limit(100).get(),
+  ])
+  const usedCouponIds = new Set(userRedemptions.data.concat(familyRedemptions.data).map((item) => item.couponId).filter(Boolean))
   const coupons = []
   for (const coupon of result.data) {
     const validation = await validateCoupon(coupon, {
@@ -337,15 +384,54 @@ async function listCouponsForUser(openid, payload) {
       plan,
       strictLimit: false,
     })
-    if (validation.ok) {
+    const expired = coupon.status !== 'active' || (coupon.endAt && new Date(coupon.endAt).getTime() < Date.now())
+    if (usedCouponIds.has(coupon._id)) {
+      coupons.push({ ...coupon, statusGroup: 'used', discountPreview: buildDiscountPreview(coupon) })
+    } else if (expired) {
+      coupons.push({ ...coupon, statusGroup: 'expired', discountPreview: buildDiscountPreview(coupon) })
+    } else if (validation.ok) {
       coupons.push({
         ...coupon,
+        statusGroup: 'active',
         discountPreview: buildDiscountPreview(coupon),
       })
     }
   }
   return {
     coupons,
+  }
+}
+
+async function listOrdersForUser(openid, payload) {
+  const familyId = await resolveFamilyId(openid, payload.familyId)
+  await assertFamilyAccess(openid, familyId)
+  let result
+  try {
+    result = await db.collection('orders').where({ familyId }).orderBy('createdAt', 'desc').limit(50).get()
+  } catch (error) {
+    console.warn('orders query fallback', error.message)
+    result = await db.collection('orders').where({ familyId }).limit(50).get()
+  }
+  return { familyId, orders: result.data.map(formatOrder) }
+}
+
+async function getOrderForUser(openid, payload) {
+  const orderId = String(payload.orderId || '').trim()
+  if (!orderId) throw new Error('orderId is required')
+  const result = await db.collection('orders').doc(orderId).get()
+  if (!result.data) throw new Error('order not found')
+  await assertFamilyAccess(openid, result.data.familyId)
+  return { order: formatOrder(result.data) }
+}
+
+function formatOrder(order = {}) {
+  return {
+    ...order,
+    orderId: order.orderId || order._id || '',
+    originalAmount: Number(order.originalAmount || 0),
+    discountAmount: Number(order.discountAmount || 0),
+    payableAmount: Number(order.payableAmount || 0),
+    couponName: order.couponName || '',
   }
 }
 
@@ -798,6 +884,8 @@ async function getMembershipChangeContext(familyId) {
     changeType: previousPlan === 'free' ? 'upgrade' : 'renewal',
     previousExpireAt: family?.proExpireAt || null,
     previousPlan,
+    previousPlanId: family?.planId || 'free',
+    previousMembershipTier: family?.membershipTier || 'free',
   }
 }
 

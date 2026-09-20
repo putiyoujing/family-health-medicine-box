@@ -17,6 +17,12 @@ const MEMBERSHIP_PLAN_META = Object.freeze({
   monthly_pro: { planId: 'monthly_pro', name: '安心版（月度）', membershipTier: 'paid', durationDays: 30 },
   unlimited_pro: { planId: 'unlimited_pro', name: '畅享版', membershipTier: 'unlimited', durationDays: 365 },
 })
+const MEMBERSHIP_PLAN_DEFAULTS = Object.freeze([
+  { planId: 'monthly_pro', name: '安心版（月度）', price: 990, durationDays: 30, badge: '灵活体验', sort: 1, membershipTier: 'paid', benefitsText: '3 个家庭 · 10 位成员 · 100 个附件 · 快速记录 30 次/月' },
+  { planId: 'yearly_pro', name: '安心版（年度）', price: 9900, durationDays: 365, badge: '年度更划算', sort: 0, membershipTier: 'paid', benefitsText: '3 个家庭 · 10 位成员 · 100 个附件 · 快速记录 30 次/月' },
+  { planId: 'monthly_unlimited', name: '畅享版（月度）', price: 1990, durationDays: 30, badge: '不限次数', sort: 3, membershipTier: 'unlimited', benefitsText: '3 个家庭 · 10 位成员 · 100 个附件 · 快速记录不限次数' },
+  { planId: 'yearly_unlimited', name: '畅享版（年度）', price: 19900, durationDays: 365, badge: '年度更划算', sort: 2, membershipTier: 'unlimited', benefitsText: '3 个家庭 · 10 位成员 · 100 个附件 · 快速记录不限次数' },
+])
 const MEMBERSHIP_TIER_NAMES = Object.freeze({
   free: '基础版',
   paid: '安心版',
@@ -57,6 +63,10 @@ exports.main = async (event = {}) => {
         return ok(await getMembershipSettings())
       case 'updateMembershipSettings':
         return ok(await updateMembershipSettings(payload, admin))
+      case 'getMembershipPlans':
+        return ok(await getMembershipPlans())
+      case 'updateMembershipPlans':
+        return ok(await updateMembershipPlans(payload, admin))
       case 'listUsers':
         return ok(await pageList('users', payload))
       case 'searchUsers':
@@ -82,6 +92,9 @@ exports.main = async (event = {}) => {
       case 'listOrders':
       case 'adminListOrders':
         return ok(await pageList('orders', payload))
+      case 'refundOrder':
+      case 'adminRefundOrder':
+        return ok(await refundOrder(payload, admin))
       case 'listSubscriptions':
       case 'adminListSubscriptions':
         return ok(await pageList('subscriptions', payload))
@@ -1155,6 +1168,83 @@ async function disableCoupon(payload = {}) {
     data: { status: 'disabled', disabledReason: payload.reason || 'manual_disabled', disabledAt: now, updatedAt: now },
   })
   return { id: couponId, status: 'disabled' }
+}
+
+async function getMembershipPlans() {
+  let configured = []
+  try {
+    configured = (await db.collection('plans').where({ status: 'active', deletedAt: _.exists(false) }).limit(20).get()).data
+  } catch (error) {
+    console.warn('membership plans unavailable', error.message)
+  }
+  const byId = new Map(configured.map((plan) => [plan.planId, plan]))
+  return { plans: MEMBERSHIP_PLAN_DEFAULTS.map((plan) => ({ ...plan, ...(byId.get(plan.planId) || {}) })) }
+}
+
+async function updateMembershipPlans(payload = {}, admin = {}) {
+  if (!Array.isArray(payload.plans) || payload.plans.length !== MEMBERSHIP_PLAN_DEFAULTS.length) {
+    throw new Error('必须同时配置四个会员套餐')
+  }
+  const allowed = new Map(MEMBERSHIP_PLAN_DEFAULTS.map((plan) => [plan.planId, plan]))
+  const now = db.serverDate()
+  for (const input of payload.plans) {
+    const planId = String(input.planId || '').trim()
+    const defaultPlan = allowed.get(planId)
+    if (!defaultPlan) throw new Error('存在不支持的会员套餐')
+    const price = Number(input.price)
+    if (!Number.isInteger(price) || price < 0 || price > 99999900) throw new Error(`${planId} 价格无效`)
+    const data = {
+      ...defaultPlan,
+      name: String(input.name || defaultPlan.name).trim().slice(0, 40),
+      price,
+      badge: String(input.badge || defaultPlan.badge).trim().slice(0, 20),
+      benefitsText: String(input.benefitsText || defaultPlan.benefitsText).trim().slice(0, 160),
+      status: 'active',
+      updatedAt: now,
+      updatedBy: admin.authUid || admin.openid || '',
+    }
+    const existing = await db.collection('plans').where({ planId }).limit(1).get()
+    if (existing.data.length) await db.collection('plans').doc(existing.data[0]._id).update({ data })
+    else await db.collection('plans').add({ data: { ...data, createdAt: now } })
+  }
+  return getMembershipPlans()
+}
+
+async function refundOrder(payload = {}, admin = {}) {
+  const orderId = String(payload.orderId || payload.id || '').trim()
+  if (!orderId) throw new Error('orderId is required')
+  const orderResult = await db.collection('orders').doc(orderId).get()
+  const order = orderResult.data
+  if (!order) throw new Error('order not found')
+  if (!['paid', 'refunding'].includes(order.status)) throw new Error('只有已支付订单可以退款')
+  const now = db.serverDate()
+  const reason = String(payload.reason || '后台人工退款').trim()
+  await db.collection('orders').doc(orderId).update({
+    data: {
+      status: 'refunded',
+      refundStatus: 'refunded',
+      refundReason: reason,
+      refundedAt: now,
+      refundedBy: admin.authUid || admin.openid || '',
+      updatedAt: now,
+    },
+  })
+  const subscriptions = await db.collection('subscriptions').where({ orderId, status: 'active' }).limit(20).get()
+  for (const subscription of subscriptions.data) {
+    await db.collection('subscriptions').doc(subscription._id).update({
+      data: { status: 'cancelled', cancelledAt: now, cancelReason: 'order_refunded', updatedAt: now },
+    })
+  }
+  const familyUpdate = order.previousPlan === 'free'
+    ? { plan: 'free', planId: 'free', membershipTier: 'free', proExpireAt: null }
+    : {
+      plan: 'pro',
+      planId: order.previousPlanId || 'yearly_pro',
+      membershipTier: order.previousMembershipTier || 'paid',
+      proExpireAt: order.previousExpireAt || null,
+    }
+  await db.collection('families').doc(order.familyId).update({ data: { ...familyUpdate, updatedAt: now } })
+  return { orderId, status: 'refunded' }
 }
 
 async function disableCouponCode(payload = {}) {

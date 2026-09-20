@@ -54,15 +54,38 @@ const plans = [
     benefitsText: '最多创建 3 个家庭，适合先体验家庭共享、AI 整理和复诊摘要',
   },
   {
-    planId: 'unlimited_pro',
-    name: '畅享版',
-    price: 0,
+    planId: 'yearly_unlimited',
+    name: '畅享版（年度）',
+    price: 19900,
     durationDays: 365,
-    badge: '不限次数',
+    badge: '年度更划算',
     sort: 2,
     membershipTier: 'unlimited',
     benefits: unlimitedLimits,
     benefitsText: '快速记录不限次数，适合长期持续记录家庭健康变化',
+  },
+  {
+    planId: 'monthly_unlimited',
+    name: '畅享版（月度）',
+    price: 1990,
+    durationDays: 30,
+    badge: '不限次数',
+    sort: 3,
+    membershipTier: 'unlimited',
+    benefits: unlimitedLimits,
+    benefitsText: '快速记录不限次数，适合长期持续记录家庭健康变化',
+  },
+  {
+    planId: 'unlimited_pro',
+    name: '畅享版（年度）',
+    price: 19900,
+    durationDays: 365,
+    badge: '不限次数',
+    sort: 99,
+    visible: false,
+    membershipTier: 'unlimited',
+    benefits: unlimitedLimits,
+    benefitsText: '历史兑换码兼容套餐',
   },
 ]
 
@@ -1635,6 +1658,16 @@ function listCouponsForUser() {
   return clone({ coupons })
 }
 
+function listOrdersForUser() {
+  return clone({ familyId: state.family._id, orders: state.orders || [] })
+}
+
+function getOrderForUser(payload = {}) {
+  const order = (state.orders || []).find((item) => item.orderId === payload.orderId || item._id === payload.orderId)
+  if (!order) throw new Error('订单不存在')
+  return clone({ order })
+}
+
 function previewOrder(payload = {}) {
   const plan = plans.find((item) => item.planId === payload.planId) || plans[0]
   const discountAmount = calculateDiscount(plan.price, payload.couponCode)
@@ -1653,10 +1686,20 @@ function createOrder(payload = {}) {
     ...preview,
     orderId: newId('order'),
     orderNo: `TEST${Date.now()}`,
-    status: 'pending',
+    status: 'paid',
+    paymentProvider: 'demo',
     createdAt: nowText(),
   }
   state.orders.unshift(order)
+  state.entitlement = {
+    ...state.entitlement,
+    plan: 'pro',
+    tier: preview.plan && preview.plan.membershipTier || 'paid',
+    planName: preview.plan && preview.plan.name || '安心版',
+    limits: preview.plan && preview.plan.benefits || proLimits,
+    expireAt: nextYearText(),
+  }
+  state.family = { ...state.family, plan: 'pro', membershipTier: state.entitlement.tier, planId: preview.planId }
   return clone(order)
 }
 
@@ -2136,6 +2179,8 @@ module.exports = {
   getMembershipStatus,
   getPlans,
   listCouponsForUser,
+  listOrdersForUser,
+  getOrderForUser,
   listFamilyRoles,
   listMedicationHistory,
   listMyFamilies,

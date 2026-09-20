@@ -95,6 +95,14 @@
         <view class="service-icon amber">记</view>
         <text>健康待办</text>
       </view>
+      <view class="service-item" bindtap="openOrders">
+        <view class="service-icon blue">我</view>
+        <text>我的订单</text>
+      </view>
+      <view class="service-item" bindtap="openCoupons">
+        <view class="service-icon amber">券</view>
+        <text>我的优惠券</text>
+      </view>
       <view class="service-item" bindtap="openFeedback">
         <view class="service-icon violet">评</view>
         <text>用户反馈</text>

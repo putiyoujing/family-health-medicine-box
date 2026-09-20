@@ -1,72 +1,14 @@
 <view class="page membership-page">
-  <view class="member-hero">
-    <view class="hero-orbit orbit-one"></view>
-    <view class="hero-orbit orbit-two"></view>
-    <view class="hero-topline">
-      <text class="hero-label">当前会员等级</text>
-      <text class="hero-status">{{membershipBadge}}</text>
-    </view>
-    <view class="hero-plan">{{entitlement.planName || '基础版'}}</view>
-    <view class="hero-expire" wx:if="{{!isFreeMembership && expireText}}">有效期至 {{expireText}}</view>
-    <view class="hero-slogan" wx:else>给家人留一份清晰、可协作的长期健康记录</view>
+  <view class="page-title-row"><view><view class="page-title">会员中心</view><view class="page-caption">{{family.name || '当前家庭'}} · 套餐与权益</view></view><view class="member-level">{{entitlement.planName || '基础版'}}</view></view>
+  <view class="member-banner"><view><view class="banner-label">当前会员等级</view><view class="banner-title">{{entitlement.planName || '基础版'}}</view><view class="banner-copy" wx:if="{{expireText}}">有效期至 {{expireText}} · 到期后不会自动扣款</view><view class="banner-copy" wx:else>先把家人的健康记录清楚，再决定是否升级。</view></view><view class="banner-badge">{{isUnlimitedMembership ? '∞' : isFreeMembership ? '＋' : '♥'}}</view></view>
+
+  <view class="section plan-section"><view class="section-head"><view><view class="section-title">选择会员套餐</view><view class="section-subtitle">手动购买下一周期，不自动扣款</view></view><view class="section-link">价格以后台配置为准</view></view>
+    <view class="plan-grid"><view class="plan-card {{item.membershipTier === 'unlimited' ? 'plan-card-premium' : ''}}" wx:for="{{plans}}" wx:key="planId"><view class="plan-topline"><view class="plan-name">{{item.tierLabel}}</view><view wx:if="{{item.badge}}" class="plan-badge">{{item.badge}}</view></view><view class="plan-period">{{item.periodLabel}}</view><view class="plan-price"><text class="currency">¥</text>{{item.priceText}}</view><view class="plan-validity">有效 {{item.durationDays}} 天</view><view class="plan-benefit" wx:for="{{item.benefitItems}}" wx:for-item="benefit" wx:key="*this">• {{benefit}}</view><button class="plan-button {{item.membershipTier === 'unlimited' ? 'plan-button-primary' : ''}}" data-plan-id="{{item.planId}}" bindtap="selectPlan">{{isUnlimitedMembership && item.membershipTier === 'unlimited' ? '继续续费' : '选择套餐'}}</button></view></view>
   </view>
 
-  <view class="section membership-action-card">
-    <view class="redeem-panel" id="redeem-section">
-      <view class="redeem-heading">
-        <view>
-          <view class="section-title redeem-title">{{isFreeMembership ? '兑换会员' : '续费会员'}}</view>
-          <view class="muted">{{membershipPurchaseGuide}}</view>
-        </view>
-        <view class="redeem-mark">兑</view>
-      </view>
-      <view class="redeem-form">
-        <input value="{{redeemCode}}" placeholder="输入会员兑换码" bindinput="onRedeemInput" focus="{{redeemInputFocused}}" />
-        <button bindtap="redeemMembershipCode" loading="{{redeeming}}">{{redeeming ? '兑换中' : '立即兑换'}}</button>
-      </view>
-      <view wx:if="{{redeemResult}}" class="redeem-result">
-        已激活 {{redeemResult.plan.name || '会员'}}，到期时间：{{redeemResult.expireAt || '以会员状态为准'}}
-      </view>
-    </view>
+  <view class="section usage-section"><view class="section-head"><view class="section-title">当前权益使用量</view><view class="section-link">本家庭</view></view><view class="usage-row" wx:for="{{usageRows}}" wx:key="label"><view class="usage-label"><text>{{item.label}}</text><text class="usage-number">{{item.used}} / {{item.limit}}</text></view><view class="usage-track"><view class="usage-progress" style="width:{{item.progress}}%;"></view></view></view></view>
 
-    <view class="benefits-panel">
-      <view class="benefits-title">会员权益</view>
-      <view class="comparison-table">
-        <view class="comparison-row comparison-head">
-          <text>权益</text>
-          <text>基础版</text>
-          <text>安心版</text>
-          <text>畅享版</text>
-        </view>
-        <view class="comparison-row" wx:for="{{comparisonRows}}" wx:key="label">
-          <text class="comparison-label">{{item.label}}</text>
-          <text wx:for="{{item.values}}" wx:for-item="value" wx:key="*this" class="comparison-value">{{value}}</text>
-        </view>
-      </view>
-      <view class="benefits-note">
-        <text class="benefits-note-mark">AI</text>
-        <text>AI 辅助功能将陆续上线，让健康记录与查询更便捷。</text>
-      </view>
-    </view>
-  </view>
-
-  <view class="section usage-card">
-    <view class="section-title usage-title">
-      <view>
-        <view>当前权益使用量</view>
-        <view class="section-subtitle">家庭数量按账号统计，其他用量按当前家庭统计</view>
-      </view>
-      <view class="plan-chip">{{entitlement.planName || '基础版'}}</view>
-    </view>
-    <view class="usage-row" wx:for="{{benefitRows}}" wx:key="label">
-      <view class="usage-line">
-        <text>{{item.label}}</text>
-        <text class="usage-number">{{item.used}} / {{item.limitText}}</text>
-      </view>
-      <view class="usage-track">
-        <view class="usage-progress" style="width: {{item.progress}}%;"></view>
-      </view>
-    </view>
-  </view>
+  <view class="section redeem-section" id="redeem-section"><view class="section-head"><view><view class="section-title">兑换会员</view><view class="section-subtitle">{{membershipPurchaseGuide}}</view></view><view class="redeem-tag">活动赠送</view></view><view class="redeem-form"><input value="{{redeemCode}}" placeholder="输入会员兑换码" bindinput="onRedeemInput" /><button bindtap="redeemMembershipCode" loading="{{redeeming}}">{{redeeming ? '兑换中' : '立即兑换'}}</button></view><view wx:if="{{redeemResult}}" class="redeem-result">已激活 {{redeemResult.plan.name || '会员'}}，到期时间：{{redeemResult.expireAt || '以会员状态为准'}}</view></view>
+  <view class="virtual-note">会员套餐属于虚拟服务，支付完成后不支持退款；如有异常请联系后台客服处理。</view>
 </view>
 <global-auth-layer id="global-auth-layer" />
