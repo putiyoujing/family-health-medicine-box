@@ -28,6 +28,7 @@ test('login uses the official global layer and direct native profile controls wi
   assert.equal((template.match(/root-portal="{{true}}"/g) || []).length, 2)
   assert.match(template, /<mp-dialog[\s\S]+wx:if="{{privacyVisible}}"/)
   assert.match(template, /<mp-half-screen-dialog[\s\S]+wx:if="{{loginVisible}}"/)
+  assert.match(template, /<mp-half-screen-dialog[\s\S]+ext-class="auth-login-sheet"/)
   assert.match(template, /open-type="agreePrivacyAuthorization"/)
   assert.match(template, /<button[\s\S]+class="avatar-row"[\s\S]+open-type="chooseAvatar"/)
   assert.match(template, /<view class="avatar-value"[^>]*>[\s\S]+class="avatar-preview"[\s\S]+class="field-arrow"/)
@@ -40,6 +41,9 @@ test('login uses the official global layer and direct native profile controls wi
     styles,
     /\.avatar-value\s*{[^}]*margin-left:\s*auto;[^}]*display:\s*flex;[^}]*justify-content:\s*flex-end;/,
   )
+  const appStyles = read('miniprogram/app.wxss')
+  assert.match(appStyles, /\.auth-login-sheet\s*{[^}]*bottom:\s*-112rpx/)
+  assert.match(appStyles, /\.auth-login-sheet \.weui-half-screen-dialog__ft\s*{[^}]*padding-bottom:\s*36rpx/)
   assert.doesNotMatch(template, /<mp-form|<mp-cells|<mp-cell|slot="footer"/)
   assert.doesNotMatch(template, /getPhoneNumber|手机号|随机头像昵称/)
   assert.match(profileTemplate, /<global-auth-layer id="global-auth-layer"/)

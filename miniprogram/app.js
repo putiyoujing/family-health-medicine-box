@@ -263,12 +263,23 @@ function isAuthorizedProfileRequired(error) {
 }
 
 function shouldUseDevMockLogin(enabled) {
-  if (!enabled || typeof wx.getAccountInfoSync !== 'function') {
+  if (
+    !enabled
+    || typeof wx.getAccountInfoSync !== 'function'
+    || typeof wx.getSystemInfoSync !== 'function'
+  ) {
     return false
   }
   try {
     const accountInfo = wx.getAccountInfoSync()
-    return accountInfo && accountInfo.miniProgram && accountInfo.miniProgram.envVersion === 'develop'
+    const systemInfo = wx.getSystemInfoSync()
+    return Boolean(
+      accountInfo
+      && accountInfo.miniProgram
+      && accountInfo.miniProgram.envVersion === 'develop'
+      && systemInfo
+      && systemInfo.platform === 'devtools',
+    )
   } catch (error) {
     console.warn('failed to read miniprogram environment', error)
     return false

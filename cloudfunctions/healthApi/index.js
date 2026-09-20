@@ -1980,6 +1980,9 @@ async function parseAttachment(openid, familyId, payload) {
       prompt: buildVisionPrompt(imageKind),
     })
     const normalizedOutput = normalizeVisionOutput(imageKind, visionResult.output)
+    if (!hasVisionContent(normalizedOutput)) {
+      throw new Error('图片未识别出可用内容，请重新拍摄或手动填写')
+    }
     await db.collection('ai_tasks').doc(result._id).update({
       data: {
         output: normalizedOutput,
@@ -3221,18 +3224,62 @@ function buildVisionPrompt(imageKind) {
 }
 
 function normalizeVisionOutput(imageKind, output) {
-  const source = output && typeof output === 'object' && !Array.isArray(output) ? output : {}
+  const source = unwrapVisionOutput(output)
   const normalized = buildParseDraft(imageKind)
   Object.keys(normalized).forEach((field) => {
-    normalized[field] = textValue(source[field])
+    normalized[field] = textValue(readVisionValue(source, field))
   })
-  normalized.documentType = textValue(source.documentType)
-  normalized.rawText = textValue(source.rawText)
-  const confidence = Number(source.confidence)
+  normalized.documentType = textValue(readVisionValue(source, 'documentType'))
+  normalized.rawText = textValue(readVisionValue(source, 'rawText'))
+  if (!normalized.summary && normalized.rawText && Object.hasOwn(normalized, 'summary')) {
+    normalized.summary = normalized.rawText
+  }
+  const confidence = Number(readVisionValue(source, 'confidence'))
   normalized.confidence = Number.isFinite(confidence)
     ? Math.max(0, Math.min(1, confidence))
     : 0
   return normalized
+}
+
+const VISION_FIELD_ALIASES = {
+  doctorDiagnosis: ['doctorDiagnosis', 'doctorRecord', 'doctor_record', 'diagnosis', 'diagnoses', '医生记录', '医生诊断', '诊断'],
+  doctorAdvice: ['doctorAdvice', 'doctor_advice', 'advice', '医生建议', '医嘱', '建议'],
+  summary: ['summary', 'caseSummary', 'case_summary', 'summaryText', '病例摘要', '摘要'],
+  name: ['name', 'medicineName', '药品名称', '药名'],
+  specification: ['specification', '规格'],
+  expireDate: ['expireDate', 'expiryDate', 'expirationDate', '有效期'],
+  manufacturer: ['manufacturer', '厂家', '生产厂家'],
+  approvalNo: ['approvalNo', 'approvalNumber', '批准文号'],
+  instructionText: ['instructionText', 'instructions', '说明书重点', '用法用量'],
+  contraindications: ['contraindications', '禁忌', '注意事项'],
+  medicinesText: ['medicinesText', 'medicines', 'prescription', '处方药品', '药品与用法'],
+  examinationResult: ['examinationResult', 'examination', 'testResult', '检查结果'],
+  documentType: ['documentType', 'document_type', '资料类型', '文档类型'],
+  rawText: ['rawText', 'raw_text', 'ocrText', 'text', '原文'],
+  confidence: ['confidence', '置信度', '识别置信度'],
+}
+
+function unwrapVisionOutput(output) {
+  const source = output && typeof output === 'object' && !Array.isArray(output) ? output : {}
+  const nestedCandidates = [source.output, source.result, source.data, source.fields]
+  return nestedCandidates.find((candidate) => (
+    candidate && typeof candidate === 'object' && !Array.isArray(candidate)
+  )) || source
+}
+
+function readVisionValue(source, field) {
+  const keys = VISION_FIELD_ALIASES[field] || [field]
+  return keys.reduce((value, key) => (
+    value !== '' && value !== undefined && value !== null
+      ? value
+      : source[key]
+  ), '')
+}
+
+function hasVisionContent(output) {
+  return Object.entries(output || {}).some(([key, value]) => (
+    !['confidence', 'documentType'].includes(key) && Boolean(textValue(value))
+  ))
 }
 
 function textValue(value) {
@@ -3241,6 +3288,18 @@ function textValue(value) {
   }
   if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value)
+  }
+  if (Array.isArray(value)) {
+    return value.map(textValue).filter(Boolean).join('；')
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value)
+      .map(([key, item]) => {
+        const text = textValue(item)
+        return text ? `${key}：${text}` : ''
+      })
+      .filter(Boolean)
+      .join('；')
   }
   return ''
 }
@@ -3310,3 +3369,5 @@ function fail(message) {
     message,
   }
 }
+
+module.exports.normalizeVisionOutput = normalizeVisionOutput

@@ -27,6 +27,7 @@
   wx:if="{{loginVisible}}"
   show="{{loginVisible}}"
   root-portal="{{true}}"
+  ext-class="auth-login-sheet"
   mask="{{true}}"
   maskClosable="{{false}}"
   closabled="{{!submitting}}"
