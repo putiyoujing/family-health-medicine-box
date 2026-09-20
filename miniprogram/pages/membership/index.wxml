@@ -1,36 +1,104 @@
 <view class="page membership-page">
+  <view class="membership-nav">
+    <view class="nav-back" aria-label="返回">‹</view>
+    <text class="nav-title">会员中心</text>
+    <text class="nav-help">帮助与反馈</text>
+  </view>
+
+  <view class="family-switch-row">
+    <text class="family-name">{{family.name || '当前家庭'}}</text>
+    <view class="family-switch-pill">切换家庭 <text class="family-switch-caret">⌄</text></view>
+  </view>
+
   <view class="member-hero">
     <view class="hero-orbit orbit-one"></view>
     <view class="hero-orbit orbit-two"></view>
-    <view class="hero-topline">
-      <text class="hero-label">当前会员等级</text>
-      <text class="hero-status">{{membershipBadge}}</text>
-    </view>
+    <view class="hero-label">当前会员等级</view>
     <view class="hero-plan">{{entitlement.planName || '基础版'}}</view>
+    <view class="hero-slogan" wx:if="{{isFreeMembership}}">先把家人的健康记录清楚，再决定是否升级。</view>
+    <view class="hero-slogan" wx:else>让家人的健康记录更完整、更容易协作。</view>
+    <view class="hero-badge">
+      <view class="badge-ring"></view>
+      <view class="badge-core"><text>+</text></view>
+    </view>
     <view class="hero-expire" wx:if="{{!isFreeMembership && expireText}}">有效期至 {{expireText}}</view>
-    <view class="hero-slogan" wx:else>给家人留一份清晰、可协作的长期健康记录</view>
+  </view>
+
+  <view class="section usage-card">
+    <view class="usage-heading">
+      <view>
+        <view class="section-title">当前权益使用量</view>
+        <view class="section-subtitle">家庭数量按账号统计，其他用量按当前家庭统计</view>
+      </view>
+      <view class="usage-scope">本家庭</view>
+    </view>
+    <view class="usage-row" wx:for="{{benefitRows}}" wx:key="label">
+      <view class="usage-line">
+        <text>{{item.label}}</text>
+        <text class="usage-number">{{item.used}} / {{item.limitText}}</text>
+      </view>
+      <view class="usage-track">
+        <view class="usage-progress {{item.progress >= 100 ? 'is-warning' : ''}}" style="width: {{item.progress}}%;"></view>
+      </view>
+    </view>
   </view>
 
   <view class="section membership-action-card">
     <view class="redeem-panel" id="redeem-section">
-      <view class="redeem-heading">
-        <view>
-          <view class="section-title redeem-title">{{isFreeMembership ? '兑换会员' : '续费会员'}}</view>
-          <view class="muted">{{membershipPurchaseGuide}}</view>
+      <view class="redeem-collapsed" wx:if="{{!redeemExpanded}}" bindtap="toggleRedeemPanel">
+        <view class="redeem-collapsed-main">
+          <view class="redeem-collapsed-icon">兑</view>
+          <view>
+            <view class="redeem-collapsed-title">我有活动兑换码</view>
+            <view class="redeem-collapsed-sub">仅限活动赠送</view>
+          </view>
         </view>
-        <view class="redeem-mark">兑</view>
+        <view class="redeem-chevron">›</view>
       </view>
-      <view class="redeem-form">
-        <input value="{{redeemCode}}" placeholder="输入会员兑换码" bindinput="onRedeemInput" focus="{{redeemInputFocused}}" />
-        <button bindtap="redeemMembershipCode" loading="{{redeeming}}">{{redeeming ? '兑换中' : '立即兑换'}}</button>
-      </view>
-      <view wx:if="{{redeemResult}}" class="redeem-result">
-        已激活 {{redeemResult.plan.name || '会员'}}，到期时间：{{redeemResult.expireAt || '以会员状态为准'}}
+
+      <view wx:else class="redeem-expanded">
+        <view class="redeem-heading">
+          <view>
+            <view class="section-title redeem-title">{{isFreeMembership ? '兑换会员' : '续费会员'}}</view>
+            <view class="muted">{{membershipPurchaseGuide}}</view>
+          </view>
+          <view class="redeem-close" bindtap="toggleRedeemPanel">收起</view>
+        </view>
+        <view class="redeem-form">
+          <input value="{{redeemCode}}" placeholder="输入会员兑换码" bindinput="onRedeemInput" focus="{{redeemInputFocused}}" />
+          <button bindtap="redeemMembershipCode" loading="{{redeeming}}">{{redeeming ? '兑换中' : '立即兑换'}}</button>
+        </view>
+        <view wx:if="{{redeemResult}}" class="redeem-result">
+          已激活 {{redeemResult.plan.name || '会员'}}，到期时间：{{redeemResult.expireAt || '以会员状态为准'}}
+        </view>
       </view>
     </view>
 
     <view class="benefits-panel">
-      <view class="benefits-title">会员权益</view>
+      <view class="benefits-heading">
+        <view class="section-title">升级后可以获得</view>
+        <text class="benefits-link">查看全部权益 ›</text>
+      </view>
+      <view class="benefit-promo-grid">
+        <view class="benefit-promo-card">
+          <view class="benefit-promo-icon icon-record">∞</view>
+          <view class="benefit-promo-title">无限记录</view>
+          <view class="benefit-promo-sub">安心版 30次/月，畅享不限</view>
+        </view>
+        <view class="benefit-promo-card">
+          <view class="benefit-promo-icon icon-members">＋</view>
+          <view class="benefit-promo-title">更多成员</view>
+          <view class="benefit-promo-sub">支持扩展家庭与成员</view>
+        </view>
+        <view class="benefit-promo-card">
+          <view class="benefit-promo-icon icon-archive">↗</view>
+          <view class="benefit-promo-title">专属档案</view>
+          <view class="benefit-promo-sub">自动串联复诊摘要</view>
+        </view>
+      </view>
+      <view class="details-button">查看套餐详情</view>
+
+      <view class="full-benefits-heading">全部权益</view>
       <view class="comparison-table">
         <view class="comparison-row comparison-head">
           <text>权益</text>
@@ -50,23 +118,8 @@
     </view>
   </view>
 
-  <view class="section usage-card">
-    <view class="section-title usage-title">
-      <view>
-        <view>当前权益使用量</view>
-        <view class="section-subtitle">家庭数量按账号统计，其他用量按当前家庭统计</view>
-      </view>
-      <view class="plan-chip">{{entitlement.planName || '基础版'}}</view>
-    </view>
-    <view class="usage-row" wx:for="{{benefitRows}}" wx:key="label">
-      <view class="usage-line">
-        <text>{{item.label}}</text>
-        <text class="usage-number">{{item.used}} / {{item.limitText}}</text>
-      </view>
-      <view class="usage-track">
-        <view class="usage-progress" style="width: {{item.progress}}%;"></view>
-      </view>
-    </view>
+  <view class="fixed-cta-bar">
+    <button class="primary-cta" bindtap="onPurchaseTap">购买会员 / 升级套餐</button>
   </view>
 </view>
 <global-auth-layer id="global-auth-layer" />
