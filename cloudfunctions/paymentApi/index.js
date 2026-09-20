@@ -112,6 +112,8 @@ exports.main = async (event = {}) => {
         return ok(await listOrdersForUser(openid, payload))
       case 'getOrderForUser':
         return ok(await getOrderForUser(openid, payload))
+      case 'cancelOrderForUser':
+        return ok(await cancelOrderForUser(openid, payload))
       case 'mockPaymentSuccess':
         return ok(await mockPaymentSuccess(openid, payload))
       default:
@@ -424,6 +426,23 @@ async function getOrderForUser(openid, payload) {
   return { order: formatOrder(result.data) }
 }
 
+async function cancelOrderForUser(openid, payload) {
+  const orderId = String(payload.orderId || '').trim()
+  if (!orderId) throw new Error('orderId is required')
+  const result = await db.collection('orders').doc(orderId).get()
+  const order = result.data
+  if (!order) throw new Error('order not found')
+  await assertFamilyManager(openid, order.familyId)
+  if (order.status === 'cancelled') return { orderId, status: 'cancelled' }
+  if (order.status !== 'pending') throw new Error('只有待支付订单可以取消')
+  const now = db.serverDate()
+  await db.collection('orders').doc(orderId).update({ data: { status: 'cancelled', cancelledAt: now, updatedAt: now } })
+  if (order.couponId) {
+    await db.collection('coupon_redemptions').where({ orderId, status: 'pending' }).update({ data: { status: 'cancelled', updatedAt: now } })
+  }
+  return { orderId, status: 'cancelled' }
+}
+
 function formatOrder(order = {}) {
   return {
     ...order,
@@ -578,23 +597,24 @@ async function assertFamilyManager(openid, familyId) {
 }
 
 async function getPlan(planId) {
+  try {
+    const result = await db.collection('plans').where({ planId, status: 'active', deletedAt: _.exists(false) }).limit(1).get()
+    if (result.data.length) {
+      const builtInPlan = PLANS.find((item) => item.planId === planId)
+      return builtInPlan ? {
+        ...builtInPlan,
+        ...result.data[0],
+        membershipTier: builtInPlan.membershipTier,
+        durationDays: builtInPlan.durationDays,
+        benefits: { ...builtInPlan.benefits, ...(result.data[0].benefits || {}) },
+      } : result.data[0]
+    }
+  } catch (error) {
+    console.warn('configured plan lookup failed', error.message)
+  }
   const builtInPlan = PLANS.find((item) => item.planId === planId)
-  if (builtInPlan) {
-    return builtInPlan
-  }
-  const result = await db
-    .collection('plans')
-    .where({
-      planId,
-      status: 'active',
-      deletedAt: _.exists(false),
-    })
-    .limit(1)
-    .get()
-  if (!result.data.length) {
-    throw new Error('plan not found')
-  }
-  return result.data[0]
+  if (!builtInPlan) throw new Error('plan not found')
+  return builtInPlan
 }
 
 async function findCouponForOrder(code, openid, familyId, plan) {

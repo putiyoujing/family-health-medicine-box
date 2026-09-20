@@ -1668,6 +1668,14 @@ function getOrderForUser(payload = {}) {
   return clone({ order })
 }
 
+function cancelOrderForUser(payload = {}) {
+  const order = (state.orders || []).find((item) => item.orderId === payload.orderId || item._id === payload.orderId)
+  if (!order) throw new Error('订单不存在')
+  if (order.status !== 'pending') throw new Error('只有待支付订单可以取消')
+  order.status = 'cancelled'
+  return clone({ orderId: order.orderId, status: order.status })
+}
+
 function previewOrder(payload = {}) {
   const plan = plans.find((item) => item.planId === payload.planId) || plans[0]
   const discountAmount = calculateDiscount(plan.price, payload.couponCode)
@@ -2181,6 +2189,7 @@ module.exports = {
   listCouponsForUser,
   listOrdersForUser,
   getOrderForUser,
+  cancelOrderForUser,
   listFamilyRoles,
   listMedicationHistory,
   listMyFamilies,

@@ -486,6 +486,10 @@ async function getOrderForUser(payload = {}) {
   return callPaymentOrDemo('getOrderForUser', payload, demo.getOrderForUser)
 }
 
+async function cancelOrderForUser(payload = {}) {
+  return callPaymentOrDemo('cancelOrderForUser', payload, demo.cancelOrderForUser)
+}
+
 
 async function applyCoupon(payload) {
   return callPaymentOrDemo('applyCoupon', payload, demo.applyCoupon)
@@ -520,6 +524,7 @@ module.exports = {
   getMembershipStatus,
   getPlans,
   getOrderForUser,
+  cancelOrderForUser,
   listFamilyRoles,
   listMedicationHistory,
   listCouponsForUser,
