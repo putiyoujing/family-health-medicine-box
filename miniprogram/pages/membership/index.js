@@ -42,6 +42,7 @@ Page({
     membershipBadge: 'FREE',
     expireText: '',
     redeemCode: '',
+    redeemExpanded: false,
     redeemInputFocused: false,
     redeeming: false,
     redeemResult: null,
@@ -211,11 +212,27 @@ Page({
   },
 
   focusRedeem() {
-    this.setData({ redeemInputFocused: false })
+    this.setData({ redeemExpanded: true, redeemInputFocused: false })
     wx.pageScrollTo({ selector: '#redeem-section', duration: 300 })
     setTimeout(() => {
       this.setData({ redeemInputFocused: true })
     }, 320)
+  },
+
+  toggleRedeemPanel() {
+    const redeemExpanded = !this.data.redeemExpanded
+    this.setData({ redeemExpanded, redeemInputFocused: false })
+    if (redeemExpanded) {
+      wx.pageScrollTo({ selector: '#redeem-section', duration: 300 })
+    }
+  },
+
+  onPurchaseTap() {
+    wx.showModal({
+      title: '会员套餐',
+      content: '套餐购买流程将在官方虚拟支付页面完成后开放，当前可先使用活动兑换码激活会员。',
+      showCancel: false,
+    })
   },
 
 })
