@@ -6,7 +6,7 @@ const test = require('node:test')
 const root = path.resolve(__dirname, '..')
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
-test('membership UI keeps redemption without plan prices or external purchase guidance', () => {
+test('membership UI keeps redemption and gates online purchase without external purchase guidance', () => {
   const template = read('miniprogram/pages/membership/index.wxml')
   const script = read('miniprogram/pages/membership/index.js')
   const profile = read('miniprogram/pages/profile/index.wxml')
@@ -14,7 +14,8 @@ test('membership UI keeps redemption without plan prices or external purchase gu
 
   assert.match(template, /兑换会员/)
   assert.match(template, /输入会员兑换码/)
-  assert.doesNotMatch(template, /会员套餐|月度会员|年度会员|plan-list|plan-price|¥/)
+  assert.match(template, /disabled="\{\{!paymentReady \|\| loading\}\}"/)
+  assert.match(template, /paymentReason/)
   assert.doesNotMatch(script, /小红书|店铺|购买兑换码/)
   assert.match(script, /请输入已有会员兑换码完成权益激活/)
   assert.match(profile, /兑换会员/)

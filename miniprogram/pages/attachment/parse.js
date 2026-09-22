@@ -115,11 +115,19 @@ Page({
     this.setData({ confirming: true })
     wx.showLoading({ title: '保存中' })
     try {
-      await api.confirmAiParseResult({
+      const output = fieldsToObject(this.data.fields)
+      const confirmed = await api.confirmAiParseResult({
         taskId: this.data.task._id,
-        output: fieldsToObject(this.data.fields),
+        output,
         relatedType: this.data.attachment.relatedType || this.data.source || '',
       })
+      if (this.data.source === 'medicine') {
+        const app = getApp()
+        app.globalData.pendingMedicineParseResult = {
+          imageKind: this.data.kindOptions[this.data.kindIndex].value,
+          output: confirmed.output || output,
+        }
+      }
       wx.hideLoading()
       this.setData({ confirming: false })
       wx.showToast({ title: '已保存确认结果' })

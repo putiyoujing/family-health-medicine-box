@@ -86,11 +86,25 @@ App({
     this.privacyRequestPromise = new Promise((resolve) => {
       this.finishPrivacyRequest = resolve
     })
+    const requestId = {}
+    this.privacyRequestId = requestId
     wx.requirePrivacyAuthorize({
-      success: () => this.completePrivacyRequest(true),
-      fail: () => this.completePrivacyRequest(false),
+      success: () => this.completePrivacyRequest(true, requestId),
+      fail: () => this.completePrivacyRequest(false, requestId),
     })
     return this.privacyRequestPromise
+  },
+
+  cancelPrivacyAuthorization(layer) {
+    if (this.activeAuthLayer !== layer) {
+      return
+    }
+    const resolve = this.privacyAuthorizationResolve
+    this.privacyAuthorizationResolve = null
+    if (typeof resolve === 'function') {
+      resolve({ event: 'disagree' })
+    }
+    this.completePrivacyRequest(false, this.privacyRequestId)
   },
 
   resolvePrivacyAuthorization(agreed) {
@@ -106,10 +120,14 @@ App({
     }
   },
 
-  completePrivacyRequest(granted) {
+  completePrivacyRequest(granted, requestId) {
+    if (requestId && requestId !== this.privacyRequestId) {
+      return
+    }
     const finish = this.finishPrivacyRequest
     this.finishPrivacyRequest = null
     this.privacyRequestPromise = null
+    this.privacyRequestId = null
     this.activeAuthLayer = null
     if (typeof finish === 'function') {
       finish(granted)
@@ -263,12 +281,23 @@ function isAuthorizedProfileRequired(error) {
 }
 
 function shouldUseDevMockLogin(enabled) {
-  if (!enabled || typeof wx.getAccountInfoSync !== 'function') {
+  if (
+    !enabled
+    || typeof wx.getAccountInfoSync !== 'function'
+    || typeof wx.getDeviceInfo !== 'function'
+  ) {
     return false
   }
   try {
     const accountInfo = wx.getAccountInfoSync()
-    return accountInfo && accountInfo.miniProgram && accountInfo.miniProgram.envVersion === 'develop'
+    const deviceInfo = wx.getDeviceInfo()
+    return Boolean(
+      accountInfo
+      && accountInfo.miniProgram
+      && accountInfo.miniProgram.envVersion === 'develop'
+      && deviceInfo
+      && deviceInfo.platform === 'devtools',
+    )
   } catch (error) {
     console.warn('failed to read miniprogram environment', error)
     return false

@@ -8,6 +8,7 @@
     <view class="ai-processing-title">资料处理中</view>
     <view class="muted">正在整理你输入的文字、病例、报告和药品资料，完成后会自动更新本病程。</view>
   </view>
+  <view class="error-text" wx:if="{{record && record.aiProcessingError}}">部分资料未能整理：{{record.aiProcessingError}}</view>
 
   <view class="section" wx:if="{{loading}}">
     <view class="section-title">正在加载病程</view>
@@ -36,7 +37,7 @@
         <image src="{{item.tempFilePath || item.fileId || item.fileID}}" mode="aspectFill" data-index="{{index}}" bindtap="previewAttachment"></image>
       </view>
     </view>
-    <button class="ghost-btn" wx:if="{{canEditRecords && imageParsingEnabled && attachments.length}}" bindtap="startAttachmentReview">整理并核对图片</button>
+    <button class="ghost-btn" wx:if="{{canEditRecords && imageParsingEnabled && attachments.length && !record.aiProcessing && record.aiProcessingStatus !== 'completed'}}" bindtap="startAttachmentReview">后台整理图片</button>
   </view>
 
   <view class="action-grid">
@@ -156,7 +157,7 @@
 
   <view class="section" wx:if="{{medicineCandidates.length}}">
     <view class="section-title">识别出的处方药品</view>
-    <view class="muted">药品只会先记录在病程中，请逐项确认是否加入药箱。</view>
+    <view class="muted">识别出的药品会自动加入药箱；请到药箱补充有效期和库存信息。</view>
     <view class="medicine-candidate" wx:for="{{medicineCandidates}}" wx:key="id">
       <view class="medicine-candidate-main">
         <view class="record-title">{{item.name}}</view>

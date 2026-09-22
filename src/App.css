@@ -703,6 +703,11 @@
 .table-action-button:disabled { color: #9aa59f; cursor: not-allowed; background: #f4f6f4; border-color: #dce4dd; }
 .danger-action { color: #a74632; background: #fff4f1; border-color: #f0c8bf; }
 .coupon-code-cell { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.plan-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plan-setting-card { display: grid; gap: 10px; padding: 16px; border: 1px solid #dfe9e3; border-radius: 14px; background: #fbfdfc; }
+.plan-setting-card label { display: grid; gap: 5px; }
+.plan-setting-card input, .plan-setting-card textarea { width: 100%; box-sizing: border-box; }
+@media (max-width: 900px) { .plan-settings-grid { grid-template-columns: 1fr; } }
 .copy-code-button { display: inline-grid; width: 28px; height: 28px; padding: 0; place-items: center; color: #195b3a; background: #eef4ef; border: 1px solid #d1dfd4; border-radius: 6px; }
 .detail-panel { display: grid; gap: 14px; }
 .detail-panel h4 { margin: 4px 0 0; color: #102018; }

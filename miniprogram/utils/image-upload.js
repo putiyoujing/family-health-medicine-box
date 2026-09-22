@@ -7,9 +7,32 @@ function isImageSelectionCanceled(error) {
   return message.includes('cancel') || message.includes('取消')
 }
 
+async function ensureImagePrivacyAuthorization(page) {
+  const app = typeof getApp === 'function' ? getApp() : null
+  if (!app || typeof app.requestPrivacyAuthorization !== 'function') {
+    return true
+  }
+
+  let currentPage = page
+  if (!currentPage && typeof getCurrentPages === 'function') {
+    const pages = getCurrentPages()
+    currentPage = pages[pages.length - 1]
+  }
+  const layer = currentPage && typeof currentPage.selectComponent === 'function'
+    ? currentPage.selectComponent('#global-auth-layer')
+    : null
+  if (!layer || typeof layer.showPrivacyDialog !== 'function') {
+    return false
+  }
+  return !!(await app.requestPrivacyAuthorization(layer))
+}
+
 function getImageUploadErrorMessage(error, label = '图片') {
   const rawMessage = String(error && (error.errMsg || error.message) || '').trim()
   const normalizedMessage = rawMessage.toLowerCase()
+  if (normalizedMessage.includes('privacy permission is not authorized')) {
+    return '请先同意隐私保护指引后再选择图片。'
+  }
   if (
     Number(error && error.errno) === 112
     || normalizedMessage.includes('api scope')
@@ -27,6 +50,7 @@ function getImageUploadErrorMessage(error, label = '图片') {
 }
 
 module.exports = {
+  ensureImagePrivacyAuthorization,
   getImageUploadErrorMessage,
   getMediaSourceType,
   isImageSelectionCanceled,

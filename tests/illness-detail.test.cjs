@@ -24,6 +24,7 @@ test('illness list routes append through detail and keeps course actions inside 
   assert.match(detailTemplate, /bindtap="editRecord"[^>]*>修改病程<\/button>/)
   assert.match(detailTemplate, /bindtap="previewAttachment"/)
   assert.match(detailTemplate, /bindtap="startAttachmentReview"/)
+  assert.match(detailTemplate, /record\.aiProcessingStatus !== 'completed'/)
 })
 
 test('illness detail previews attachments and opens the edit form', async () => {
@@ -63,7 +64,7 @@ test('illness detail leaves loading state when the route has no illness id', asy
   assert.equal(page.data.loadError, '缺少病程 ID')
 })
 
-test('illness detail opens explicit attachment review for editable users', async () => {
+test('illness detail starts background attachment processing for editable users', async () => {
   const home = {
     family: { _id: 'family-a', role: 'owner' },
     features: { imageParsingEnabled: true },
@@ -74,14 +75,23 @@ test('illness detail opens explicit attachment review for editable users', async
     medicationLogs: [],
     attachments: [{ _id: 'attachment-a', relatedType: 'illness', relatedId: 'illness-a', fileId: 'cloud://record.jpg' }],
   }
-  const { pageDefinition, navigations } = loadPage(detailScript, { home })
+  const calls = []
+  const { pageDefinition, navigations } = loadPage(detailScript, {
+    home,
+    processQuickIllness: async (payload) => {
+      calls.push(payload)
+      return { status: 'completed' }
+    },
+  })
   const page = createPageInstance(pageDefinition)
 
   page.onLoad({ id: 'illness-a' })
   await page.load()
   page.startAttachmentReview()
+  await new Promise((resolve) => setTimeout(resolve, 0))
 
-  assert.deepEqual(navigations.urls, ['/pages/illness/review'])
+  assert.deepEqual(navigations.urls, [])
+  assert.equal(JSON.stringify(calls), JSON.stringify([{ illnessId: 'illness-a', includeText: false }]))
 })
 
 test('illness list append opens the selected detail form', async () => {
@@ -337,6 +347,36 @@ test('cloud visit event saves the timeline and visited status in one transaction
   assert.match(saveCourseEventSource, /illnessUpdate\.status = illnessStatus/)
 })
 
+test('recognized prescription medicines already synced to the cabinet show as added', async () => {
+  const home = {
+    family: { _id: 'family-a', role: 'owner' },
+    members: [{ _id: 'member-a', name: '小宝' }],
+    illnessRecords: [{
+      _id: 'illness-a',
+      memberId: 'member-a',
+      startedAt: '2026-07-20 08:00',
+      prescriptionText: '布洛芬混悬液 100ml',
+      status: '已就医',
+    }],
+    medicines: [{
+      _id: 'medicine-a',
+      memberId: 'member-a',
+      name: '布洛芬混悬液',
+      specification: '100ml',
+    }],
+    courseEvents: [],
+    medicationLogs: [],
+    attachments: [],
+  }
+  const { pageDefinition } = loadPage(detailScript, { home })
+  const page = createPageInstance(pageDefinition)
+  page.onLoad({ id: 'illness-a' })
+  await page.load()
+
+  assert.equal(page.data.medicineCandidates[0].action, 'added')
+  assert.equal(page.data.medicineCandidates[0].medicineId, 'medicine-a')
+})
+
 test('illness detail shows the newest timeline record first', async () => {
   const home = {
     family: { _id: 'family-a' },
@@ -545,6 +585,7 @@ function loadPage(script, options = {}) {
         saveAttachment: options.saveAttachment || (async () => ({ id: 'attachment-a' })),
         completeIllness: options.completeIllness || (async () => ({ id: 'illness-a', status: '已恢复' })),
         deleteIllness: options.deleteIllness || (async () => ({ id: 'illness-a' })),
+        processQuickIllness: options.processQuickIllness || (async () => ({ status: 'completed' })),
       },
       '../../utils/operation-guards': {
         canEditFamilyRecords: (family) => family && family.role !== 'viewer',

@@ -8,19 +8,21 @@ Component({
     nickname: '',
     avatarUrl: '',
     avatarPreset: 'sprout',
-    loginButtons: [
-      { type: 'default', text: '拒绝', value: 'cancel' },
-      { type: 'primary', text: '允许', value: 'confirm' },
-    ],
   },
 
   lifetimes: {
     detached() {
+      const app = getApp()
+      if (app && typeof app.cancelPrivacyAuthorization === 'function') {
+        app.cancelPrivacyAuthorization(this)
+      }
       this.finish(false)
     },
   },
 
   methods: {
+    stopTouchMove() {},
+
     open() {
       const app = getApp()
       if (app && app.globalData && app.globalData.openid) {
@@ -37,7 +39,8 @@ Component({
         avatarUrl: '',
         avatarPreset: 'sprout',
       })
-      setAuthTabMaskVisible(true)
+      this.authTabBar = getCurrentAuthTabBar()
+      setAuthTabMaskVisible(true, this.authTabBar)
       this.openPromise = new Promise((resolve) => {
         this.openResolve = resolve
       })
@@ -120,7 +123,12 @@ Component({
 
     async onLoginButtonTap(event) {
       const item = event && event.detail && event.detail.item
-      if (item && item.value === 'confirm') {
+      const value = item
+        ? item.value
+        : event && event.currentTarget && event.currentTarget.dataset
+          ? event.currentTarget.dataset.value
+          : ''
+      if (value === 'confirm') {
         return this.confirmLogin()
       }
       this.cancelLogin()
@@ -182,7 +190,8 @@ Component({
         privacyVisible: false,
         loginVisible: false,
       })
-      setAuthTabMaskVisible(false)
+      setAuthTabMaskVisible(false, this.authTabBar)
+      this.authTabBar = null
       if (typeof resolve === 'function') {
         resolve(result)
       }
@@ -190,16 +199,19 @@ Component({
   },
 })
 
-function setAuthTabMaskVisible(authMaskVisible) {
+function getCurrentAuthTabBar() {
   if (typeof getCurrentPages !== 'function') {
-    return
+    return null
   }
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1]
   if (!currentPage || typeof currentPage.getTabBar !== 'function') {
-    return
+    return null
   }
-  const tabBar = currentPage.getTabBar()
+  return currentPage.getTabBar()
+}
+
+function setAuthTabMaskVisible(authMaskVisible, tabBar) {
   if (tabBar && typeof tabBar.setData === 'function') {
     tabBar.setData({ authMaskVisible })
   }

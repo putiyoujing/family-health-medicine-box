@@ -1,7 +1,12 @@
 const api = require('../../services/api')
 const { nowDateTimeInput, todayDate } = require('../../utils/format')
 const { ensureHasMembers, ensureLoginReady } = require('../../utils/operation-guards')
-const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
+const {
+  ensureImagePrivacyAuthorization,
+  getImageUploadErrorMessage,
+  getMediaSourceType,
+  isImageSelectionCanceled,
+} = require('../../utils/image-upload')
 const { EVENT_IDS, countBucket, track, trackServiceError } = require('../../utils/analytics')
 
 const emptyForm = {
@@ -55,6 +60,7 @@ Page({
   },
 
   onLoad(options = {}) {
+    this.imageUploadNoticeShown = false
     this.recordId = options.id || ''
     this.similarId = options.similarId || ''
     this.visitDraftKey = String(options.visitDraftKey || `${VISIT_DRAFT_PREFIX}${this.recordId || Date.now()}`)
@@ -358,18 +364,24 @@ Page({
       wx.showToast({ title: `每次就诊最多 ${MAX_VISIT_ATTACHMENTS} 张`, icon: 'none' })
       return
     }
-    const confirmed = await confirm(
-      '图片可能包含敏感健康或身份信息。请先遮挡无关姓名、证件号等内容，确认后再选择并上传。',
-      '上传健康图片？',
-    )
-    if (!confirmed) {
-      return
+    if (!this.imageUploadNoticeShown) {
+      const confirmed = await confirm(
+        '图片可能包含敏感健康或身份信息。请先遮挡无关姓名、证件号等内容，确认后再选择并上传。',
+        '上传健康图片？',
+      )
+      if (!confirmed) {
+        return
+      }
+      this.imageUploadNoticeShown = true
     }
     const uploaded = []
     try {
       const sourceResult = await wx.showActionSheet({
         itemList: ['拍照', '从相册选择'],
       })
+      if (!await ensureImagePrivacyAuthorization(this)) {
+        return
+      }
       const chooseResult = await wx.chooseMedia({
         count: remaining,
         mediaType: ['image'],

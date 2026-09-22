@@ -21,7 +21,7 @@
     </button>
     <view class="text-ai-card" wx:if="{{textParseOutput}}">
       <view class="section-kicker">AI 整理结果</view>
-        <view class="muted">结果已直接写入病程。你可以修改字段，点击下方按钮保存修改，也可以直接返回。</view>
+        <view class="muted">结果尚未写入病程。请核对并修改字段，点击下方按钮确认保存，也可以直接返回。</view>
       <view class="field" wx:for="{{textFields}}" wx:key="key">
         <text class="field-label">{{item.label}}</text>
         <input class="input" data-key="{{item.key}}" value="{{item.value}}" bindinput="onTextFieldInput" placeholder="{{item.placeholder}}" />
@@ -55,7 +55,7 @@
   </view>
 
   <view class="section" wx:if="{{task}}">
-    <view class="section-title">AI 结果（已写入病程）</view>
+    <view class="section-title">AI 结果（待确认）</view>
     <view class="muted">{{task.statusText}}</view>
     <view class="field" wx:for="{{fields}}" wx:key="key">
       <text class="field-label">{{item.label}}</text>

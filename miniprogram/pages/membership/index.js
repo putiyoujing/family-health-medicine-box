@@ -2,277 +2,184 @@ const api = require('../../services/api')
 const { ensureLoginReady } = require('../../utils/operation-guards')
 const { EVENT_IDS, track, trackServiceError } = require('../../utils/analytics')
 
-const MEMBERSHIP_DISPLAY_CACHE_KEY = 'membership-display-cache'
 const DEFAULT_MEMBERSHIP_PURCHASE_GUIDE = '请输入已有会员兑换码完成权益激活。'
+const GUIDE_CACHE_KEY = 'membership-guide'
 
 const DEFAULT_ENTITLEMENT = {
-  plan: 'free',
-  tier: 'free',
-  planName: '基础版',
-  limits: {
-    maxOwnedFamilies: 1,
-    maxMembers: 3,
-    maxAttachments: 10,
-    aiAssistantMonthly: 10,
-    aiImageParseMonthly: 3,
-    quickRecordLimit: 3,
-    quickRecordPeriod: 'lifetime',
-  },
-}
-
-const DEFAULT_FAMILY_POLICY = {
-  ownedFamilyCount: 1,
-  maxOwnedFamilies: 1,
+  plan: 'free', tier: 'free', planName: '基础版', limits: { maxOwnedFamilies: 1, maxMembers: 3, maxAttachments: 10, quickRecordLimit: 3 },
 }
 
 Page({
-  onShareAppMessage() {
-    return require('../../utils/share').getDefaultShareConfig()
-  },
-
   data: {
-    loading: true,
-    family: {},
-    entitlement: DEFAULT_ENTITLEMENT,
-    usage: {},
-    familyPolicy: DEFAULT_FAMILY_POLICY,
-    benefitRows: buildBenefitRows(DEFAULT_ENTITLEMENT.limits, {}, DEFAULT_FAMILY_POLICY),
-    comparisonRows: buildComparisonRows(),
-    isFreeMembership: true,
-    membershipBadge: 'FREE',
-    expireText: '',
-    redeemCode: '',
-    redeemInputFocused: false,
-    redeeming: false,
-    redeemResult: null,
-    membershipPurchaseGuide: DEFAULT_MEMBERSHIP_PURCHASE_GUIDE,
+    loading: true, family: {}, entitlement: DEFAULT_ENTITLEMENT, usageRows: [], plans: [], redeemCode: '', redeeming: false,
+    redeemResult: null, membershipPurchaseGuide: DEFAULT_MEMBERSHIP_PURCHASE_GUIDE, isFreeMembership: true, isUnlimitedMembership: false, expireText: '',
+    paymentReady: false, paymentReason: '在线支付暂未开放，可使用已有兑换码。',
+    periodOptions: [{ value: 'monthly', label: '月度' }, { value: 'yearly', label: '年度' }], selectedPeriod: 'monthly', selectedPlanId: '', selectedPlan: {}, planCards: [],
   },
 
-  onLoad(options) {
-    this.shouldFocusRedeem = options.focus === 'redeem'
-    this.restoreCachedMembershipGuide()
-    this.hydrateCachedMembership()
+  onShareAppMessage() { return require('../../utils/share').getDefaultShareConfig() },
+
+  onLoad(options = {}) {
+    try {
+      const cached = wx.getStorageSync(GUIDE_CACHE_KEY)
+      if (cached && cached.membershipPurchaseGuide) this.setData({ membershipPurchaseGuide: cached.membershipPurchaseGuide })
+    } catch (_) { /* 缓存不可用不影响在线加载 */ }
+    const home = api.getCachedHome && api.getCachedHome()
+    if (home) this.applyMembership(home)
+    this.focusRedeem = options.focus === 'redeem'
   },
 
-  hydrateCachedMembership() {
-    if (typeof api.getCachedHome !== 'function') {
-      return
-    }
-    const home = api.getCachedHome()
-    const entitlement = home && home.entitlement
-    if (!entitlement) {
-      return
-    }
+  async onShow() { await this.load() },
+
+  applyMembership(membership) {
+    const entitlement = membership.entitlement || DEFAULT_ENTITLEMENT
     this.setData({
-      family: home.family || this.data.family,
-      entitlement,
-      benefitRows: buildBenefitRows(entitlement.limits || {}, this.data.usage, this.data.familyPolicy),
-      isFreeMembership: isFreePlan(entitlement),
-      membershipBadge: getMembershipBadge(entitlement),
-      expireText: formatExpireAt(entitlement.proExpireAt || entitlement.expireAt),
+      family: membership.family || {}, entitlement,
+      usageRows: buildUsageRows(entitlement.limits || {}, membership.usage || {}, membership.familyPolicy || {}),
+      isFreeMembership: isFreePlan(entitlement), isUnlimitedMembership: isUnlimitedPlan(entitlement),
+      expireText: formatDate(entitlement.proExpireAt || entitlement.expireAt),
     })
-  },
-
-  onShow() {
-    const app = getApp()
-    if (app.globalData && app.globalData.focusMembershipRedeem) {
-      app.globalData.focusMembershipRedeem = false
-      this.shouldFocusRedeem = true
-    }
-    this.load()
   },
 
   async load() {
-    this.setData({ loading: true })
-    const guideRequest = this.loadMembershipGuide()
-    const loggedIn = await ensureLoginReady({ silent: true })
-    if (!loggedIn) {
-      this.setData({ loading: false })
-      return
-    }
-    let membership = {
-      family: {},
-      entitlement: this.data.entitlement,
-      usage: {},
-    }
-    let membershipGuide = this.data.membershipPurchaseGuide
-    let familyPolicy = this.data.familyPolicy
-
-    const [membershipResult, guideResult] = await Promise.allSettled([
-      api.getMembershipStatus(),
-      guideRequest,
+    this.setData({ loading: true, paymentReady: false })
+    if (!await ensureLoginReady({ silent: true })) { this.setData({ loading: false, family: {} }); return }
+    const results = await Promise.allSettled([
+      api.getMembershipStatus().then((membership) => this.applyMembership(membership)),
+      api.getPlans().then((planData) => {
+        const plans = normalizePlans(planData.plans || [])
+        const selectedPlanId = resolveSelectedPlanId(plans, this.data.selectedPlanId, this.data.entitlement)
+        const selectedPlan = plans.find((plan) => plan.planId === selectedPlanId) || {}
+        const membershipPurchaseGuide = String(planData.membershipPurchaseGuide || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE)
+        let platform = ''
+        try { platform = (wx.getDeviceInfo ? wx.getDeviceInfo() : wx.getSystemInfoSync()).platform } catch (_) { /* 旧客户端仍由支付页校验 */ }
+        const capability = planData.paymentCapability || {}
+        const iosBlocked = platform === 'ios' && capability.iosEnabled !== true
+        this.setData({
+          plans, membershipPurchaseGuide, selectedPlanId, selectedPlan,
+          selectedPeriod: selectedPlan.period || 'monthly',
+          planCards: buildPlanCards(plans, selectedPlan.period || 'monthly'),
+          paymentReady: capability.ready === true && !iosBlocked,
+          paymentReason: iosBlocked ? '当前暂未开通 iOS 支付，可使用已有兑换码。' : capability.reason || '在线支付暂未开放，可使用已有兑换码。',
+        })
+        try { wx.setStorageSync(GUIDE_CACHE_KEY, { membershipPurchaseGuide }) } catch (_) { /* 缓存写入失败不影响展示 */ }
+      }),
     ])
-    if (membershipResult.status === 'fulfilled') {
-      membership = membershipResult.value
+    this.setData({ loading: false })
+    const failed = results.find((result) => result.status === 'rejected')
+    if (failed) {
+      trackServiceError('membership_load')
+      wx.showToast({ title: failed.reason.message || '会员信息加载失败', icon: 'none' })
     }
-    if (guideResult.status === 'fulfilled') {
-      membershipGuide = guideResult.value
-    }
-    if (membershipResult.status === 'fulfilled' && membership.familyPolicy) {
-      familyPolicy = membership.familyPolicy
-    }
-
-    const entitlement = membership.entitlement || this.data.entitlement
-    const usage = membership.usage || {}
-
-    this.setData({
-      loading: false,
-      family: membership.family || {},
-      entitlement,
-      usage,
-      familyPolicy,
-      benefitRows: buildBenefitRows(entitlement.limits || {}, usage, familyPolicy),
-      isFreeMembership: isFreePlan(entitlement),
-      membershipBadge: getMembershipBadge(entitlement),
-      expireText: formatExpireAt(entitlement.proExpireAt || entitlement.expireAt),
-      membershipPurchaseGuide: membershipGuide,
-    })
-    if (this.shouldFocusRedeem) {
-      this.shouldFocusRedeem = false
-      this.focusRedeem()
+    if (this.focusRedeem && wx.pageScrollTo) {
+      wx.pageScrollTo({ selector: '#redeem-section', duration: 0 })
+      this.focusRedeem = false
     }
   },
 
-  async loadMembershipGuide() {
-    try {
-      const planData = await api.getPlans()
-      const membershipPurchaseGuide = String(planData.membershipPurchaseGuide || '').trim()
-        || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE
-      this.setData({ membershipPurchaseGuide })
-      wx.setStorageSync(MEMBERSHIP_DISPLAY_CACHE_KEY, {
-        membershipPurchaseGuide,
-      })
-      return membershipPurchaseGuide
-    } catch (error) {
-      console.warn('membership guide config unavailable', error.message)
-      return this.data.membershipPurchaseGuide || DEFAULT_MEMBERSHIP_PURCHASE_GUIDE
-    }
+  selectPeriod(event) {
+    const period = event.currentTarget.dataset.period
+    if (!period || period === this.data.selectedPeriod) return
+    const selectedTier = this.data.selectedPlan && this.data.selectedPlan.membershipTier
+    const plan = this.data.plans.find((item) => item.period === period && item.membershipTier === selectedTier)
+      || this.data.plans.find((item) => item.period === period)
+    if (plan) this.setData({ selectedPeriod: period, selectedPlanId: plan.planId, selectedPlan: plan, planCards: buildPlanCards(this.data.plans, period) })
   },
 
-  restoreCachedMembershipGuide() {
-    try {
-      const cached = wx.getStorageSync(MEMBERSHIP_DISPLAY_CACHE_KEY)
-      if (!cached || typeof cached !== 'object') {
-        return
-      }
-      const membershipPurchaseGuide = String(cached.membershipPurchaseGuide || '').trim()
-      if (membershipPurchaseGuide) {
-        this.setData({ membershipPurchaseGuide })
-      }
-    } catch (error) {
-      console.warn('membership guide cache unavailable', error.message)
-    }
+  selectPlan(event) {
+    const planId = event.currentTarget.dataset.planId
+    const plan = this.data.plans.find((item) => item.planId === planId)
+    if (!plan) return
+    this.setData({ selectedPeriod: plan.period, selectedPlanId: plan.planId, selectedPlan: plan, planCards: buildPlanCards(this.data.plans, plan.period) })
   },
 
-  onRedeemInput(event) {
-    this.setData({
-      redeemCode: String(event.detail.value || '').trim().toUpperCase(),
-    })
+  goBack() { wx.navigateBack({ delta: 1 }) },
+
+  openProfile() { wx.switchTab({ url: '/pages/profile/index' }) },
+
+  openFamilySwitch() { wx.navigateTo({ url: '/pages/family/switch' }) },
+
+  async buySelectedPlan() {
+    const planId = this.data.selectedPlanId
+    if (!planId) return
+    if (!this.data.paymentReady) { wx.showToast({ title: this.data.paymentReason, icon: 'none' }); return }
+    if (!await ensureLoginReady()) return
+    if (!this.data.family || !this.data.family._id) { wx.showToast({ title: '请先创建或加入家庭', icon: 'none' }); return }
+    wx.navigateTo({ url: `/pages/membership/checkout?planId=${encodeURIComponent(planId)}` })
   },
+
+  onRedeemInput(event) { this.setData({ redeemCode: String(event.detail.value || '').trim().toUpperCase() }) },
 
   async redeemMembershipCode() {
-    const loggedIn = await ensureLoginReady()
-    if (!loggedIn) {
-      return
-    }
-    if (!this.data.family || !this.data.family._id) {
-      wx.showToast({ title: '请先创建或加入家庭', icon: 'none' })
-      return
-    }
-    if (!this.data.redeemCode) {
-      wx.showToast({ title: '请输入会员兑换码', icon: 'none' })
-      return
-    }
+    if (this._redeeming) return
+    this._redeeming = true
+    try { await this.performRedemption() } finally { this._redeeming = false }
+  },
+
+  async performRedemption() {
+    if (!await ensureLoginReady()) return
+    if (!this.data.family || !this.data.family._id) { wx.showToast({ title: '请先创建或加入家庭', icon: 'none' }); return }
+    if (!this.data.redeemCode) { wx.showToast({ title: '请输入会员兑换码', icon: 'none' }); return }
     this.setData({ redeeming: true, redeemResult: null })
-    wx.showLoading({ title: '兑换中' })
     try {
-      const result = await api.redeemMembershipCode({
-        code: this.data.redeemCode,
-      })
-      wx.hideLoading()
-      this.setData({
-        redeeming: false,
-        redeemCode: '',
-        redeemResult: result,
-      })
-      const tier = result.entitlement && result.entitlement.tier
-        || result.plan && result.plan.membershipTier
-        || 'unknown'
-      track(EVENT_IDS.MEMBERSHIP_REDEEM_RESULT, { status: 'success', tier })
-      wx.showToast({ title: '会员已激活' })
-      await this.load()
+      const result = await api.redeemMembershipCode({ code: this.data.redeemCode })
+      this.setData({ redeeming: false, redeemCode: '', redeemResult: result })
+      track(EVENT_IDS.MEMBERSHIP_REDEEM_RESULT, { status: 'success', tier: result.plan && result.plan.membershipTier })
+      wx.showToast({ title: '会员已激活' }); await this.load()
     } catch (error) {
-      wx.hideLoading()
-      this.setData({ redeeming: false })
-      track(EVENT_IDS.MEMBERSHIP_REDEEM_RESULT, { status: 'fail', tier: 'unknown' })
-      trackServiceError('membership_redeem')
+      this.setData({ redeeming: false }); track(EVENT_IDS.MEMBERSHIP_REDEEM_RESULT, { status: 'fail', tier: 'unknown' }); trackServiceError('membership_redeem')
       wx.showToast({ title: error.message || '兑换失败', icon: 'none' })
     }
   },
-
-  focusRedeem() {
-    this.setData({ redeemInputFocused: false })
-    wx.pageScrollTo({ selector: '#redeem-section', duration: 300 })
-    setTimeout(() => {
-      this.setData({ redeemInputFocused: true })
-    }, 320)
-  },
-
 })
 
-function buildBenefitRows(limits, usage, familyPolicy) {
+function normalizePlans(plans) {
+  const visible = plans.filter((plan) => plan && plan.visible !== false && ['monthly_pro', 'yearly_pro', 'monthly_unlimited', 'yearly_unlimited', 'unlimited_pro'].includes(plan.planId))
+  return visible.map((plan) => ({ ...plan, membershipTier: plan.membershipTier || (plan.planId.includes('unlimited') ? 'unlimited' : 'paid') })).map((plan) => ({
+    ...plan, tierLabel: plan.membershipTier === 'unlimited' ? '畅享版' : '安心版', badgeLabel: plan.membershipTier === 'unlimited' ? '高频使用' : '适合持续记录', period: Number(plan.durationDays) >= 365 ? 'yearly' : 'monthly', periodLabel: Number(plan.durationDays) >= 365 ? '年度' : '月度',
+    priceText: (Number(plan.price || 0) / 100).toFixed(2), benefitItems: buildPlanBenefits(plan),
+  })).sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0))
+}
+
+function buildPlanCards(plans, period) {
+  return ['paid', 'unlimited'].map((membershipTier) => {
+    const current = plans.find((plan) => plan.membershipTier === membershipTier && plan.period === period)
+    const monthly = plans.find((plan) => plan.membershipTier === membershipTier && plan.period === 'monthly')
+    const yearly = plans.find((plan) => plan.membershipTier === membershipTier && plan.period === 'yearly')
+    if (!current) return null
+    return {
+      ...current,
+      monthlyPriceText: monthly ? monthly.priceText : '--',
+      yearlyPriceText: yearly ? yearly.priceText : '--',
+    }
+  }).filter(Boolean)
+}
+
+function resolveSelectedPlanId(plans, currentPlanId, entitlement) {
+  if (plans.some((plan) => plan.planId === currentPlanId)) return currentPlanId
+  const preferredTier = isUnlimitedPlan(entitlement) ? 'unlimited' : 'paid'
+  return (plans.find((plan) => plan.period === 'monthly' && plan.membershipTier === preferredTier) || plans[0] || {}).planId || ''
+}
+
+function buildPlanBenefits(plan) {
+  const benefits = plan.benefits || {}
+  const quickRecordLimit = benefits.quickRecordLimit === undefined && plan.membershipTier === 'unlimited' ? null : benefits.quickRecordLimit
+  return [`${benefits.maxOwnedFamilies || 3} 个家庭`, `${benefits.maxMembers || 10} 位成员`, `${benefits.maxAttachments || 100} 个附件`, quickRecordLimit === null ? '快速记录不限次数' : `快速记录 ${quickRecordLimit || 30} 次/月`]
+}
+
+function buildUsageRows(limits, usage, familyPolicy) {
   return [
-    {
-      label: '创建家庭',
-      used: familyPolicy.ownedFamilyCount || 0,
-      limit: familyPolicy.maxOwnedFamilies || limits.maxOwnedFamilies || 1,
-    },
+    { label: '家庭数量', used: familyPolicy.ownedFamilyCount || 0, limit: familyPolicy.maxOwnedFamilies || limits.maxOwnedFamilies || 1 },
     { label: '家庭成员', used: usage.members || 0, limit: limits.maxMembers || 3 },
-    { label: '附件上传', used: usage.attachments || 0, limit: limits.maxAttachments || 10 },
-    {
-      label: '快速记录',
-      used: usage.quickRecord ? usage.quickRecord.used : 0,
-      limit: limits.quickRecordLimit === undefined ? 3 : limits.quickRecordLimit,
-    },
-  ].map((item) => ({
-    ...item,
-    progress: item.limit ? Math.min(100, Math.round((item.used / item.limit) * 100)) : 0,
-    limitText: item.limit === null ? '不限' : item.limit,
-  }))
+    { label: '快速记录', used: usage.quickRecord ? usage.quickRecord.used : 0, limit: limits.quickRecordLimit === null ? '不限' : (limits.quickRecordLimit || 3) },
+    { label: '附件空间', used: usage.attachments || 0, limit: limits.maxAttachments || 10 },
+  ].map((item) => ({ ...item, progress: item.limit === '不限' ? 18 : Math.min(100, Math.round((item.used / item.limit) * 100)) }))
 }
 
-function buildComparisonRows() {
-  return [
-    { label: '快速记录', values: ['3 次（累计）', '30 次/月', '不限次数'] },
-    { label: '可创建家庭', values: ['1 个', '3 个', '3 个'] },
-    { label: '家庭成员', values: ['3 位', '10 位', '10 位'] },
-    { label: '附件上传', values: ['10 个', '100 个', '100 个'] },
-  ]
-}
-
-function isFreePlan(entitlement = {}) {
-  return entitlement.tier === 'free'
-    || entitlement.plan === 'free'
-    || /免费|基础/.test(String(entitlement.planName || ''))
-}
-
-function getMembershipBadge(entitlement = {}) {
-  if (entitlement.tier === 'unlimited' || /无限|畅享/.test(String(entitlement.planName || ''))) {
-    return 'UNLIMITED'
-  }
-  return isFreePlan(entitlement) ? 'FREE' : 'MEMBER'
-}
-
-function formatExpireAt(value) {
-  if (!value) {
-    return ''
-  }
+function isFreePlan(entitlement = {}) { return entitlement.tier === 'free' || entitlement.plan === 'free' || /基础|免费/.test(String(entitlement.planName || '')) }
+function isUnlimitedPlan(entitlement = {}) { return entitlement.tier === 'unlimited' || /畅享/.test(String(entitlement.planName || '')) }
+function formatDate(value) {
+  if (!value) return ''
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return String(value).slice(0, 10)
-  }
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return Number.isNaN(date.getTime()) ? String(value).slice(0, 10) : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }

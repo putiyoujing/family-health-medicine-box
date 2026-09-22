@@ -175,7 +175,7 @@ Page({
         textParseTask: result.task || null,
         textParseOutput: output,
         textFields: buildTextFields(output),
-        textConfirmed: true,
+        textConfirmed: false,
       })
     } catch (error) {
       wx.hideLoading()
@@ -294,17 +294,17 @@ Page({
         fields,
         output: result.output || {},
         task: result.task,
-        confirmed: true,
+        confirmed: false,
         medicineCandidates,
         parseError: '',
-        statusText: '已写入病程，可修改',
+        statusText: '已生成待确认字段',
       })
       wx.hideLoading()
       this.setData({
         items,
         currentItem: items[this.data.currentIndex],
         fields,
-        task: { ...result.task, statusText: 'AI 结果已写入病程' },
+        task: { ...result.task, statusText: 'AI 结果待确认' },
         parsing: false,
       })
     } catch (error) {

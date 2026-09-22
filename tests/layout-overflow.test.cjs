@@ -66,7 +66,7 @@ test('all responsive button groups stay inside their containers', () => {
   )
   expectStyle(
     'miniprogram/pages/membership/index.wxss',
-    /\.comparison-row\s*{[\s\S]*minmax\(0,\s*1\.08fr\)/,
+    /\.plan-grid\s*{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
   )
   expectStyle(
     'miniprogram/pages/profile/index.wxss',

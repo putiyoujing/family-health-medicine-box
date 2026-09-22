@@ -162,6 +162,14 @@ Page({
     wx.navigateTo({ url: '/pages/feedback/index' })
   },
 
+  openOrders() {
+    this.navigateWithLogin('/pages/orders/index')
+  },
+
+  openCoupons() {
+    this.navigateWithLogin('/pages/coupons/index')
+  },
+
   openLegal(event) {
     const type = event.currentTarget.dataset.type
     if (!['privacy', 'terms', 'safety'].includes(type)) {

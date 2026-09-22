@@ -2,7 +2,12 @@ const api = require('../../services/api')
 const { todayDate } = require('../../utils/format')
 const { ensureLoginReady } = require('../../utils/operation-guards')
 const { hasPackageConversion } = require('../../utils/medicine-stock')
-const { getImageUploadErrorMessage, getMediaSourceType, isImageSelectionCanceled } = require('../../utils/image-upload')
+const {
+  ensureImagePrivacyAuthorization,
+  getImageUploadErrorMessage,
+  getMediaSourceType,
+  isImageSelectionCanceled,
+} = require('../../utils/image-upload')
 const { EVENT_IDS, countBucket, track, trackServiceError } = require('../../utils/analytics')
 
 const DEFAULT_TAG_OPTIONS = ['儿童用药', '老人父母', '常规用药', '退烧', '感冒咳嗽', '鼻腔护理', '肠胃', '过敏', '外用', '常备', '处方药', '低库存关注']
@@ -79,6 +84,24 @@ Page({
     this.imageUploadNoticeShown = false
     wx.setNavigationBarTitle({ title: this.recordId ? '编辑药品' : '添加药品' })
     this.load()
+  },
+
+  onShow() {
+    const app = getApp()
+    const parsed = app.globalData && app.globalData.pendingMedicineParseResult
+    if (!parsed) {
+      return
+    }
+    app.globalData.pendingMedicineParseResult = null
+    const form = applyMedicineParseResult(this.data.form, parsed.imageKind, parsed.output)
+    this.setData({
+      form,
+      ...buildPackageState(form),
+      formTagOptions: buildFormTagOptions(form.tagsText),
+      errors: {},
+    })
+    this.markDirty()
+    wx.showToast({ title: '识别结果已填入，请核对' })
   },
 
   async load() {
@@ -466,7 +489,6 @@ Page({
       return
     }
     if (!this.imageUploadNoticeShown) {
-      this.imageUploadNoticeShown = true
       const confirmed = await confirm(
         '图片可能包含敏感健康或身份信息。请先遮挡无关姓名、证件号等内容，确认后再选择并上传。',
         '上传健康图片？',
@@ -474,11 +496,15 @@ Page({
       if (!confirmed) {
         return
       }
+      this.imageUploadNoticeShown = true
     }
     try {
       const res = await wx.showActionSheet({
         itemList: ['拍外包装/药瓶', '拍说明书', '从相册选择'],
       })
+      if (!await ensureImagePrivacyAuthorization(this)) {
+        return
+      }
       const imageKind = res.tapIndex === 1 ? 'instruction' : 'medicine_box'
       const sourceType = getMediaSourceType(res.tapIndex, 2)
       const chooseResult = await wx.chooseMedia({
@@ -685,6 +711,34 @@ function buildAiPrefillForm(prefill = {}) {
     source: '处方',
     note: String(prefill.note || '').trim(),
   }
+}
+
+function applyMedicineParseResult(currentForm = {}, imageKind, output = {}) {
+  const form = { ...currentForm }
+  const assignText = (field, value) => {
+    const text = String(value || '').trim()
+    if (text) {
+      form[field] = text
+    }
+  }
+  assignText('name', output.name)
+  assignText('specification', output.specification)
+  assignText('expireDate', output.expireDate)
+  if (imageKind === 'instruction') {
+    assignText('instructionText', output.instructionText)
+  }
+  const notes = [
+    output.manufacturer ? `生产厂家：${output.manufacturer}` : '',
+    output.approvalNo ? `批准文号：${output.approvalNo}` : '',
+    output.contraindications ? `禁忌/注意：${output.contraindications}` : '',
+  ].filter(Boolean)
+  if (notes.length) {
+    form.note = [String(form.note || '').trim(), ...notes]
+      .filter(Boolean)
+      .filter((item, index, items) => items.indexOf(item) === index)
+      .join('\n')
+  }
+  return form
 }
 
 function buildCategoryOptions(selectedCategory) {

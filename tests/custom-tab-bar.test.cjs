@@ -29,6 +29,7 @@ test('custom tab bar switches both text and icon state for all five tabs', () =>
   })
 
   assert.equal(appConfig.tabBar.custom, true)
+  assert.match(template, /<view class="tab-bar" wx:if="{{!authMaskVisible}}">/)
   assert.match(styles, /\.tab-bar\s*{[^}]*z-index:\s*100;/)
   assert.match(template, /class="auth-mask"[\s\S]+wx:if="{{authMaskVisible}}"/)
   assert.match(styles, /\.auth-mask\s*{[^}]*position:\s*absolute;[^}]*z-index:\s*2;[^}]*background:\s*rgba\(0,\s*0,\s*0,\s*0\.5\);/)

@@ -16,6 +16,7 @@ const HOME_MUTATION_ACTIONS = new Set([
   'removeFamilyUser',
   'parseAttachment',
   'parseIllnessText',
+  'processQuickIllness',
   'saveAttachment',
   'saveCourseEvent',
   'saveIllness',
@@ -445,6 +446,10 @@ async function parseIllnessText(payload) {
   return callHealthOrDemo('parseIllnessText', payload, demo.parseIllnessText)
 }
 
+async function processQuickIllness(payload) {
+  return callHealthOrDemo('processQuickIllness', payload, demo.processQuickIllness)
+}
+
 async function getAiTask(taskId) {
   return callHealthOrDemo('getAiTask', { taskId }, () => ({ task: { _id: taskId, status: 'success' } }))
 }
@@ -472,6 +477,19 @@ async function previewOrder(payload) {
 async function createOrder(payload) {
   return callPaymentOrDemo('createOrder', payload, demo.createOrder)
 }
+
+async function listOrdersForUser(payload = {}) {
+  return callPaymentOrDemo('listOrdersForUser', payload, demo.listOrdersForUser)
+}
+
+async function getOrderForUser(payload = {}) {
+  return callPaymentOrDemo('getOrderForUser', payload, demo.getOrderForUser)
+}
+
+async function cancelOrderForUser(payload = {}) {
+  return callPaymentOrDemo('cancelOrderForUser', payload, demo.cancelOrderForUser)
+}
+
 
 async function applyCoupon(payload) {
   return callPaymentOrDemo('applyCoupon', payload, demo.applyCoupon)
@@ -505,13 +523,17 @@ module.exports = {
   getAiTask,
   getMembershipStatus,
   getPlans,
+  getOrderForUser,
+  cancelOrderForUser,
   listFamilyRoles,
   listMedicationHistory,
   listCouponsForUser,
+  listOrdersForUser,
   listMyFamilies,
   previewOrder,
   parseAttachment,
   parseIllnessText,
+  processQuickIllness,
   redeemMembershipCode,
   removeFamilyUser,
   confirmAiParseResult,
