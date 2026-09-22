@@ -94,20 +94,17 @@ test('membership redemption guide is editable in admin and rendered from payment
   assert.match(membershipTemplate, /\{\{membershipPurchaseGuide\}\}/)
 })
 
-test('membership benefits show the upcoming AI assistance note below the comparison table', () => {
+test('membership benefits retain explicit quick-record tiers without advertising unavailable AI', () => {
   const membershipTemplate = fs.readFileSync(path.join(root, 'miniprogram/pages/membership/index.wxml'), 'utf8')
   const membershipStyles = fs.readFileSync(path.join(root, 'miniprogram/pages/membership/index.wxss'), 'utf8')
-  const tableIndex = membershipTemplate.indexOf('class="comparison-table"')
-  const noteIndex = membershipTemplate.indexOf('class="benefits-note"')
+  assert.match(membershipTemplate, /基础版快速记录 3 次（累计）/)
+  assert.match(membershipTemplate, /item.benefitItems/)
+  assert.match(membershipStyles, /\.plan-benefit/)
+  assert.doesNotMatch(membershipTemplate, /AI 辅助功能已上线/)
 
-  assert.ok(tableIndex >= 0)
-  assert.ok(noteIndex > tableIndex)
-  assert.match(membershipTemplate, /AI 辅助功能将陆续上线，让健康记录与查询更便捷。/)
-  assert.match(membershipStyles, /\.benefits-note\s*\{/)
-  assert.match(membershipStyles, /\.benefits-note-mark\s*\{/)
 })
 
-test('membership guide refreshes before slower membership data without restoring plan prices', async () => {
+test('membership guide refreshes before slower membership data while retaining server plan prices', async () => {
   let pageDefinition
   let resolveMembership
   let resolveFamilies
@@ -162,7 +159,9 @@ test('membership guide refreshes before slower membership data without restoring
   await new Promise((resolve) => setImmediate(resolve))
 
   assert.equal(page.data.membershipPurchaseGuide, '后台刚刚更新的兑换提示')
-  assert.equal('plans' in page.data, false)
+  assert.equal(page.data.plans.length, 1)
+  assert.equal(page.data.plans[0].priceText, '9.90')
+  assert.equal(page.data.paymentReady, false)
   assert.equal(
     JSON.stringify(storedValues[0].value),
     JSON.stringify({ membershipPurchaseGuide: '后台刚刚更新的兑换提示' }),

@@ -2,6 +2,25 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
+## [1.1.1] - Unreleased
+
+### Changed
+
+- Add server-side WeChat virtual-payment signing, platform order verification, and idempotent membership fulfillment.
+- Process trusted goods-delivery callbacks and run bounded, source-gated five-minute order reconciliation.
+- Require explicit published product IDs for all four purchasable membership plans before reporting payment as ready.
+- Keep iOS payment disabled by default and document the IAP and client-version prerequisites.
+
+### Fixed
+
+- Update the membership layout overflow check to cover the current two-column plan grid.
+- Hide cancellation for pending virtual-payment orders.
+
+### Verification
+
+- `npm run check` passes with 323 tests, 22 static release safeguards, and all build, lint, syntax, configuration, and action-coverage checks.
+- No payment function deployment, mini-program upload, or real charge was performed.
+
 ## [1.1.0] - 2026-09-18
 
 ### Changed

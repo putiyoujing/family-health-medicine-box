@@ -200,15 +200,19 @@
 
 会员与订单入口：
 
-- `getPlans`：读取会员配置及会员兑换提示文案；小程序 1.0.13 只使用兑换提示，不展示套餐价格。
+- `getPlans`：读取会员配置、兑换提示与 `paymentCapability`。虚拟支付配置不完整或 `ready: false` 时，前端不得发起购买；历史版本只使用兑换提示。
 - `previewOrder`：预览订单金额和优惠。
-- `createOrder`：创建待支付订单。
+- `createOrder`：按请求幂等键创建待支付订单并由服务端签发虚拟支付参数；支付状态以服务端平台查单结果为准，非生产显式模拟联调除外。
+- `getOrderForUser`：校验家庭管理权限、查验平台订单和金额，并在事务中幂等开通会员权益。
+- `xpay_goods_deliver_notify`：由 CloudBase 消息推送以 `wx_paycallback` 来源转入；部署后必须为 `paymentApi` 订阅 `event/xpay_goods_deliver_notify`。回调事务成功后返回平台成功应答，重复推送只确认原订单权益，不重复延长会员。
 - `applyCoupon`：校验并应用优惠券。
 - `redeemMembershipCode`：用户输入已有会员兑换码后，激活当前家庭会员。
 - `listCouponsForUser`：列出当前家庭可用优惠券。
 - `mockPaymentSuccess`：仅限本地/测试/预发布联调；默认拒绝，且必须同时设置 `ALLOW_MOCK_PAYMENT=true` 和非生产 `NODE_ENV` 才可调用。生产环境严禁启用。
 
-当前小程序只保留“后台管理兑换码 + 小程序兑换激活”闭环，不展示购买渠道、套餐价格或支付入口。
+当前修复候选包含会员套餐展示、兑换激活及虚拟支付服务端签名和查单代码。公众平台虚拟支付开通、AppID 和 OfferID 已由用户截图确认；服务端密钥、四个商品 ID、云函数部署和真机付款确认仍待完成。详细配置和验收边界见 [会员支付与兑换验收](membership-payment-acceptance-2026-09-22.md)。
+
+`paymentApi/config.json` 声明了每 5 分钟一次的虚拟订单查单触发器；运行只接受 `wx_trigger` 来源。部署后必须在云开发控制台创建并核验该触发器，将 `paymentApi` 超时配置提高到至少 10 秒，并核验 `orders` 集合复合索引 `(paymentMode, status, createdAt)` 和 `(paymentMode, status, deliveryStatus, createdAt)`。本地静态检查不会核验云端触发器、索引或超时是否生效。
 
 ## 管理员配置
 
