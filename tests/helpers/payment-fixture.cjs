@@ -45,6 +45,7 @@ function createPaymentFixture({ store: initial = {}, openid = 'owner-1', source 
     })
     return {
       ...(transactional ? {} : query()),
+      add: async ({ data }) => { const id = `fixture_${name}_${rows().length + 1}`; rows().push({ ...clone(data), _id: id }); return { _id: id } },
       doc(id) {
         return {
           get: async () => { fail('get'); return { data: clone(rows().find((row) => row._id === id) || null) } },

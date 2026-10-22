@@ -15,10 +15,13 @@ All notable changes are recorded here. Versions follow the mini-program upload v
 
 - Update the membership layout overflow check to cover the current two-column plan grid.
 - Hide cancellation for pending virtual-payment orders.
+- Replace the admin's local-only refund status change with a signed platform request and verified completion before entitlement rollback.
+- Recalculate membership after a partial or full refund so later renewals and redemption remain active; keep refund requests out of the mini-program.
 
 ### Verification
 
-- `npm run check` passes with 323 tests, 22 static release safeguards, and all build, lint, syntax, configuration, and action-coverage checks.
+- Local automated checks cover signed refund requests, amount limits, idempotency, trusted refund confirmation, and later-entitlement preservation.
+- Run `npm run check` and record its final count before release.
 - No payment function deployment, mini-program upload, or real charge was performed.
 
 ## [1.1.0] - 2026-09-18

@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk')
 const crypto = require('crypto')
 const virtualPayment = require('./virtual-payment')
+const { replayWithoutRefundedOrder } = require('./refund-entitlements')
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
@@ -93,6 +94,7 @@ exports.main = async (event = {}) => {
   const wxContext = cloud.getWXContext()
   if (wxContext.SOURCE === 'wx_paycallback') {
     if (event.Event === 'xpay_goods_deliver_notify') return handleVirtualPaymentCallback(event)
+    if (event.Event === 'xpay_refund_notify') return handleVirtualRefundCallback(event)
     if (event.MsgType === 'event') return { ErrCode: 1, ErrMsg: 'fail' }
   }
   if (wxContext.SOURCE === 'wx_trigger') return reconcilePendingVirtualOrders()
@@ -234,6 +236,7 @@ async function createOrder(openid, payload) {
       status: 'pending',
       paymentProvider: 'official_virtual_payment',
       paymentMode: mock ? 'mock' : 'virtual',
+      paymentPlatform: payload.platform === 'ios' ? 'ios' : 'android',
       planDurationDays: plan.durationDays,
       planBenefits: plan.benefits,
       planMembershipTier: plan.membershipTier,
@@ -480,7 +483,11 @@ async function getOrderForUser(openid, payload) {
   if (!result.data) throw new Error('order not found')
   await assertFamilyAccess(openid, result.data.familyId)
   if (result.data.paymentMode === 'virtual') {
-    await reconcileVirtualOrder(result.data)
+    try { await reconcileVirtualOrder(result.data) }
+    catch (error) {
+      if (result.data.status !== 'refunding') throw error
+      console.warn('refund reconciliation pending', error.message)
+    }
     return { order: formatOrder((await db.collection('orders').doc(orderId).get()).data) }
   }
   return { order: formatOrder(result.data) }
@@ -536,7 +543,8 @@ async function reconcilePendingVirtualOrders() {
     db.collection('orders').where({ paymentMode: 'virtual', status: 'paid', deliveryStatus: _.in(['pending', 'sending']) })
       .orderBy('createdAt', 'asc').limit(20).get(),
   ])
-  const orders = [...new Map([...pending.data, ...awaitingDelivery.data].map((order) => [order._id, order])).values()]
+  const refunding = await db.collection('orders').where({ paymentMode: 'virtual', status: 'refunding' }).orderBy('createdAt', 'asc').limit(20).get()
+  const orders = [...new Map([...pending.data, ...awaitingDelivery.data, ...refunding.data].map((order) => [order._id, order])).values()]
     .sort((left, right) => new Date(left.createdAt || 0) - new Date(right.createdAt || 0))
     .slice(0, 20)
   let cursor = 0
@@ -616,9 +624,15 @@ function assertPlanTransition(family, plan) {
 
 async function reconcileVirtualOrder(order) {
   const orderId = order._id
+  if (order.status === 'refunding') {
+    if (!order.refundOrderId) throw new Error('退款单号缺失，请人工核查')
+    const verifiedRefund = await virtualPayment.queryRefund(order)
+    if (verifiedRefund.state === 'refunded') await completeVirtualRefund(order, verifiedRefund)
+    return
+  }
   if (!['pending', 'paid'].includes(order.status)) return
   const verified = await virtualPayment.queryOrder(order)
-  if (['refunded', 'refund_review'].includes(verified.state)) {
+  if (verified.state === 'refunded' || verified.state === 'refund_review') {
     await db.collection('orders').doc(orderId).update({ data: { status: 'refund_review', updatedAt: db.serverDate() } })
     return
   }
@@ -635,6 +649,70 @@ async function reconcileVirtualOrder(order) {
   }
   if (verified.state !== 'paid') return
   await fulfillVirtualOrder(order, verified)
+}
+
+async function handleVirtualRefundCallback(event) {
+  try {
+    if (event.MsgType !== 'event' || Number(event.RetCode) !== 0 || Number(event.Env) !== 0) throw new Error('退款通知结果待核查')
+    const refundOrderId = String(event.MchRefundId || '').trim()
+    const orderNo = String(event.MchOrderId || event.OutTradeNo || '').trim()
+    if (!refundOrderId || !orderNo) throw new Error('退款通知信息不完整')
+    const matches = await db.collection('orders').where({ orderNo }).limit(2).get()
+    if (matches.data.length !== 1 || matches.data[0].refundOrderId !== refundOrderId) throw new Error('退款通知未匹配唯一订单')
+    const order = matches.data[0]
+    if (event.OpenId && event.OpenId !== order.payerOpenid) throw new Error('退款通知用户不一致')
+    if (order.status === 'refunded') return { ErrCode: 0, ErrMsg: 'success' }
+    if (order.status !== 'refunding') throw new Error('退款通知订单状态不匹配')
+    const verified = await virtualPayment.queryRefund(order)
+    if (verified.state !== 'refunded') throw new Error('平台退款尚未完成')
+    await completeVirtualRefund(order, verified)
+    return { ErrCode: 0, ErrMsg: 'success' }
+  } catch (error) {
+    console.warn('virtual refund callback pending', error.message)
+    return { ErrCode: 1, ErrMsg: 'fail' }
+  }
+}
+
+async function completeVirtualRefund(order, verified) {
+  const orderId = order._id
+  const familyBefore = (await db.collection('families').doc(order.familyId).get()).data
+  const history = await db.collection('subscriptions').where({ familyId: order.familyId }).orderBy('startedAt', 'asc').limit(100).get()
+  if (!familyBefore || history.data.length === 100) throw new Error('会员权益记录过多或家庭不存在，请人工核查')
+  const targetIndex = history.data.findIndex((item) => item._id === order.subscriptionId && item.orderId === orderId)
+  if (targetIndex < 0) throw new Error('退款订单权益记录缺失，请人工核查')
+  return db.runTransaction(async (transaction) => {
+    const current = (await transaction.collection('orders').doc(orderId).get()).data
+    if (current?.status === 'refunded') return
+    if (!current || current.status !== 'refunding' || current.refundOrderId !== order.refundOrderId
+      || current.refundAmount !== verified.refundAmount) throw new Error('退款订单已变化，请人工核查')
+    const family = (await transaction.collection('families').doc(current.familyId).get()).data
+    if (!family || String(family.proUpdatedAt || '') !== String(familyBefore.proUpdatedAt || '')
+      || String(family.proExpireAt || '') !== String(familyBefore.proExpireAt || '')) throw new Error('家庭权益已变化，请重试核查')
+    const target = (await transaction.collection('subscriptions').doc(current.subscriptionId).get()).data
+    const later = []
+    for (const item of history.data.slice(targetIndex + 1)) {
+      const latest = (await transaction.collection('subscriptions').doc(item._id).get()).data
+      if (!latest || latest.orderId !== item.orderId || latest.status !== item.status) throw new Error('后续权益已变化，请重试核查')
+      later.push(latest)
+    }
+    const recalculated = replayWithoutRefundedOrder(target, later)
+    const now = db.serverDate()
+    await transaction.collection('subscriptions').doc(target._id).update({ data: { status: 'cancelled', cancelReason: 'order_refunded', cancelledAt: now, updatedAt: now } })
+    for (const patch of recalculated.patches) await transaction.collection('subscriptions').doc(patch.id).update({ data: {
+      previousExpireAt: patch.previousExpireAt, previousPlan: patch.previousPlan,
+      previousPlanId: patch.previousPlanId, previousMembershipTier: patch.previousMembershipTier,
+      expireAt: patch.expireAt, updatedAt: now,
+    } })
+    const plan = recalculated.plan === 'pro' ? await getPlan(recalculated.planId) : null
+    await transaction.collection('families').doc(current.familyId).update({ data: {
+      plan: recalculated.plan, planId: recalculated.planId, membershipTier: recalculated.membershipTier,
+      proExpireAt: recalculated.proExpireAt, proSource: recalculated.lastSubscription?.source || '',
+      currentQuotaSnapshot: plan?.benefits || {}, proUpdatedAt: now, updatedAt: now,
+    } })
+    await transaction.collection('orders').doc(orderId).update({ data: {
+      status: 'refunded', refundStatus: 'refunded', refundedAt: now, updatedAt: now,
+    } })
+  })
 }
 
 async function handleVirtualPaymentCallback(event) {
