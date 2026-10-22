@@ -351,7 +351,12 @@ function App() {
   const loadTable = useCallback(
     async (type: ListType, skip = 0, pageSize = tablePageSizes[type]) => {
       if (!isConfigured) {
-        const rows = mockList(type)
+        const filters = tableSearches[type]
+        const keyword = filters.keyword.trim().toLowerCase()
+        const rows = mockList(type).filter((row) =>
+          (!filters.status || row.status === filters.status)
+          && (!keyword || Object.values(row).some((value) => String(value || '').toLowerCase().includes(keyword))),
+        )
         setTableData((current) => ({
           ...current,
           [type]: rows.slice(skip, skip + pageSize),
@@ -1537,7 +1542,7 @@ function DetailTablePage({
           title={meta ? meta.label : '数据分表'}
           subtitle={`${meta?.description || '详细数据列表'}，共 ${total} 条`}
         />
-        {(type === 'coupons' || type === 'couponCodes' || type === 'feedback') && <ListSearchToolbar type={type} search={search} onChange={onSearchChange} onSearch={onSearch} />}
+        <ListSearchToolbar type={type} search={search} onChange={onSearchChange} onSearch={onSearch} />
         <DataTable columns={columns} rows={rows} onRowClick={type === 'users' ? onOpenUser : type === 'families' ? onOpenFamily : undefined} />
         <TablePagination
           key={`${type}:${offset}:${pageSize}:${total}`}
@@ -1612,16 +1617,23 @@ function TablePagination({
   )
 }
 
-function ListSearchToolbar({ type, search, onChange, onSearch }: { type: 'coupons' | 'couponCodes' | 'feedback'; search: TableSearch; onChange: (key: keyof TableSearch, value: string) => void; onSearch: () => void }) {
-  const placeholder = type === 'feedback' ? '搜索用户ID、反馈内容、联系方式' : type === 'coupons' ? '搜索券码、名称、渠道、用户ID' : '搜索兑换码、用户ID、渠道、订单号'
+function ListSearchToolbar({ type, search, onChange, onSearch }: { type: ListType; search: TableSearch; onChange: (key: keyof TableSearch, value: string) => void; onSearch: () => void }) {
+  const placeholders: Record<ListType, string> = {
+    users: '搜索用户ID、昵称', families: '搜索家庭名称、创建者', orders: '搜索订单号、套餐、用户',
+    subscriptions: '搜索家庭、套餐、状态', coupons: '搜索券码、名称、渠道、用户ID',
+    couponBatches: '搜索批次、套餐、渠道', couponCodes: '搜索兑换码、用户ID、渠道、订单号',
+    aiUsage: '搜索家庭、类型、用户', medicines: '搜索药品名称、分类、位置',
+    illness: '搜索家庭、标题、状态', medication: '搜索家庭、药品、用药时间',
+    attachments: '搜索家庭、附件类型', feedback: '搜索用户ID、反馈内容、联系方式',
+  }
   const statuses = type === 'feedback'
     ? [['', '全部状态'], ['new', '待处理'], ['in_progress', '处理中'], ['resolved', '已解决'], ['closed', '已关闭']]
     : type === 'coupons'
       ? [['', '全部状态'], ['active', '可用'], ['disabled', '已失效']]
-      : [['', '全部状态'], ['active', '未使用'], ['used', '已使用'], ['disabled', '已失效']]
+      : type === 'couponCodes' ? [['', '全部状态'], ['active', '未使用'], ['used', '已使用'], ['disabled', '已失效']] : null
   return <form className="list-search" onSubmit={(event) => { event.preventDefault(); onSearch() }}>
-    <input value={search.keyword} onChange={(event) => onChange('keyword', event.target.value)} placeholder={placeholder} />
-    <select value={search.status} onChange={(event) => onChange('status', event.target.value)}>{statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+    <input aria-label="搜索列表" value={search.keyword} onChange={(event) => onChange('keyword', event.target.value)} placeholder={placeholders[type]} />
+    {statuses && <select value={search.status} onChange={(event) => onChange('status', event.target.value)}>{statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}
     <button type="submit">搜索</button>
   </form>
 }
@@ -2315,7 +2327,7 @@ function mockDashboard(): AdminDashboardData {
   }
 }
 
-function mockList(type: ListType) {
+function mockList(type: ListType): Record<string, unknown>[] {
   void type
   return []
 }

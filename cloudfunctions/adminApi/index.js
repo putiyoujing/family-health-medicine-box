@@ -469,7 +469,8 @@ async function pageList(collection, payload) {
   const skip = Math.max(Number(payload.skip || 0), 0)
   const query = buildPageQuery(collection, payload)
   const keyword = String(payload.keyword || payload.search || '').trim().toLowerCase()
-  if (keyword && ['coupons', 'coupon_codes', 'feedback'].includes(collection)) {
+  if (keyword) {
+    if (keyword.length > 80) throw new Error('搜索内容过长')
     let rows = await decorateAdminRows(collection, (await allRows(collection, query)).data)
     if (collection === 'coupons') {
       const codeRows = await decorateCouponCodeRows((await allRows('coupon_codes')).data)
