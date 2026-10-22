@@ -1878,25 +1878,32 @@ function tableColumns(
   } = {},
 ): TableColumn[] {
   const common = [{ key: '_id', label: 'ID', render: (row: Record<string, unknown>) => shortId(row._id) }]
+  const associatedUser = [
+    { key: 'associatedUserId', label: '关联用户ID', render: (row: Record<string, unknown>) => String(row.associatedUserId || '—') },
+    { key: 'associatedUserNickname', label: '关联用户昵称', render: (row: Record<string, unknown>) => String(row.associatedUserNickname || '—') },
+    { key: 'associationRole', label: '关联方式', render: (row: Record<string, unknown>) => String(row.associationRole || '未关联') },
+  ]
   const columns: Record<ListType, TableColumn[]> = {
     aiUsage: [
       ...common,
+      ...associatedUser,
       { key: 'usageType', label: '类型' },
-      { key: 'familyId', label: '家庭' },
-      { key: 'userOpenid', label: '用户' },
+      { key: 'familyName', label: '家庭' },
       { key: 'count', label: '次数' },
       { key: 'createdAt', label: '创建时间', render: (row) => formatValue(row.createdAt) },
     ],
     attachments: [
       ...common,
+      ...associatedUser,
       { key: 'relatedType', label: '关联类型' },
       { key: 'fileType', label: '文件类型' },
-      { key: 'familyId', label: '家庭' },
+      { key: 'familyName', label: '家庭' },
       { key: 'aiSummary', label: 'AI 摘要' },
       { key: 'createdAt', label: '创建时间', render: (row) => formatValue(row.createdAt) },
     ],
     coupons: [
       ...common,
+      ...associatedUser,
       { key: 'code', label: '券码' },
       { key: 'name', label: '名称' },
       { key: 'codePurpose', label: '用途' },
@@ -1917,6 +1924,7 @@ function tableColumns(
     ],
     couponBatches: [
       ...common,
+      { key: 'generatedByAdminId', label: '创建管理员' },
       { key: 'name', label: '批次名称' },
       { key: 'prefix', label: '前缀' },
       { key: 'channel', label: '渠道' },
@@ -1977,9 +1985,9 @@ function tableColumns(
     ],
     families: [
       ...common,
+      ...associatedUser,
       { key: 'name', label: '家庭名称' },
       { key: 'planName', label: '会员版本', render: (row) => formatMembershipPlanName(row.planName || row.plan) },
-      { key: 'ownerOpenid', label: '创建者' },
       { key: 'proExpireAt', label: '会员到期', render: (row) => formatValue(row.proExpireAt) },
       { key: 'createdAt', label: '创建时间', render: (row) => formatValue(row.createdAt) },
     ],
@@ -1997,22 +2005,26 @@ function tableColumns(
     ],
     illness: [
       ...common,
+      ...associatedUser,
       { key: 'summary', label: '摘要', render: (row) => String(row.summary || joinArray(row.symptoms) || '健康记录') },
       { key: 'status', label: '状态' },
       { key: 'temperatureMax', label: '最高体温' },
-      { key: 'familyId', label: '家庭' },
+      { key: 'familyName', label: '家庭' },
       { key: 'startedAt', label: '开始时间', render: (row) => formatValue(row.startedAt) },
     ],
     medication: [
       ...common,
+      ...associatedUser,
       { key: 'medicineNameSnapshot', label: '药品' },
       { key: 'doseQuantity', label: '剂量' },
       { key: 'doseUnit', label: '单位' },
-      { key: 'familyId', label: '家庭' },
+      { key: 'familyName', label: '家庭' },
       { key: 'takenAt', label: '用药时间', render: (row) => formatValue(row.takenAt) },
     ],
     medicines: [
       ...common,
+      ...associatedUser,
+      { key: 'familyName', label: '家庭' },
       { key: 'name', label: '药品' },
       { key: 'category', label: '分类' },
       { key: 'remainingQuantity', label: '剩余' },
@@ -2065,7 +2077,8 @@ function tableColumns(
     ],
     subscriptions: [
       ...common,
-      { key: 'familyId', label: '家庭' },
+      ...associatedUser,
+      { key: 'familyName', label: '家庭' },
       { key: 'changeType', label: '变更', render: (row) => formatMembershipChange(row) },
       { key: 'planName', label: '套餐' },
       { key: 'source', label: '来源', render: (row) => formatMembershipSource(row.source) },

@@ -510,10 +510,42 @@ async function decorateAdminRows(collection, rows) {
   if (collection === 'feedback') return decorateFeedbackRows(rows)
   if (collection === 'users') return rows.map(summarizeUser)
   if (collection === 'orders') return decorateOrderRows(rows)
-  if (['coupon_code_batches', 'subscriptions'].includes(collection)) {
+  if (['families', 'subscriptions', 'ai_usage_logs', 'medicines', 'illness_records', 'medication_logs', 'attachments', 'coupons'].includes(collection)) {
+    return decorateAssociatedUserRows(collection, rows)
+  }
+  if (collection === 'coupon_code_batches') {
     return decorateMembershipPlanRows(rows)
   }
   return rows
+}
+
+async function decorateAssociatedUserRows(collection, rows) {
+  const familyIds = [...new Set(rows.map((row) => String(row.familyId || '')).filter(Boolean))]
+  const familiesById = new Map()
+  for (let index = 0; index < familyIds.length; index += 20) {
+    const result = await db.collection('families').where({ _id: _.in(familyIds.slice(index, index + 20)), deletedAt: _.exists(false) }).get()
+    result.data.forEach((family) => familiesById.set(family._id, family))
+  }
+  const directOpenid = (row) => String(collection === 'families' ? row.ownerOpenid || row.createdBy || '' : row.createdBy || row.userOpenid || row.payerOpenid || row.openid || '')
+  const openids = [...new Set(rows.flatMap((row) => [directOpenid(row), String(familiesById.get(row.familyId)?.ownerOpenid || '')]).filter(Boolean))]
+  const usersByOpenid = new Map()
+  for (let index = 0; index < openids.length; index += 20) {
+    const result = await db.collection('users').where({ openid: _.in(openids.slice(index, index + 20)), deletedAt: _.exists(false) }).get()
+    result.data.forEach((user) => usersByOpenid.set(user.openid, user))
+  }
+  return rows.map((row) => {
+    const family = familiesById.get(row.familyId)
+    const user = usersByOpenid.get(directOpenid(row)) || usersByOpenid.get(family?.ownerOpenid)
+    const safe = { ...row }
+    for (const key of ['ownerOpenid', 'createdBy', 'userOpenid', 'payerOpenid', 'openid']) delete safe[key]
+    return {
+      ...(collection === 'subscriptions' ? decorateMembershipPlanRow(safe) : safe),
+      familyName: family?.name || '',
+      associatedUserId: user?.publicUserId || '',
+      associatedUserNickname: user?.nickname || '',
+      associationRole: directOpenid(row) ? '记录用户' : family ? '家庭创建者' : '',
+    }
+  })
 }
 
 async function decorateOrderRows(rows) {

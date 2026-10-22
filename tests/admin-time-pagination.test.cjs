@@ -97,3 +97,18 @@ test('order and refund tables show the payer, lifecycle, and confirmed refund ba
   assert.match(api, /row\.refundStatus === 'refunded' \? Number\(row\.refundAmount \|\| 0\) : 0/)
   assert.match(api, /payerUserId: user\?\.publicUserId/)
 })
+
+test('admin records resolve associated users without showing raw WeChat identities', () => {
+  const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+  const api = fs.readFileSync(path.join(root, 'cloudfunctions/adminApi/index.js'), 'utf8')
+
+  for (const collection of ['families', 'subscriptions', 'ai_usage_logs', 'medicines', 'illness_records', 'medication_logs', 'attachments', 'coupons']) {
+    assert.match(api, new RegExp(`'${collection}'`))
+  }
+  assert.match(api, /associatedUserId: user\?\.publicUserId/)
+  assert.match(api, /associatedUserNickname: user\?\.nickname/)
+  assert.match(api, /delete safe\[key\]/)
+  assert.match(ui, /关联用户ID/)
+  assert.match(ui, /关联用户昵称/)
+  assert.doesNotMatch(ui, /label: '创建者'[^\n]*ownerOpenid/)
+})
