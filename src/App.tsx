@@ -830,7 +830,7 @@ function App() {
 
         {error && <section className="error-box">{error}</section>}
 
-        {activePage === 'overview' && <OverviewPage dashboard={dashboard} />}
+        {activePage === 'overview' && <OverviewPage dashboard={dashboard} onOpenPage={(pageId) => void openPage(pageId)} />}
         {activePage === 'commerce' && (
           <CommercePage
             batchForm={couponBatchForm}
@@ -974,16 +974,16 @@ function SidebarButton({
   )
 }
 
-function OverviewPage({ dashboard }: { dashboard: AdminDashboardData }) {
+function OverviewPage({ dashboard, onOpenPage }: { dashboard: AdminDashboardData; onOpenPage: (pageId: PageId) => void }) {
   return (
     <>
       <section className="stat-grid">
-        <StatCard icon={Users} label="用户" value={dashboard.stats.users} />
-        <StatCard icon={Home} label="家庭" value={dashboard.stats.families} />
-        <StatCard icon={WalletCards} label="会员家庭" value={dashboard.stats.activeSubscriptions} />
-        <StatCard icon={ReceiptText} label="付费订单" value={dashboard.stats.paidOrders} />
-        <StatCard icon={Pill} label="药品" value={dashboard.stats.medicines} />
-        <StatCard icon={HeartPulse} label="健康记录" value={dashboard.stats.illnessRecords} />
+        <StatCard icon={Users} label="用户" value={dashboard.stats.users} onClick={() => onOpenPage('users')} />
+        <StatCard icon={Home} label="家庭" value={dashboard.stats.families} onClick={() => onOpenPage('families')} />
+        <StatCard icon={WalletCards} label="会员家庭" value={dashboard.stats.activeSubscriptions} onClick={() => onOpenPage('subscriptions')} />
+        <StatCard icon={ReceiptText} label="付费订单" value={dashboard.stats.paidOrders} onClick={() => onOpenPage('orders')} />
+        <StatCard icon={Pill} label="药品" value={dashboard.stats.medicines} onClick={() => onOpenPage('medicines')} />
+        <StatCard icon={HeartPulse} label="健康记录" value={dashboard.stats.illnessRecords} onClick={() => onOpenPage('illness')} />
       </section>
 
       <section className="panel-grid">
@@ -1719,17 +1719,19 @@ function StatCard({
   icon: Icon,
   label,
   value,
+  onClick,
 }: {
   icon: typeof Home
   label: string
   value: number
+  onClick: () => void
 }) {
   return (
-    <article className="stat-card">
+    <button className="stat-card" type="button" onClick={onClick} aria-label={`查看${label}数据`}>
       <Icon size={22} />
       <span>{label}</span>
       <strong>{value || 0}</strong>
-    </article>
+    </button>
   )
 }
 

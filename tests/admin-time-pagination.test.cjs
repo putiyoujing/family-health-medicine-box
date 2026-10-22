@@ -72,3 +72,15 @@ test('every admin data table exposes search and the cloud list applies it before
   assert.match(api, /rows\.filter\(\(row\) => matchesKeyword\(row, keyword\)\)/)
   assert.match(api, /list: rows\.slice\(skip, skip \+ limit\)/)
 })
+
+test('overview stat cards open their corresponding data tables', () => {
+  const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+
+  for (const [label, page] of [
+    ['用户', 'users'], ['家庭', 'families'], ['会员家庭', 'subscriptions'],
+    ['付费订单', 'orders'], ['药品', 'medicines'], ['健康记录', 'illness'],
+  ]) {
+    assert.match(ui, new RegExp(`label="${label}"[^\\n]+onClick=\\{\\(\\) => onOpenPage\\('${page}'\\)\\}`))
+  }
+  assert.match(ui, /<button className="stat-card" type="button" onClick=\{onClick\}/)
+})
