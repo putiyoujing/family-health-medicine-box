@@ -4,7 +4,7 @@
 
 ## 结论
 
-`1.1.1` 支付候选源码已合并到 GitHub `master`；定时器兼容修复仍在独立分支，本次运行 `npm run check`，337 项测试全部通过。生产 `paymentApi` 和 `adminApi` 已部署新版事件函数；`paymentApi.getPlans` 云端调用成功且返回 `paymentCapability.ready: false`，`adminApi` 拒绝未登录访问；标准 timer 已在空队列下运行成功。**真实支付上线仍为 BLOCKED**：密钥轮换、发货推送路由、真实订单补偿、真机付款与退款证据未完成。不能将代码部署或本地通过写成已完成支付测试或可正式收款。
+`1.1.1` 支付候选源码已合并到 GitHub `master`；定时器兼容修复单独提交为 PR #19，本次运行 `npm run check`，337 项测试全部通过。生产 `paymentApi` 和 `adminApi` 已部署新版事件函数；`paymentApi.getPlans` 云端调用成功且返回 `paymentCapability.ready: false`，`adminApi` 拒绝未登录访问；标准 timer 已在空队列下运行成功。**真实支付上线仍为 BLOCKED**：密钥轮换、发货推送路由、真实订单补偿、真机付款与退款证据未完成。不能将代码部署或本地通过写成已完成支付测试或可正式收款。
 
 ## 当前需求与完成情况
 
@@ -42,7 +42,7 @@
 | 层次 | 状态 |
 | --- | --- |
 | 本地源码与自动测试 | PASS |
-| GitHub 合并及 CI | 既有 PR 通过；当前定时器修复待提交与 CI |
+| GitHub 合并及 CI | 既有 PR 已合并；定时器修复 PR #19 的 CI 通过 |
 | 云端支付代码与资源配置 | PARTIAL：函数、索引、触发器已就绪，timer 空队列运行通过；密钥待轮换，真实订单未验证 |
 | 微信平台商品 | PASS：四个正式道具已发布 |
 | 微信平台发货/退款回调 | BLOCKED |
