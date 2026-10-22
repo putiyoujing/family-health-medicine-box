@@ -458,6 +458,16 @@ function decorateAdminRows(store: Store, collection: string, rows: Row[]): Row[]
       remainingAmount: Math.max(0, toNumber(row.payableAmount, 0) - (row.refundStatus === 'refunded' ? toNumber(row.refundAmount, 0) : 0)),
     }
   })
+  if (['families', 'subscriptions', 'ai_usage_logs', 'medicines', 'illness_records', 'medication_logs', 'attachments', 'coupons'].includes(collection)) {
+    return rows.map((row) => {
+      const family = store.families.find((item) => item._id === row.familyId)
+      const directOpenid = stringValue(collection === 'families' ? row.ownerOpenid || row.createdBy : row.createdBy || row.userOpenid || row.payerOpenid || row.openid)
+      const user = store.users.find((item) => item.openid === directOpenid) || store.users.find((item) => item.openid === family?.ownerOpenid)
+      const safe = { ...row }
+      for (const key of ['ownerOpenid', 'createdBy', 'userOpenid', 'payerOpenid', 'openid']) delete safe[key]
+      return { ...safe, familyName: family?.name || '', associatedUserId: user?.publicUserId || '', associatedUserNickname: user?.nickname || '', associationRole: directOpenid ? '记录用户' : family ? '家庭创建者' : '' }
+    })
+  }
   return rows
 }
 
