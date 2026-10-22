@@ -1,0 +1,15 @@
+<view class="success-page">
+  <view wx:if="{{verified}}" class="success-card">
+    <view class="success-icon">✓</view>
+    <view class="success-title">恭喜，会员开通成功</view>
+    <view class="success-subtitle">{{planName}}权益已发放到当前家庭</view>
+    <view class="countdown">{{seconds}} 秒后进入会员中心</view>
+    <button class="success-button" bindtap="goMembership">立即查看会员权益</button>
+  </view>
+  <view wx:else class="success-card">
+    <view class="success-title">{{checking ? '正在核对订单' : '订单待确认'}}</view>
+    <view class="success-subtitle">{{message || '正在向微信核对支付结果，请稍候。'}}</view>
+    <button wx:if="{{!checking}}" class="success-button" bindtap="verifyOrder">重新核对</button>
+    <button wx:if="{{!checking}}" class="secondary-button" bindtap="openOrder">查看订单</button>
+  </view>
+</view>

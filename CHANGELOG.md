@@ -2,6 +2,18 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
+## [1.1.2] - Unreleased
+
+### Changed
+
+- After confirmed payment, show a dedicated membership success page and return to a freshly loaded membership center after five seconds.
+- Replace payment-channel implementation terms on the checkout page with concise purchase guidance.
+
+### Verification
+
+- Automated checks cover confirmed and unconfirmed payment results, the five-second countdown, and return navigation.
+- Real-device review of this page and formal WeChat release remain pending.
+
 ## [1.1.1] - Unreleased
 
 ### Changed
