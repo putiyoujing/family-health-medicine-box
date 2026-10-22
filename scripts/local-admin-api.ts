@@ -66,6 +66,7 @@ const LIST_ACTIONS: Record<string, string> = {
   listMedication: 'medication_logs',
   listMedicines: 'medicines',
   listOrders: 'orders',
+  listRefunds: 'orders',
   listSubscriptions: 'subscriptions',
   listUsers: 'users',
 }
@@ -107,7 +108,7 @@ async function dispatchAction(action: string, payload: Row) {
   const store = await loadStore()
   const listCollection = LIST_ACTIONS[action]
   if (listCollection) {
-    return pageList(store, listCollection, payload)
+    return pageList(store, listCollection, action === 'listRefunds' ? { ...payload, refundOnly: true } : payload)
   }
 
   switch (action) {
@@ -406,6 +407,7 @@ function pageList(store: Store, collection: string, payload: Row) {
   const skip = Math.max(toNumber(payload.skip, 0), 0)
   const limit = normalizePageSize(payload.limit)
   let rows = [...(store[collection] || [])]
+  if (collection === 'orders' && payload.refundOnly) rows = rows.filter((row) => Boolean(row.refundOrderId))
 
   for (const key of ['batchId', 'channel', 'couponId', 'familyId', 'issueStatus', 'issuedChannel', 'redeemPlanId', 'status']) {
     const value = stringValue(payload[key])
@@ -444,6 +446,18 @@ function decorateAdminRows(store: Store, collection: string, rows: Row[]): Row[]
   if (collection === 'coupon_codes') return decorateCouponCodeRows(store, rows)
   if (collection === 'feedback') return decorateFeedbackRows(store, rows)
   if (collection === 'users') return rows.map(summarizeUser)
+  if (collection === 'orders') return rows.map((row) => {
+    const user = store.users.find((item) => stringValue(item.openid) === stringValue(row.payerOpenid))
+    const safe = { ...row }
+    delete safe.payerOpenid
+    return {
+      ...safe,
+      payerUserId: user?.publicUserId || '',
+      payerNickname: user?.nickname || '',
+      refundedAmount: row.refundStatus === 'refunded' ? toNumber(row.refundAmount, 0) : 0,
+      remainingAmount: Math.max(0, toNumber(row.payableAmount, 0) - (row.refundStatus === 'refunded' ? toNumber(row.refundAmount, 0) : 0)),
+    }
+  })
   return rows
 }
 
@@ -561,10 +575,10 @@ function summarizeFeedback(record: Row) { return { _id: record._id, createdAt: r
 
 function getDataOverview(store: Store) {
   return {
-    tables: DATA_TABLES.map((table) => ({
+    tables: [...DATA_TABLES.map((table) => ({
       ...table,
       total: countRows(store, table.collection),
-    })),
+    })), { id: 'refunds', name: 'Refunds', collection: 'orders', statKey: 'orders', total: store.orders.filter((row) => Boolean(row.refundOrderId)).length }],
   }
 }
 
