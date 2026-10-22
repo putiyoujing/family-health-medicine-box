@@ -60,6 +60,12 @@ if (productionMode) {
     WECHAT_HEALTH_TODO_TEMPLATE_CONFIGURED: 'the health todo template and field mapping are configured',
     WECHAT_REMINDER_TRIGGER_DEPLOYED: 'the reminderDispatcher timer trigger is uploaded and active',
     WECHAT_REMINDER_REAL_DEVICE_PASSED: 'subscription authorization and delivery passed on a real WeChat device',
+    WECHAT_VIRTUAL_PAYMENT_PRODUCTS_PUBLISHED: 'all four membership products are published with matching prices in the WeChat console',
+    WECHAT_VIRTUAL_PAYMENT_CLOUD_CONFIGURED: 'paymentApi code, credentials, timeout, and permissions are verified in CloudBase',
+    WECHAT_VIRTUAL_PAYMENT_CALLBACK_CONFIRMED: 'the trusted goods-delivery callback and idempotent membership fulfillment are verified',
+    WECHAT_VIRTUAL_PAYMENT_RECONCILIATION_CONFIRMED: 'the payment timer, orders indexes, and missed-callback reconciliation are verified',
+    WECHAT_VIRTUAL_PAYMENT_ANDROID_REAL_CHARGE_PASSED: 'an Android real-device charge and membership activation are verified',
+    WECHAT_VIRTUAL_PAYMENT_REFUND_POLICY_CONFIRMED: 'the refund and membership-entitlement handling policy is approved and verified',
   }
   for (const [key, description] of Object.entries(releaseAttestations)) {
     if (readEnvironmentValue(key).toLowerCase() !== 'true') {
