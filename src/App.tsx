@@ -2008,7 +2008,7 @@ function tableColumns(
       { key: 'planName', label: '套餐' },
       { key: 'payableAmount', label: '应付', render: (row) => formatMoney(row.payableAmount) },
       { key: 'discountAmount', label: '优惠', render: (row) => formatMoney(row.discountAmount) },
-      { key: 'status', label: '状态' },
+      { key: 'status', label: '状态', render: (row) => row.status === 'refunding' && row.refundStatus === 'failed' ? '退款失败待核查' : String(row.status || '') },
       { key: 'createdAt', label: '创建时间', render: (row) => formatValue(row.createdAt) },
       {
         key: 'action',
@@ -2016,7 +2016,7 @@ function tableColumns(
         render: (row) => {
           const id = String(row._id || '')
           const canRefund = row.status === 'paid' && row.paymentMode === 'virtual'
-          return <button className="table-action-button danger-action" disabled={!id || !canRefund || actions.refundingRecordId === id} type="button" onClick={() => actions.onRefundOrder?.(row)}>{row.status === 'refunded' ? '已退款' : row.status === 'refunding' ? '退款处理中' : actions.refundingRecordId === id ? '处理中…' : '退款'}</button>
+          return <button className="table-action-button danger-action" disabled={!id || !canRefund || actions.refundingRecordId === id} type="button" onClick={() => actions.onRefundOrder?.(row)}>{row.status === 'refunded' ? '已退款' : row.status === 'refunding' ? row.refundStatus === 'failed' ? '待人工核查' : '退款处理中' : actions.refundingRecordId === id ? '处理中…' : '退款'}</button>
         },
       },
     ],

@@ -70,6 +70,20 @@ test('unconfirmed refund never revokes membership', async () => {
   assert.equal(fixture.store.subscriptions[0].status, 'active')
 })
 
+test('failed platform refund is flagged for review without revoking membership', async () => {
+  const fixture = createPaymentFixture({ provider: { queryRefund: async () => ({ state: 'failed', refundAmount: 100 }) }, store: {
+    orders: [{ _id: 'order-a', familyId: 'family-1', status: 'refunding', paymentMode: 'virtual',
+      refundOrderId: 'rf_12345678', refundAmount: 100 }],
+    subscriptions: [{ _id: 'sub-a', orderId: 'order-a', familyId: 'family-1', status: 'active' }],
+  } })
+  const response = await fixture.call('getOrderForUser', { orderId: 'order-a' })
+  assert.equal(response.ok, true)
+  assert.equal(response.data.order.refundStatus, 'failed')
+  assert.equal(fixture.store.orders[0].status, 'refunding')
+  assert.equal(fixture.store.orders[0].refundStatus, 'failed')
+  assert.equal(fixture.store.subscriptions[0].status, 'active')
+})
+
 test('trusted refund notification requires a matching completed platform refund', async () => {
   const fixture = createPaymentFixture({ source: 'wx_paycallback', provider: {
     queryRefund: async () => ({ state: 'refunded', refundAmount: 100 }),

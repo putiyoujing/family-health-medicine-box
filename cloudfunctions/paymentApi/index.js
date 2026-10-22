@@ -526,6 +526,7 @@ function formatOrder(order = {}) {
     planId: String(order.planId || ''),
     planName: String(order.planName || ''),
     status: String(order.status || ''),
+    refundStatus: order.status === 'refunding' ? String(order.refundStatus || '') : '',
     originalAmount: Number(order.originalAmount || 0),
     discountAmount: Number(order.discountAmount || 0),
     payableAmount: Number(order.payableAmount || 0),
@@ -628,6 +629,16 @@ async function reconcileVirtualOrder(order) {
     if (!order.refundOrderId) throw new Error('退款单号缺失，请人工核查')
     const verifiedRefund = await virtualPayment.queryRefund(order)
     if (verifiedRefund.state === 'refunded') await completeVirtualRefund(order, verifiedRefund)
+    if (verifiedRefund.state === 'failed') {
+      await db.runTransaction(async (transaction) => {
+        const current = (await transaction.collection('orders').doc(orderId).get()).data
+        if (!current || current.status !== 'refunding' || current.refundOrderId !== order.refundOrderId
+          || current.refundStatus === 'failed') return
+        await transaction.collection('orders').doc(orderId).update({ data: {
+          refundStatus: 'failed', refundCheckedAt: db.serverDate(), updatedAt: db.serverDate(),
+        } })
+      })
+    }
     return
   }
   if (!['pending', 'paid'].includes(order.status)) return

@@ -135,7 +135,7 @@ async function queryRefund(order) {
     || remote.refund_fee !== Number(order.refundAmount)
     || (remote.pay_order_id && remote.pay_order_id !== order.orderNo)) throw new Error('平台退款单信息不一致，请人工核查')
   if (![0, 1, 2, 3, 4, 5, 7, 8, 9, 10].includes(remote.status)) throw new Error('平台退款状态未知，请人工核查')
-  return { state: [5, 8].includes(remote.status) ? 'refunded' : 'processing', refundAmount: remote.refund_fee }
+  return { state: [5, 8].includes(remote.status) ? 'refunded' : remote.status === 7 ? 'failed' : 'processing', refundAmount: remote.refund_fee }
 }
 
 async function notifyDelivery(order) {

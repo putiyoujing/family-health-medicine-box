@@ -226,6 +226,15 @@ test('queryRefund verifies the platform refund order before rights are revoked',
   assert.equal(new URL(request.path, 'https://api.weixin.qq.com').searchParams.get('pay_sig'), hmac(configuredEnv.VIRTUAL_PAYMENT_APP_KEY, `/xpay/query_order&${request.body}`))
 })
 
+test('queryRefund reports a platform refund failure separately from processing', async (t) => {
+  const fixture = withCleanup(t, createProvider([
+    { body: { access_token: 'token', expires_in: 7200 } },
+    { body: { order: { order_id: 'rf_12345678', order_type: 1, status: 7, refund_fee: 100, pay_order_id: 'M0000001' } } },
+  ]))
+  assert.deepEqual(await fixture.provider.queryRefund(order({ refundOrderId: 'rf_12345678', refundAmount: 100 })),
+    { state: 'failed', refundAmount: 100 })
+})
+
 test('notifyDelivery signs the platform fulfillment request and hides provider details on failure', async (t) => {
   const fixture = withCleanup(t, createProvider([
     { body: { access_token: 'test-access-token', expires_in: 7200 } },
