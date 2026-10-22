@@ -97,7 +97,11 @@ exports.main = async (event = {}) => {
     if (event.Event === 'xpay_refund_notify') return handleVirtualRefundCallback(event)
     if (event.MsgType === 'event') return { ErrCode: 1, ErrMsg: 'fail' }
   }
-  if (wxContext.SOURCE === 'wx_trigger') return reconcilePendingVirtualOrders()
+  if (wxContext.SOURCE === 'wx_trigger'
+    || (process.env.TRIGGER_SRC === 'timer' && !wxContext.OPENID
+      && event.Type === 'Timer' && event.TriggerName === 'virtualPaymentEveryFiveMinutes')) {
+    return reconcilePendingVirtualOrders()
+  }
   const openid = wxContext.OPENID
   const action = event.action
   const payload = event.payload || {}

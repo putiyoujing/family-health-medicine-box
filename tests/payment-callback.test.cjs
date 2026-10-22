@@ -17,6 +17,21 @@ function createVirtualFixture({ source = 'wx_paycallback', openid, queryOrder, n
 
 const checkout = { planId: 'monthly_pro', idempotencyKey: 'callback-test', loginCode: 'fixture-login', platform: 'android' }
 
+test('SCF timer runs reconciliation while a client cannot impersonate the timer', async () => {
+  const event = { Type: 'Timer', TriggerName: 'virtualPaymentEveryFiveMinutes', Time: '2026-10-22T13:10:00Z', Message: '' }
+  const timer = createPaymentFixture({ source: '', openid: '', env: { TRIGGER_SRC: 'timer' } })
+  const result = await timer.api.main(event)
+  assert.equal(result.ok, true)
+  assert.equal(result.scanned, 0)
+  assert.equal(result.failed, 0)
+
+  const client = createPaymentFixture({ source: '', openid: 'owner-1' })
+  assert.equal((await client.api.main(event)).ok, false)
+
+  const serverCall = createPaymentFixture({ source: '', openid: '' })
+  assert.equal((await serverCall.api.main(event)).ok, false)
+})
+
 async function createOrder(fixture) {
   const result = await fixture.call('createOrder', checkout)
   assert.equal(result.ok, true)
