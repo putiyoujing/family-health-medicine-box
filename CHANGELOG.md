@@ -23,6 +23,7 @@ All notable changes are recorded here. Versions follow the mini-program upload v
 - Local automated checks cover signed refund requests, amount limits, idempotency, trusted refund confirmation, and later-entitlement preservation.
 - `npm run check` passed with 337 tests and 22 static release safeguards on 2026-10-22.
 - `paymentApi` and `adminApi` were deployed to the production CloudBase environment; both remain `Active`. The payment reconciliation timer was observed running on an empty queue. Real payment, callback, refund, and mini-program upload remain unverified.
+- The 1.1.1 candidate admin Web build was uploaded to the existing CloudBase `/admin/` path; the live JavaScript asset matches the local build and includes the refund interface. Authenticated admin and real refund workflows remain unverified.
 
 ## [1.1.0] - 2026-09-18
 
