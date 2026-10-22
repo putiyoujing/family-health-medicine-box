@@ -14,6 +14,7 @@ Page({
     loading: true, family: {}, entitlement: DEFAULT_ENTITLEMENT, usageRows: [], plans: [], redeemCode: '', redeeming: false,
     redeemResult: null, membershipPurchaseGuide: DEFAULT_MEMBERSHIP_PURCHASE_GUIDE, isFreeMembership: true, isUnlimitedMembership: false, expireText: '',
     paymentReady: false, paymentReason: '在线支付暂未开放，可使用已有兑换码。',
+    testPurchaseReady: false,
     periodOptions: [{ value: 'monthly', label: '月度' }, { value: 'yearly', label: '年度' }], selectedPeriod: 'monthly', selectedPlanId: '', selectedPlan: {}, planCards: [],
   },
 
@@ -42,7 +43,7 @@ Page({
   },
 
   async load() {
-    this.setData({ loading: true, paymentReady: false })
+    this.setData({ loading: true, paymentReady: false, testPurchaseReady: false })
     if (!await ensureLoginReady({ silent: true })) { this.setData({ loading: false, family: {} }); return }
     const results = await Promise.allSettled([
       api.getMembershipStatus().then((membership) => this.applyMembership(membership)),
@@ -60,6 +61,8 @@ Page({
           selectedPeriod: selectedPlan.period || 'monthly',
           planCards: buildPlanCards(plans, selectedPlan.period || 'monthly'),
           paymentReady: capability.ready === true && !iosBlocked,
+          testPurchaseReady: capability.testReady === true && platform !== 'ios' && isDevelopmentVersion()
+            && (planData.plans || []).some((plan) => plan.planId === 'test_monthly_pro'),
           paymentReason: iosBlocked ? '当前暂未开通 iOS 支付，可使用已有兑换码。' : capability.reason || '在线支付暂未开放，可使用已有兑换码。',
         })
         try { wx.setStorageSync(GUIDE_CACHE_KEY, { membershipPurchaseGuide }) } catch (_) { /* 缓存写入失败不影响展示 */ }
@@ -108,6 +111,12 @@ Page({
     wx.navigateTo({ url: `/pages/membership/checkout?planId=${encodeURIComponent(planId)}` })
   },
 
+  async buyTestPlan() {
+    if (!this.data.testPurchaseReady || !await ensureLoginReady()) return
+    if (!this.data.family || !this.data.family._id) { wx.showToast({ title: '请先创建或加入家庭', icon: 'none' }); return }
+    wx.navigateTo({ url: '/pages/membership/checkout?planId=test_monthly_pro' })
+  },
+
   onRedeemInput(event) { this.setData({ redeemCode: String(event.detail.value || '').trim().toUpperCase() }) },
 
   async redeemMembershipCode() {
@@ -139,6 +148,10 @@ function normalizePlans(plans) {
     ...plan, tierLabel: plan.membershipTier === 'unlimited' ? '畅享版' : '安心版', badgeLabel: plan.membershipTier === 'unlimited' ? '高频使用' : '适合持续记录', period: Number(plan.durationDays) >= 365 ? 'yearly' : 'monthly', periodLabel: Number(plan.durationDays) >= 365 ? '年度' : '月度',
     priceText: (Number(plan.price || 0) / 100).toFixed(2), benefitItems: buildPlanBenefits(plan),
   })).sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0))
+}
+
+function isDevelopmentVersion() {
+  try { return wx.getAccountInfoSync().miniProgram.envVersion !== 'release' } catch (_) { return false }
 }
 
 function buildPlanCards(plans, period) {

@@ -89,6 +89,10 @@ const PLANS = [
     benefits: UNLIMITED_LIMITS,
   },
 ]
+const TEST_PLAN = {
+  planId: 'test_monthly_pro', name: '安心版体验月度', price: 100, displayPrice: '1.00',
+  durationDays: 30, membershipTier: 'paid', benefits: PRO_LIMITS, sort: 99,
+}
 
 exports.main = async (event = {}) => {
   const wxContext = cloud.getWXContext()
@@ -109,7 +113,7 @@ exports.main = async (event = {}) => {
   try {
     switch (action) {
       case 'getPlans':
-        return ok(await getPlans())
+        return ok(await getPlans(openid))
       case 'previewOrder':
         return ok(await previewOrder(openid, payload))
       case 'createOrder':
@@ -137,15 +141,16 @@ exports.main = async (event = {}) => {
   }
 }
 
-async function getPlans() {
+async function getPlans(openid) {
   const [dbPlans, membershipPurchaseGuide] = await Promise.all([
     safeGetPlansFromDb(),
     getMembershipPurchaseGuide(),
   ])
   return {
-    plans: (dbPlans.length ? mergePlanDefaults(dbPlans) : PLANS).filter((plan) => plan.visible !== false),
+    plans: (dbPlans.length ? mergePlanDefaults(dbPlans) : PLANS).filter((plan) => plan.visible !== false)
+      .concat(virtualPayment.testReady?.(openid) ? [TEST_PLAN] : []),
     membershipPurchaseGuide,
-    paymentCapability: getPaymentCapability(),
+    paymentCapability: getPaymentCapability(openid),
   }
 }
 
@@ -179,6 +184,7 @@ async function getMembershipPurchaseGuide() {
 }
 
 async function previewOrder(openid, payload) {
+  if (payload.planId === TEST_PLAN.planId && !virtualPayment.testReady?.(openid)) throw new Error('测试支付尚未开放')
   const familyId = await resolveFamilyId(openid, payload.familyId)
   await assertFamilyManager(openid, familyId)
   const plan = await getPlan(payload.planId)
@@ -196,15 +202,17 @@ async function previewOrder(openid, payload) {
   }
 }
 
-function getPaymentCapability() {
-  return virtualPayment.getCapability()
+function getPaymentCapability(openid) {
+  return { ...virtualPayment.getCapability(), testReady: virtualPayment.testReady?.(openid) === true }
 }
 
 async function createOrder(openid, payload) {
-  const capability = getPaymentCapability()
+  const capability = getPaymentCapability(openid)
+  const isTestPlan = payload.planId === TEST_PLAN.planId
   let mock = false
   try { assertMockPaymentEnabled(); mock = true } catch {}
-  if (!mock && !capability.ready) throw new Error(capability.reason)
+  if (isTestPlan && !capability.testReady) throw new Error('测试支付尚未开放')
+  if (!mock && !(isTestPlan ? capability.testReady : capability.ready)) throw new Error(capability.reason)
   if (!mock && payload.couponCode) throw new Error('虚拟支付暂不支持优惠券，请移除后重试')
   const familyId = await resolveFamilyId(openid, payload.familyId)
   const managerRole = await assertFamilyManager(openid, familyId)
@@ -923,6 +931,7 @@ async function assertUnclaimedRecord(transaction, collection, id) {
 }
 
 async function getPlan(planId) {
+  if (planId === TEST_PLAN.planId) return TEST_PLAN
   try {
     const result = await db.collection('plans').where({ planId, status: 'active', deletedAt: _.exists(false) }).limit(1).get()
     if (result.data.length) {

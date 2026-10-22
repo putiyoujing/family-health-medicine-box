@@ -4,11 +4,15 @@ const https = require('https')
 const APP_ID = 'wxc3d708e7c51d5c87'
 let cachedToken = null
 
-function config() {
+function config(order) {
   const appId = String(process.env.WX_APPID || APP_ID).trim()
   const secret = String(process.env.WX_APP_SECRET || '').trim()
   const appKey = String(process.env.VIRTUAL_PAYMENT_APP_KEY || '').trim()
-  if (appId !== APP_ID || !secret || !appKey || process.env.VIRTUAL_PAYMENT_ENABLED !== 'true') {
+  const testOrder = order?.planId === 'test_monthly_pro' && order.productId === 'pay_test_01'
+    && Number(order.payableAmount) === 100
+    && order.payerOpenid === String(process.env.VIRTUAL_PAYMENT_TEST_OPENID || '').trim()
+  if (appId !== APP_ID || !secret || !appKey
+    || !(process.env.VIRTUAL_PAYMENT_ENABLED === 'true' || testOrder)) {
     throw new Error('后台退款支付配置尚未完成')
   }
   return { appId, secret, appKey }
@@ -39,8 +43,8 @@ function request(path, body) {
   })
 }
 
-async function signedRequest(path, body) {
-  const { appId, secret, appKey } = config()
+async function signedRequest(path, body, order) {
+  const { appId, secret, appKey } = config(order)
   if (!cachedToken || cachedToken.expiresAt <= Date.now()) {
     const token = await request('/cgi-bin/stable_token', { grant_type: 'client_credential', appid: appId, secret, force_refresh: false })
     if (!token.access_token || !Number.isFinite(Number(token.expires_in))) throw new Error('微信支付凭证暂不可用')
@@ -54,7 +58,7 @@ async function signedRequest(path, body) {
 
 async function queryPaidOrder(order) {
   if (!order.orderNo || !order.payerOpenid) throw new Error('订单支付信息不完整')
-  const result = await signedRequest('/xpay/query_order', { openid: order.payerOpenid, env: 0, order_id: order.orderNo })
+  const result = await signedRequest('/xpay/query_order', { openid: order.payerOpenid, env: 0, order_id: order.orderNo }, order)
   const remote = result.order
   if (!remote || remote.order_id !== order.orderNo || remote.env_type !== 1 || remote.order_type !== 0
     || ![2, 3, 4].includes(remote.status) || remote.paid_fee !== Number(order.payableAmount)
@@ -69,7 +73,7 @@ async function requestRefund(order, { refundOrderId, refundAmount, leftFee }) {
     openid: order.payerOpenid, order_id: order.orderNo, refund_order_id: refundOrderId,
     left_fee: leftFee, refund_fee: refundAmount, biz_meta: JSON.stringify({ orderId: order._id }),
     refund_reason: 5, req_from: 1, env: 0,
-  })
+  }, order)
   if (response.refund_order_id !== refundOrderId) throw new Error('平台退款单号不一致')
   return response
 }

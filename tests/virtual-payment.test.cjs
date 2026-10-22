@@ -10,7 +10,8 @@ const planIds = ['monthly_pro', 'yearly_pro', 'monthly_unlimited', 'yearly_unlim
 const productEnvNames = planIds.map((planId) => `VIRTUAL_PAYMENT_PRODUCT_${planId.toUpperCase()}`)
 const scopedEnvNames = [
   'WX_APPID', 'WX_APP_SECRET', 'VIRTUAL_PAYMENT_ENABLED', 'VIRTUAL_PAYMENT_OFFER_ID',
-  'VIRTUAL_PAYMENT_APP_KEY', 'VIRTUAL_PAYMENT_IOS_ENABLED', ...productEnvNames,
+  'VIRTUAL_PAYMENT_APP_KEY', 'VIRTUAL_PAYMENT_IOS_ENABLED', 'VIRTUAL_PAYMENT_TEST_ENABLED',
+  'VIRTUAL_PAYMENT_TEST_OPENID', ...productEnvNames,
 ]
 const configuredEnv = {
   WX_APPID: 'wxc3d708e7c51d5c87',
@@ -119,6 +120,32 @@ test('virtual payment products use only their configured IDs', (t) => {
   }
   assert.throws(() => fixture.provider.getProduct({ planId: 'monthly_pro', price: 0 }), /价格配置错误/)
   assert.throws(() => fixture.provider.getProduct({ planId: 'other', price: 990 }), /暂不支持在线购买/)
+})
+
+test('one-yuan product requires the exact tester and stays separate from normal payment', async (t) => {
+  const fixture = withCleanup(t, createProvider([
+    { body: { openid: 'openid-1', session_key: 'test-session-key' } },
+  ], {
+    VIRTUAL_PAYMENT_ENABLED: 'false',
+    VIRTUAL_PAYMENT_TEST_ENABLED: 'true',
+    VIRTUAL_PAYMENT_TEST_OPENID: 'openid-1',
+  }))
+  assert.equal(fixture.provider.getCapability().ready, false)
+  assert.equal(fixture.provider.testReady('openid-1'), true)
+  assert.equal(fixture.provider.testReady('other-user'), false)
+  assert.deepEqual(fixture.provider.getProduct({ planId: 'test_monthly_pro', price: 100 }), {
+    productId: 'pay_test_01', goodsPrice: 100,
+  })
+  assert.throws(() => fixture.provider.getProduct({ planId: 'test_monthly_pro', price: 101 }), /价格配置错误/)
+  const testOrder = order({ planId: 'test_monthly_pro', productId: 'pay_test_01', originalAmount: 100, payableAmount: 100, goodsPrice: 100 })
+  const result = await fixture.provider.preparePayment(testOrder, { loginCode: 'fresh-login-code', platform: 'android' })
+  assert.equal(JSON.parse(result.requestVirtualPaymentArgs.signData).goodsPrice, 100)
+  assert.equal(JSON.parse(result.requestVirtualPaymentArgs.signData).productId, 'pay_test_01')
+  await assert.rejects(fixture.provider.preparePayment({ ...testOrder, payerOpenid: 'other-user' }, { loginCode: 'code' }), /测试支付尚未开放/)
+  assert.equal(fixture.requests.length, 1)
+  process.env.VIRTUAL_PAYMENT_TEST_ENABLED = 'false'
+  assert.equal(fixture.provider.testReady('openid-1'), false)
+  await assert.rejects(fixture.provider.preparePayment(testOrder, { loginCode: 'code' }), /测试支付尚未开放/)
 })
 
 test('preparePayment exchanges login code, checks identity, and signs exact client payload', async (t) => {
