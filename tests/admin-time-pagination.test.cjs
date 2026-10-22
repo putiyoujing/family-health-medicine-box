@@ -84,3 +84,16 @@ test('overview stat cards open their corresponding data tables', () => {
   }
   assert.match(ui, /<button className="stat-card" type="button" onClick=\{onClick\}/)
 })
+
+test('order and refund tables show the payer, lifecycle, and confirmed refund balance', () => {
+  const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+  const api = fs.readFileSync(path.join(root, 'cloudfunctions/adminApi/index.js'), 'utf8')
+
+  for (const field of ['payerUserId', 'payerNickname', 'createdAt', 'paidAt', 'refundRequestedAt', 'refundedAt', 'refundOrderId', 'refundReason', 'refundedBy', 'remainingAmount']) {
+    assert.match(ui, new RegExp(field))
+  }
+  assert.match(api, /case 'listRefunds':/)
+  assert.match(api, /payload\.refundOnly\) query\.refundOrderId = _\.exists\(true\)/)
+  assert.match(api, /row\.refundStatus === 'refunded' \? Number\(row\.refundAmount \|\| 0\) : 0/)
+  assert.match(api, /payerUserId: user\?\.publicUserId/)
+})

@@ -37,6 +37,7 @@ type ListType =
   | 'users'
   | 'families'
   | 'orders'
+  | 'refunds'
   | 'subscriptions'
   | 'coupons'
   | 'couponBatches'
@@ -266,6 +267,7 @@ const dataTables: Array<{
   { id: 'users', label: '用户表', icon: Users, description: '注册用户、最近登录和当前家庭', statKey: 'users' },
   { id: 'families', label: '家庭表', icon: Home, description: '家庭空间、会员状态和创建者', statKey: 'families' },
   { id: 'orders', label: '订单表', icon: ReceiptText, description: '订单金额、套餐、优惠和支付状态', statKey: 'orders' },
+  { id: 'refunds', label: '退款表', icon: ReceiptText, description: '退款金额、未退金额、状态和关联订单', statKey: 'orders' },
   { id: 'subscriptions', label: '会员家庭表', icon: WalletCards, description: '订阅状态、到期时间和所属家庭', statKey: 'subscriptions' },
   { id: 'coupons', label: '优惠券表', icon: TicketPercent, description: '券码、使用量、有效期和状态', statKey: 'coupons' },
   { id: 'couponBatches', label: '兑换码批次表', icon: TicketPercent, description: '小红书发码批次、套餐和生成数量', statKey: 'couponCodeBatches' },
@@ -1620,6 +1622,7 @@ function TablePagination({
 function ListSearchToolbar({ type, search, onChange, onSearch }: { type: ListType; search: TableSearch; onChange: (key: keyof TableSearch, value: string) => void; onSearch: () => void }) {
   const placeholders: Record<ListType, string> = {
     users: '搜索用户ID、昵称', families: '搜索家庭名称、创建者', orders: '搜索订单号、套餐、用户',
+    refunds: '搜索退款单号、订单号、用户ID',
     subscriptions: '搜索家庭、套餐、状态', coupons: '搜索券码、名称、渠道、用户ID',
     couponBatches: '搜索批次、套餐、渠道', couponCodes: '搜索兑换码、用户ID、渠道、订单号',
     aiUsage: '搜索家庭、类型、用户', medicines: '搜索药品名称、分类、位置',
@@ -1854,6 +1857,7 @@ function listAction(type: ListType) {
     medication: 'listMedication',
     medicines: 'listMedicines',
     orders: 'listOrders',
+    refunds: 'listRefunds',
     subscriptions: 'listSubscriptions',
     users: 'listUsers',
   }[type]
@@ -2019,11 +2023,19 @@ function tableColumns(
     orders: [
       ...common,
       { key: 'orderNo', label: '订单号' },
+      { key: 'payerUserId', label: '用户ID' },
+      { key: 'payerNickname', label: '昵称' },
       { key: 'planName', label: '套餐' },
       { key: 'payableAmount', label: '应付', render: (row) => formatMoney(row.payableAmount) },
       { key: 'discountAmount', label: '优惠', render: (row) => formatMoney(row.discountAmount) },
+      { key: 'paymentTradeNo', label: '支付流水号' },
       { key: 'status', label: '状态', render: (row) => row.status === 'refunding' && row.refundStatus === 'failed' ? '退款失败待核查' : String(row.status || '') },
       { key: 'createdAt', label: '创建时间', render: (row) => formatValue(row.createdAt) },
+      { key: 'paidAt', label: '支付时间', render: (row) => formatValue(row.paidAt) },
+      { key: 'refundedAmount', label: '已退金额', render: (row) => row.refundOrderId ? formatMoney(row.refundedAmount) : '—' },
+      { key: 'remainingAmount', label: '未退金额', render: (row) => row.refundOrderId ? formatMoney(row.remainingAmount) : '—' },
+      { key: 'refundStatus', label: '退款状态', render: (row) => row.refundOrderId ? String(row.refundStatus || '待核查') : '—' },
+      { key: 'refundedAt', label: '退款完成时间', render: (row) => formatValue(row.refundedAt) },
       {
         key: 'action',
         label: '操作',
@@ -2033,6 +2045,23 @@ function tableColumns(
           return <button className="table-action-button danger-action" disabled={!id || !canRefund || actions.refundingRecordId === id} type="button" onClick={() => actions.onRefundOrder?.(row)}>{row.status === 'refunded' ? '已退款' : row.status === 'refunding' ? row.refundStatus === 'failed' ? '待人工核查' : '退款处理中' : actions.refundingRecordId === id ? '处理中…' : '退款'}</button>
         },
       },
+    ],
+    refunds: [
+      { key: 'refundOrderId', label: '退款单号' },
+      { key: 'orderNo', label: '关联订单号' },
+      { key: 'payerUserId', label: '用户ID' },
+      { key: 'payerNickname', label: '昵称' },
+      { key: 'planName', label: '套餐' },
+      { key: 'payableAmount', label: '实付金额', render: (row) => formatMoney(row.payableAmount) },
+      { key: 'refundAmount', label: '申请退款', render: (row) => formatMoney(row.refundAmount) },
+      { key: 'refundedAmount', label: '已退金额', render: (row) => formatMoney(row.refundedAmount) },
+      { key: 'remainingAmount', label: '未退金额', render: (row) => formatMoney(row.remainingAmount) },
+      { key: 'refundStatus', label: '退款状态' },
+      { key: 'refundReason', label: '退款原因' },
+      { key: 'refundedBy', label: '操作人' },
+      { key: 'refundRequestedAt', label: '申请时间', render: (row) => formatValue(row.refundRequestedAt) },
+      { key: 'refundCheckedAt', label: '核查时间', render: (row) => formatValue(row.refundCheckedAt) },
+      { key: 'refundedAt', label: '完成时间', render: (row) => formatValue(row.refundedAt) },
     ],
     subscriptions: [
       ...common,
@@ -2088,7 +2117,7 @@ function createInitialTableTotals(dashboard: AdminDashboardData): Record<ListTyp
   return dataTables.reduce(
     (acc, table) => ({
       ...acc,
-      [table.id]: Number(dashboard.stats[table.statKey] || 0),
+      [table.id]: table.id === 'refunds' ? 0 : Number(dashboard.stats[table.statKey] || 0),
     }),
     {} as Record<ListType, number>,
   )
