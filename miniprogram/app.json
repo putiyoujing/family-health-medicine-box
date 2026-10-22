@@ -21,6 +21,7 @@
     "pages/family/switch",
     "pages/membership/index",
     "pages/membership/checkout",
+    "pages/membership/success",
     "pages/orders/index",
     "pages/orders/detail",
     "pages/coupons/index",

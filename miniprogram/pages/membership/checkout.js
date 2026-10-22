@@ -47,9 +47,10 @@ Page({
       if (this.paymentAttempt) {
         try { wx.removeStorageSync(this.paymentAttempt.storageKey) } catch (_) { /* 订单已确认 */ }
       }
+      const orderId = this.pendingOrderId
       this.pendingOrderId = ''
       this.setData({ paymentConfirmed: true, awaitingConfirmation: false, paymentMessage: '支付已确认，会员权益已开通。' })
-      wx.showToast({ title: '会员已开通' })
+      wx.redirectTo({ url: `/pages/membership/success?orderId=${encodeURIComponent(orderId)}` })
     } catch (error) {
       this.setData({ paymentMessage: error.message || '支付结果暂未确认，请点击刷新支付结果。' })
     } finally { this._checkingPayment = false }
