@@ -19,4 +19,4 @@ Page({
     catch (error) { wx.showToast({ title: error.message || '取消失败', icon: 'none' }) }
   },
 })
-function normalizeOrder(order) { return { ...order, amountText: (Number(order.payableAmount || 0) / 100).toFixed(2), originalText: (Number(order.originalAmount || 0) / 100).toFixed(2), discountText: (Number(order.discountAmount || 0) / 100).toFixed(2), statusText: ({ pending: '待支付', paid: '已支付', cancelled: '已取消', refunded: '已退款', failed: '支付失败', closed: '已关闭', refund_review: '退款处理中' })[order.status] || order.status || '处理中' } }
+function normalizeOrder(order) { return { ...order, amountText: (Number(order.payableAmount || 0) / 100).toFixed(2), originalText: (Number(order.originalAmount || 0) / 100).toFixed(2), discountText: (Number(order.discountAmount || 0) / 100).toFixed(2), statusText: ({ pending: '待支付', paid: '已支付', cancelled: '已取消', refunded: '已退款', failed: '支付失败', closed: '已关闭', refund_review: '退款处理中', refunding: order.refundStatus === 'failed' ? '退款待核查' : '退款处理中' })[order.status] || order.status || '处理中' } }
