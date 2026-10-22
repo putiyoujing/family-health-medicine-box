@@ -61,3 +61,14 @@ test('admin APIs cap normal list pages at 100 rows', () => {
   assert.match(cloudSource, /normalizePageSize\(payload\.limit\)/)
   assert.match(localSource, /normalizePageSize\(payload\.limit\)/)
 })
+
+test('every admin data table exposes search and the cloud list applies it before pagination', () => {
+  const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+  const api = fs.readFileSync(path.join(root, 'cloudfunctions/adminApi/index.js'), 'utf8')
+
+  assert.match(ui, /<ListSearchToolbar type=\{type\}/)
+  assert.match(ui, /keyword: filters\.keyword\.trim\(\)/)
+  assert.match(api, /if \(keyword\) \{[\s\S]*?allRows\(collection, query\)/)
+  assert.match(api, /rows\.filter\(\(row\) => matchesKeyword\(row, keyword\)\)/)
+  assert.match(api, /list: rows\.slice\(skip, skip \+ limit\)/)
+})
