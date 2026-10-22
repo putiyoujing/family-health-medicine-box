@@ -21,8 +21,8 @@ All notable changes are recorded here. Versions follow the mini-program upload v
 ### Verification
 
 - Local automated checks cover signed refund requests, amount limits, idempotency, trusted refund confirmation, and later-entitlement preservation.
-- Run `npm run check` and record its final count before release.
-- No payment function deployment, mini-program upload, or real charge was performed.
+- `npm run check` passed with 337 tests and 22 static release safeguards on 2026-10-22.
+- `paymentApi` and `adminApi` were deployed to the production CloudBase environment; both remain `Active`. The payment reconciliation timer was observed running on an empty queue. Real payment, callback, refund, and mini-program upload remain unverified.
 
 ## [1.1.0] - 2026-09-18
 

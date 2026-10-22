@@ -2,6 +2,10 @@
 
 > 进展更新：支付道具素材、退款失败状态及定时器兼容修复均已通过 CI 并合并。最新本地 `npm run check` 为 337/337；后台退款规则见[后台退款规则与验收](admin-refund-acceptance-2026-10-22.md)。四个微信道具已发布；生产 `orders` 两个支付复合索引、两支新版云函数与五分钟对账触发器已创建并回读，timer 空队列运行通过。发货与退款事件已订阅并启用；密钥需轮换，真实回调、真机付款和真实退款尚未验收，上线判定继续为 NO-GO。
 
+2026-10-22 再核对：生产环境 5 支云函数均为 `Active`，付款对账与提醒定时器均存在；24 个 NoSQL 集合逐个回读均为 `ADMINONLY`。本地 `npm run check` 为 337/337，`npm run check:release:production` 未通过，缺少真实支付、退款、设备及部分发布声明。云端 `orders` 仍为 0 条；不能据此声称支付回调已验证。线上 `/admin/` 仍为旧构建，不含新版后台退款界面，需部署并做真实管理员验收。
+
+项目负责人已创建但未发布 `pay_test_01`（安心版体验月度，¥1）。该道具可用于开发版沙箱，不能作为 Android 真机 ¥1 实付及退款证据；保持未发布。现网四档道具仍维持原价。按[腾讯云开发虚拟支付说明](https://docs.cloudbase.net/integration/wechat-virtual-pay)，沙箱在真机预览中可能被平台拦截。
+
 ## 结论
 
 `1.1.1` 支付候选源码和定时器兼容修复 PR #19 已合并到 GitHub `master`；本次运行 `npm run check`，337 项测试全部通过。生产 `paymentApi` 和 `adminApi` 已部署新版事件函数；`paymentApi.getPlans` 云端调用成功且返回 `paymentCapability.ready: false`，`adminApi` 拒绝未登录访问；标准 timer 已在空队列下运行成功。**真实支付上线仍为 BLOCKED**：密钥轮换、真实回调、真实订单补偿、真机付款与退款证据未完成。不能将代码部署或本地通过写成已完成支付测试或可正式收款。
