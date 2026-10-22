@@ -213,6 +213,19 @@ test('queryOrder maps closed and refund states without granting paid status', as
   }
 })
 
+test('queryRefund verifies the platform refund order before rights are revoked', async (t) => {
+  const fixture = withCleanup(t, createProvider([
+    { body: { access_token: 'token', expires_in: 7200 } },
+    { body: { order: { order_id: 'rf_12345678', order_type: 1, status: 5, refund_fee: 100, pay_order_id: 'M0000001' } } },
+  ]))
+  const result = await fixture.provider.queryRefund(order({ refundOrderId: 'rf_12345678', refundAmount: 100 }))
+  assert.deepEqual(result, { state: 'refunded', refundAmount: 100 })
+  const request = fixture.requests[1]
+  assert.equal(new URL(request.path, 'https://api.weixin.qq.com').pathname, '/xpay/query_order')
+  assert.deepEqual(JSON.parse(request.body), { openid: 'openid-1', env: 0, order_id: 'rf_12345678' })
+  assert.equal(new URL(request.path, 'https://api.weixin.qq.com').searchParams.get('pay_sig'), hmac(configuredEnv.VIRTUAL_PAYMENT_APP_KEY, `/xpay/query_order&${request.body}`))
+})
+
 test('notifyDelivery signs the platform fulfillment request and hides provider details on failure', async (t) => {
   const fixture = withCleanup(t, createProvider([
     { body: { access_token: 'test-access-token', expires_in: 7200 } },

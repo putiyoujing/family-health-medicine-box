@@ -1,5 +1,7 @@
 const cloud = require('wx-server-sdk')
 const tcb = require('@cloudbase/node-sdk')
+const crypto = require('crypto')
+const virtualRefund = require('./virtual-refund')
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
@@ -1211,44 +1213,49 @@ async function updateMembershipPlans(payload = {}, admin = {}) {
 }
 
 async function refundOrder(payload = {}, admin = {}) {
+  if (admin.role !== 'owner') throw new Error('只有主管理员可以操作退款')
   const orderId = String(payload.orderId || payload.id || '').trim()
   if (!orderId) throw new Error('orderId is required')
+  const refundAmount = Number(payload.refundAmount)
+  if (!Number.isSafeInteger(refundAmount) || refundAmount <= 0) throw new Error('请输入有效的退款金额（分）')
   const orderResult = await db.collection('orders').doc(orderId).get()
   const order = orderResult.data
   if (!order) throw new Error('order not found')
-  if (!['paid', 'refunding'].includes(order.status)) throw new Error('只有已支付订单可以退款')
-  const now = db.serverDate()
-  const reason = String(payload.reason || '后台人工退款').trim()
-  await db.collection('orders').doc(orderId).update({
-    data: {
-      status: 'refunded',
-      refundStatus: 'refunded',
-      refundReason: reason,
-      refundedAt: now,
-      refundedBy: admin.authUid || admin.openid || '',
-      updatedAt: now,
-    },
+  if (order.paymentMode !== 'virtual' || order.status !== 'paid') throw new Error('只有已支付的微信虚拟支付订单可以退款')
+  if (order.paymentPlatform === 'ios') throw new Error('iOS 订单不支持后台主动退款')
+  if (order.refundOrderId) throw new Error('该订单已有退款记录，请等待平台确认')
+  if (refundAmount > Number(order.payableAmount)) throw new Error('退款金额不能超过实际支付金额')
+  const providerOrder = await virtualRefund.queryPaidOrder(order)
+  if (providerOrder.leftFee !== Number(order.payableAmount)) throw new Error('平台可退金额与订单不一致，请先核查')
+  if (refundAmount > providerOrder.leftFee) throw new Error('退款金额超过平台可退金额')
+  const refundOrderId = `rf_${crypto.randomBytes(12).toString('hex')}`
+  const refundReason = String(payload.reason || '后台人工退款').trim().slice(0, 120)
+  const requested = await db.runTransaction(async (transaction) => {
+    const current = (await transaction.collection('orders').doc(orderId).get()).data
+    if (!current || current.status !== 'paid' || current.refundOrderId) throw new Error('订单状态已变化，请刷新后重试')
+    const now = db.serverDate()
+    await transaction.collection('orders').doc(orderId).update({ data: {
+      status: 'refunding', refundStatus: 'requested', refundOrderId, refundAmount,
+      refundReason, refundRequestedAt: now, refundedBy: admin.authUid || admin.openid || '', updatedAt: now,
+    } })
+    return true
   })
-  const subscriptions = await db.collection('subscriptions').where({ orderId, status: 'active' }).limit(20).get()
-  for (const subscription of subscriptions.data) {
-    await db.collection('subscriptions').doc(subscription._id).update({
-      data: { status: 'cancelled', cancelledAt: now, cancelReason: 'order_refunded', updatedAt: now },
+  if (!requested) throw new Error('退款请求未建立')
+  try {
+    await virtualRefund.requestRefund(order, { refundOrderId, refundAmount, leftFee: providerOrder.leftFee })
+    const status = await db.runTransaction(async (transaction) => {
+      const current = (await transaction.collection('orders').doc(orderId).get()).data
+      if (current?.status === 'refunded' && current.refundOrderId === refundOrderId) return 'refunded'
+      if (!current || current.status !== 'refunding' || current.refundOrderId !== refundOrderId) throw new Error('退款订单状态已变化')
+      await transaction.collection('orders').doc(orderId).update({ data: { refundStatus: 'processing', updatedAt: db.serverDate() } })
+      return 'refunding'
     })
+    return { orderId, status, refundOrderId, refundAmount }
+  } catch (error) {
+    // 网络超时也可能已经被平台受理；保持原退款单号，等待查单，绝不生成第二笔请求。
+    console.warn('refund request needs reconciliation', error.message)
+    throw new Error('退款请求结果待平台核查，请勿重复操作')
   }
-  const familyUpdate = order.previousPlan === 'free'
-    ? { plan: 'free', planId: 'free', membershipTier: 'free', proExpireAt: null }
-    : {
-      plan: 'pro',
-      planId: order.previousPlanId || 'yearly_pro',
-      membershipTier: order.previousMembershipTier || 'paid',
-      proExpireAt: order.previousExpireAt || null,
-    }
-  await db.collection('families').doc(order.familyId).update({ data: { ...familyUpdate, updatedAt: now } })
-  if (order.couponId) {
-    await db.collection('coupon_redemptions').where({ couponId: order.couponId, orderId, status: 'used' }).update({ data: { status: 'refunded', refundedAt: now, updatedAt: now } })
-    await db.collection('coupons').doc(order.couponId).update({ data: { usedQuantity: _.inc(-1), updatedAt: now } })
-  }
-  return { orderId, status: 'refunded' }
 }
 
 async function disableCouponCode(payload = {}) {

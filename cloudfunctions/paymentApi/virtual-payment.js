@@ -127,6 +127,17 @@ async function queryOrder(order) {
   return { ...result, state: 'paid', paidAt: new Date(remote.paid_time * 1000).toISOString() }
 }
 
+async function queryRefund(order) {
+  if (!order.refundOrderId || !order.payerOpenid) throw new Error('退款单信息不完整')
+  const response = await signedRequest('/xpay/query_order', { openid: order.payerOpenid, env: 0, order_id: order.refundOrderId })
+  const remote = response.order
+  if (!remote || remote.order_id !== order.refundOrderId || remote.order_type !== 1
+    || remote.refund_fee !== Number(order.refundAmount)
+    || (remote.pay_order_id && remote.pay_order_id !== order.orderNo)) throw new Error('平台退款单信息不一致，请人工核查')
+  if (![0, 1, 2, 3, 4, 5, 7, 8, 9, 10].includes(remote.status)) throw new Error('平台退款状态未知，请人工核查')
+  return { state: [5, 8].includes(remote.status) ? 'refunded' : 'processing', refundAmount: remote.refund_fee }
+}
+
 async function notifyDelivery(order) {
   if (!order.orderNo) throw new Error('订单支付信息不完整')
   await signedRequest('/xpay/notify_provide_goods', { order_id: order.orderNo, env: 0 })
@@ -165,4 +176,4 @@ function requestJson(path, data) {
   })
 }
 
-module.exports = { getCapability, getProduct, preparePayment, queryOrder, notifyDelivery }
+module.exports = { getCapability, getProduct, preparePayment, queryOrder, queryRefund, notifyDelivery }

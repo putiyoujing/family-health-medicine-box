@@ -551,11 +551,19 @@ function App() {
 
   async function refundOrder(row: Record<string, unknown>) {
     const orderId = String(row._id || '')
-    if (!orderId || !window.confirm('确认对该订单执行后台退款吗？退款后会员权益将被取消。')) return
+    if (!orderId) return
+    const paidAmount = Number(row.payableAmount)
+    const amountText = window.prompt(`请输入退款金额（元），最高 ¥${(paidAmount / 100).toFixed(2)}。部分退款也会关闭该订单并回收其全部权益。`, (paidAmount / 100).toFixed(2))
+    if (amountText === null) return
+    const trimmed = amountText.trim()
+    if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) { setError('请输入最多两位小数的退款金额'); return }
+    const refundAmount = Math.round(Number(trimmed) * 100)
+    if (refundAmount <= 0 || refundAmount > paidAmount) { setError('退款金额须大于 0 且不超过实际支付金额'); return }
+    if (!window.confirm(`确认申请退款 ¥${(refundAmount / 100).toFixed(2)} 吗？微信确认退款后，该订单将关闭并回收其全部权益。`)) return
     setRefundingRecordId(orderId)
     setError('')
     try {
-      await callAdminApi('refundOrder', { orderId, reason: '后台人工退款' })
+      await callAdminApi('refundOrder', { orderId, refundAmount, reason: '后台人工退款' })
       await Promise.all([loadTable('orders', tableOffsets.orders || 0), refreshDashboard()])
     } catch (err) {
       setError(err instanceof Error ? err.message : '订单退款失败')
@@ -2007,8 +2015,8 @@ function tableColumns(
         label: '操作',
         render: (row) => {
           const id = String(row._id || '')
-          const canRefund = row.status === 'paid'
-          return <button className="table-action-button danger-action" disabled={!id || !canRefund || actions.refundingRecordId === id} type="button" onClick={() => actions.onRefundOrder?.(row)}>{row.status === 'refunded' ? '已退款' : actions.refundingRecordId === id ? '处理中…' : '退款'}</button>
+          const canRefund = row.status === 'paid' && row.paymentMode === 'virtual'
+          return <button className="table-action-button danger-action" disabled={!id || !canRefund || actions.refundingRecordId === id} type="button" onClick={() => actions.onRefundOrder?.(row)}>{row.status === 'refunded' ? '已退款' : row.status === 'refunding' ? '退款处理中' : actions.refundingRecordId === id ? '处理中…' : '退款'}</button>
         },
       },
     ],

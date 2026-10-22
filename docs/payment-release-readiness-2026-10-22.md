@@ -1,5 +1,7 @@
 # 家人健康记：需求、开发进度与支付上线状态（2026-10-22）
 
+> 后续进展：发布证据门禁已通过 PR #13 合并。后台退款规则已确定，退款代码和本地测试见[后台退款规则与验收](admin-refund-acceptance-2026-10-22.md)。以下 323 项为本轮最初核验快照；实际最新测试数以当前 `npm run check` 输出为准。微信道具、回调、云端部署、真机付款和真实退款证据仍缺失，上线判定继续为 NO-GO。
+
 ## 结论
 
 `1.1.1` 支付候选源码已合并到 GitHub `master`（PR #12，提交 `da3526e`），本次在同一源码上运行 `npm run check`，323 项测试全部通过。**真实支付上线仍为 BLOCKED**：生产 `paymentApi` 仍是 2026-09-12 的旧代码，没有支付环境变量、发货回调或对账定时触发器；微信虚拟支付道具和回调尚未配置，也没有真机付款证据。不能将本地通过写成已完成支付测试或可正式收款。
@@ -12,7 +14,7 @@
 | 会员绑定家庭、兑换码激活、权益限制 | 已有实现；兑换事务和并发恢复纳入 1.1.1 | 生产仍为旧 `paymentApi`，新路径未部署 |
 | 四档会员套餐、订单和优惠券 | 已有前后端及自动测试 | 四个微信虚拟支付道具尚未创建/发布 |
 | 虚拟支付双签名、平台查单、可信发货回调、幂等开通 | 1.1.1 源码和专项测试已完成 | 凭证、消息推送、真机付款均未验收 |
-| 五分钟漏回调对账与退款状态识别 | 源码和测试已完成 | 触发器/索引未配置；退款后权益规则未确定 |
+| 五分钟漏回调对账与退款状态识别 | 源码和测试已完成；后台退款与权益回收代码后续补充 | 触发器/索引未配置；真实退款未验收 |
 | iOS 购买 | 代码默认关闭 | IAP 和 iOS 真机未验收，继续关闭 |
 | Web 管理后台统计及订单查看 | 已有实现 | 本轮未重新核对线上后台 |
 
@@ -28,8 +30,8 @@
 ## 可执行的收尾顺序
 
 1. 在微信公众平台创建并发布四个与套餐价格一致的虚拟道具，保存商品 ID、价格和发布状态截图；配置发货推送。密钥、Token 不放入聊天或仓库。
-2. 在 CloudBase `paymentApi` 云函数环境中录入 `WX_APPID`、`WX_APP_SECRET`、`VIRTUAL_PAYMENT_ENABLED`、`VIRTUAL_PAYMENT_OFFER_ID`、`VIRTUAL_PAYMENT_APP_KEY` 和四个 `VIRTUAL_PAYMENT_PRODUCT_*`；先回读配置项**是否存在**，不展示值。保持 `VIRTUAL_PAYMENT_IOS_ENABLED` 关闭。
-3. 部署与 `da3526e` 一致的 `paymentApi`，把超时提高到至少 10 秒；建立 `orders(paymentMode,status,createdAt)` 与 `orders(paymentMode,status,deliveryStatus,createdAt)` 索引，创建并核验五分钟触发器。确认发货推送已订阅 `event/xpay_goods_deliver_notify`。
+2. 在 CloudBase `paymentApi` 云函数环境中录入 `WX_APPID`、`WX_APP_SECRET`、`VIRTUAL_PAYMENT_ENABLED`、`VIRTUAL_PAYMENT_OFFER_ID`、`VIRTUAL_PAYMENT_APP_KEY` 和四个 `VIRTUAL_PAYMENT_PRODUCT_*`；`adminApi` 也需录入用于退款的 AppID、AppSecret、AppKey 与启用开关。先回读配置项**是否存在**，不展示值。保持 `VIRTUAL_PAYMENT_IOS_ENABLED` 关闭。
+3. 部署当前候选的 `paymentApi` 与 `adminApi`，把超时提高到至少 10 秒；建立 `orders(paymentMode,status,createdAt)` 与 `orders(paymentMode,status,deliveryStatus,createdAt)` 索引，创建并核验五分钟触发器。确认发货与退款推送已订阅并能抵达可信回调。
 4. 在隔离测试条件下验证下单、取消、超时、回调重放、漏回调补偿和退款规则；核对金额、微信订单号、单次权益发放和后台记录。生产健康数据、兑换码与现有订单不作测试夹具。
 5. 用 Android 微信真机完成一笔经项目负责人同意金额的付款并保存订单、回调日志和会员状态证据；然后上传体验版、做全功能回归，再进入微信审核。正式发布使用尚未上线的新版本号。
 
