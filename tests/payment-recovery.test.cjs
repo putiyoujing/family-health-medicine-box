@@ -62,6 +62,23 @@ test('production unavailable checkout writes no orders', async () => {
   assert.equal((await f.call('createOrder', { planId: 'monthly_pro' })).ok, false)
   assert.equal(f.store.orders.length, 0)
 })
+test('one-yuan checkout only opens for the designated tester while normal checkout stays closed', async () => {
+  const f = createPaymentFixture({ provider: {
+    getCapability: () => ({ ready: false, reason: '在线支付暂未开放', provider: 'official_virtual_payment' }),
+    testReady: (openid) => openid === 'owner-1',
+    getProduct: () => ({ productId: 'pay_test_01', goodsPrice: 100 }),
+    preparePayment: async () => ({ ready: true, requestVirtualPaymentArgs: { signData: 'fixture' } }),
+  } })
+  const plans = await f.call('getPlans')
+  assert.equal(plans.data.paymentCapability.ready, false)
+  assert.equal(plans.data.paymentCapability.testReady, true)
+  assert.equal(plans.data.plans.find((plan) => plan.planId === 'test_monthly_pro').price, 100)
+  assert.equal((await f.call('createOrder', { planId: 'monthly_pro' })).ok, false)
+  const created = await f.call('createOrder', { planId: 'test_monthly_pro', idempotencyKey: 'one-yuan', loginCode: 'fixture-login', platform: 'android' })
+  assert.equal(created.ok, true)
+  assert.equal(f.store.orders[0].payableAmount, 100)
+  assert.equal(f.store.orders[0].productId, 'pay_test_01')
+})
 test('idempotent creation does not overwrite a paid order or accept changed plan', async () => {
   const f = createPaymentFixture({ env })
   const payload = { planId: 'monthly_pro', idempotencyKey: 'checkout-1' }
