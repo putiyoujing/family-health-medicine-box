@@ -8,11 +8,15 @@ All notable changes are recorded here. Versions follow the mini-program upload v
 
 - After confirmed payment, show a dedicated membership success page and return to a freshly loaded membership center after five seconds.
 - Replace payment-channel implementation terms on the checkout page with concise purchase guidance.
+- Add search to every admin data table and link overview statistics to their matching tables.
+- Expand order details with payer, payment, and refund fields; add an order-linked refund view with the confirmed refunded and remaining amounts.
+- Show a record user or family creator for user-owned admin data without exposing raw WeChat identifiers.
 
 ### Verification
 
 - Automated checks cover confirmed and unconfirmed payment results, the five-second countdown, and return navigation.
-- Real-device review of this page and formal WeChat release remain pending.
+- A real Android ¥1 payment fulfilled membership once; a ¥0.99 partial refund reached the phone, closed the order, and cancelled that order's subscription. The ¥0.01 balance remains visible in the admin refund view.
+- Real-device review of the 1.1.2 success page and formal WeChat release remain pending.
 
 ## [1.1.1] - Unreleased
 
