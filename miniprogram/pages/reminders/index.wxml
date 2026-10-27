@@ -5,9 +5,9 @@
   </view>
 
   <view class="notice-card {{subscriptionConfigured ? 'notice-ready' : ''}}">
-    <view class="notice-title">{{subscriptionConfigured ? '微信提醒已接入' : '微信提醒待配置'}}</view>
+    <view class="notice-title">{{subscriptionConfigured ? '微信提醒可用' : '微信提醒暂不可用'}}</view>
     <view class="muted" wx:if="{{subscriptionConfigured}}">保存时可申请一次微信订阅授权；每条待办需要单独授权，拒绝后仍会保存到小程序。</view>
-    <view class="muted" wx:else>当前环境尚未填写订阅消息模板 ID，待办可以保存，但暂时不会发送微信通知。</view>
+    <view class="muted" wx:else>待办仍会保存到小程序；你可以在计划时间打开小程序查看。</view>
   </view>
 
   <view class="section">

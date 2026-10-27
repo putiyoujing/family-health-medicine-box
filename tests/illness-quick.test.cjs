@@ -22,7 +22,7 @@ test('quick illness page is registered without voice prompt and exposes categori
   assert.doesNotMatch(template, /class="page-title"/)
   assert.match(template, /src="\{\{file\.fileID \|\| file\.tempFilePath\}\}"/)
   assert.doesNotMatch(template, /bindtap="startTextParse"/)
-  assert.match(template, /提交后会在后台自动整理文字和图片/)
+  assert.match(template, /提交后会自动整理文字和图片，并保存到病程中/)
   assert.deepEqual(Array.from(page.buildSlots(), (slot) => slot.label), [
     '病例 / 问诊单',
     '检查报告',
