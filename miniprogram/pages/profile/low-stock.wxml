@@ -1,10 +1,4 @@
 <view class="page low-stock-page">
-  <view class="page-title">
-    <text class="eyebrow">药箱提醒</text>
-    <view class="h1">低库存提醒</view>
-    <view class="muted">药品剩余量低于设定比例时，会在首页提示你及时补充。</view>
-  </view>
-
   <view class="section threshold-card">
     <view class="threshold-summary">
       <view>

@@ -1,10 +1,4 @@
 <view class="page expiry-reminder-page">
-  <view class="page-title">
-    <text class="eyebrow">药箱提醒</text>
-    <view class="h1">保质期提醒</view>
-    <view class="muted">药品即将到期或已过期时，会在首页和药箱中提示你及时处理。</view>
-  </view>
-
   <view class="section reminder-card">
     <view class="reminder-summary">
       <view>
