@@ -132,7 +132,8 @@ Page({
     this.setData({ redeeming: true, redeemResult: null })
     try {
       const result = await api.redeemMembershipCode({ code: this.data.redeemCode })
-      this.setData({ redeeming: false, redeemCode: '', redeemResult: result })
+      const planName = String((result.plan && result.plan.name) || '会员').replace(/[（(](月度|年度)[）)]$/, '')
+      this.setData({ redeeming: false, redeemCode: '', redeemResult: { ...result, displayPlanName: planName, expireText: formatDate(result.expireAt) } })
       track(EVENT_IDS.MEMBERSHIP_REDEEM_RESULT, { status: 'success', tier: result.plan && result.plan.membershipTier })
       wx.showToast({ title: '会员已激活' }); await this.load()
     } catch (error) {

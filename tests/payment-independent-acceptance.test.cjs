@@ -72,13 +72,15 @@ test('independent QA: concurrent redemption taps consume only one request', asyn
 
 test('independent QA: a failed status refresh after successful redemption preserves activation evidence', async () => {
   const { page, toasts } = loadPage('index', {
-    redeemMembershipCode: async () => ({ status: 'active', subscriptionId: 'qa-subscription', plan: { membershipTier: 'paid' } }),
+    redeemMembershipCode: async () => ({ status: 'active', subscriptionId: 'qa-subscription', expireAt: '2027-11-26T12:00:00', plan: { membershipTier: 'paid', name: '安心版（月度）' } }),
     getMembershipStatus: async () => { throw new Error('qa refresh unavailable') },
     getPlans: async () => ({ plans: [] }),
   })
   page.setData({ family: { _id: 'qa-family', role: 'owner' }, redeemCode: 'QA-CODE' })
   await page.redeemMembershipCode()
   assert.equal(page.data.redeemResult.subscriptionId, 'qa-subscription')
+  assert.equal(page.data.redeemResult.expireText, '2027-11-26')
+  assert.equal(page.data.redeemResult.displayPlanName, '安心版')
   assert.equal(page.data.redeeming, false)
   assert.equal(page.data.loading, false)
   assert.equal(toasts.some((item) => item.title === '会员已激活'), true)
