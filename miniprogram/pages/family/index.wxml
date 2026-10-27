@@ -1,9 +1,4 @@
 <view class="page family-page">
-  <view class="page-title">
-    <text class="eyebrow">家庭空间</text>
-    <view class="h1">家庭管理</view>
-  </view>
-
   <view class="section family-summary-card" wx:if="{{family && family._id}}">
     <view class="section-title">当前家庭</view>
     <view class="family-summary">
