@@ -1,10 +1,10 @@
-# 家人健康记小程序开发结果总结
+# 生病记录助手小程序开发结果总结
 
-更新时间：2026-07-24
+更新时间：2026-10-28
 
 ## 1. 项目定位
 
-本项目是一个微信小程序产品，产品名为「家人健康记」，当前前台主线调整为“生病记录与复诊摘要”。核心目标是帮助家庭快速记录一次病程，连续追加体温、症状、用药和就诊信息，并在复诊前一键整理给医生看的摘要。
+本项目是一个微信小程序产品，产品名为「生病记录助手」，当前前台主线调整为“生病记录与复诊摘要”。核心目标是帮助家庭快速记录一次病程，连续追加体温、症状、用药和就诊信息，并在复诊前一键整理给医生看的摘要。
 
 项目包含三部分：
 
@@ -16,7 +16,7 @@
 
 - 本地项目目录：`F:\Project\xiaochengxu\family-health-medicine-box`
 - GitHub 仓库：<https://github.com/putiyoujing/family-health-medicine-box>
-- 当前版本：`1.0.13`
+- 当前发布候选：`1.1.3`（尚未正式发布）
 - 生产 Web 管理后台：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
 - GitHub Pages：历史演示入口，不是生产后台
 - 微信开发者工具导入目录：`F:\Project\xiaochengxu\family-health-medicine-box`
