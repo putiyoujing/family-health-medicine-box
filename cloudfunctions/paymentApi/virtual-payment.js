@@ -33,7 +33,7 @@ function getCapability() {
     ready,
     provider: PROVIDER,
     iosEnabled: ready && process.env.VIRTUAL_PAYMENT_IOS_ENABLED === 'true',
-    couponsEnabled: false,
+    couponsEnabled: ready && process.env.VIRTUAL_PAYMENT_COUPONS_ENABLED === 'true',
     reason: ready ? '' : '在线支付准备中，可使用已有会员兑换码。',
   }
 }
@@ -78,7 +78,11 @@ async function preparePayment(order, { loginCode, platform } = {}) {
   if (platform === 'ios' && !getCapability().iosEnabled) throw new Error('iPhone 支付暂未开放，可使用已有兑换码。')
   if (typeof loginCode !== 'string' || !loginCode.trim() || loginCode.length > 256) throw new Error('请重新登录后再支付')
   const amount = Number(order.payableAmount)
-  if (!Number.isSafeInteger(amount) || amount <= 0 || amount !== Number(order.originalAmount) || amount !== Number(order.goodsPrice)) throw new Error('订单金额不一致，请重新确认套餐')
+  const original = Number(order.originalAmount)
+  const discount = Number(order.discountAmount || 0)
+  if (!Number.isSafeInteger(amount) || amount <= 0 || !Number.isSafeInteger(original) || original <= 0
+    || !Number.isSafeInteger(discount) || discount < 0 || amount !== original - discount
+    || original !== Number(order.goodsPrice) || (discount > 0 && (!order.couponId || !getCapability().couponsEnabled))) throw new Error('订单金额不一致，请重新确认套餐')
   if (platform === 'ios' && amount < 100) throw new Error('iPhone 支付金额不能低于 1 元')
   if (!/^[A-Za-z0-9|*@-][A-Za-z0-9_|*@-]{7,31}$/.test(order.orderNo || '') || !order.productId || !order.payerOpenid) throw new Error('订单支付信息不完整')
   const query = new URLSearchParams({ appid: config.appId, secret: config.appSecret, js_code: loginCode, grant_type: 'authorization_code' })
@@ -86,7 +90,7 @@ async function preparePayment(order, { loginCode, platform } = {}) {
   if (session.openid !== order.payerOpenid || !session.session_key) throw new Error('支付登录身份不一致，请重新登录')
   const signData = JSON.stringify({
     offerId: config.offerId, buyQuantity: 1, env: 0, currencyType: 'CNY',
-    productId: order.productId, goodsPrice: amount, outTradeNo: order.orderNo,
+    productId: order.productId, goodsPrice: original, ...(discount > 0 ? { activitySellingPrice: amount } : {}), outTradeNo: order.orderNo,
     attach: JSON.stringify({ orderId: order._id || order.orderId }),
   })
   return {
@@ -141,7 +145,7 @@ async function queryOrder(order) {
   if (status === 6) return { ...result, state: 'closed' }
   if (![2, 3, 4].includes(status)) return result
   if (!Number.isSafeInteger(remote.paid_fee) || remote.paid_fee !== Number(order.payableAmount)
-    || remote.order_fee !== Number(order.payableAmount) || !remote.wx_order_id
+    || remote.order_fee !== Number(order.originalAmount) || !remote.wx_order_id
     || !Number.isFinite(remote.paid_time) || remote.paid_time <= 0) throw new Error('平台付款金额或凭据不一致，请联系客服核查')
   return { ...result, state: 'paid', paidAt: new Date(remote.paid_time * 1000).toISOString() }
 }
