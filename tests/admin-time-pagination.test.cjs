@@ -78,7 +78,7 @@ test('overview stat cards open their corresponding data tables', () => {
 
   for (const [label, page] of [
     ['用户', 'users'], ['家庭', 'families'], ['会员家庭', 'subscriptions'],
-    ['付费订单', 'orders'], ['药品', 'medicines'], ['健康记录', 'illness'],
+    ['交易订单', 'orders'], ['药品', 'medicines'], ['健康记录', 'illness'],
   ]) {
     assert.match(ui, new RegExp(`label="${label}"[^\\n]+onClick=\\{\\(\\) => onOpenPage\\('${page}'\\)\\}`))
   }

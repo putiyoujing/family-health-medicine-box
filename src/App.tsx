@@ -983,7 +983,7 @@ function OverviewPage({ dashboard, onOpenPage }: { dashboard: AdminDashboardData
         <StatCard icon={Users} label="用户" value={dashboard.stats.users} onClick={() => onOpenPage('users')} />
         <StatCard icon={Home} label="家庭" value={dashboard.stats.families} onClick={() => onOpenPage('families')} />
         <StatCard icon={WalletCards} label="会员家庭" value={dashboard.stats.activeSubscriptions} onClick={() => onOpenPage('subscriptions')} />
-        <StatCard icon={ReceiptText} label="付费订单" value={dashboard.stats.paidOrders} onClick={() => onOpenPage('orders')} />
+        <StatCard icon={ReceiptText} label="交易订单" value={dashboard.stats.orders} onClick={() => onOpenPage('orders')} />
         <StatCard icon={Pill} label="药品" value={dashboard.stats.medicines} onClick={() => onOpenPage('medicines')} />
         <StatCard icon={HeartPulse} label="健康记录" value={dashboard.stats.illnessRecords} onClick={() => onOpenPage('illness')} />
       </section>
