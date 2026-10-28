@@ -2,17 +2,22 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
-## [Unreleased]
+## [1.1.3] - Unreleased
 
 ### Changed
 
 - Tighten the membership plan, checkout and success-page layouts, and present redemption dates in a readable format.
 - Show the free-plan usage explanation only for free memberships.
+- Use the product name 「生病记录助手」 consistently in the mini-program, sharing card, admin header and current release documentation.
+- Remove page titles that repeat the navigation bar on family, membership, coupon, order and medicine-reminder pages; retain only action-specific context.
+- Move family switching into the membership banner and replace implementation-oriented copy with user-facing guidance.
+- Support coupon discounts in virtual-payment orders behind an explicit server switch, with reservation, definitive closure release and one-time consumption safeguards.
 
 ### Verification
 
+- Automated checks cover virtual-payment coupon signing, amount reconciliation, reservation, closure, preparation retry and idempotent retry.
 - Android experience version 1.1.2: a ¥1 payment reached the success page and refreshed membership center; a later 365-day redemption remained active after a ¥0.98 partial refund. The admin order retained the ¥0.02 balance.
-- Layout changes require preview and device verification before release. iPhone testing and real coupon-discounted payment remain outstanding.
+- 1.1.3 UI preview, CloudBase deployment, real coupon-discounted payment and iPhone testing remain required before release.
 
 ## [1.1.2] - Unreleased
 

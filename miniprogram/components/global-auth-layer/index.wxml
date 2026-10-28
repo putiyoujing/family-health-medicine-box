@@ -31,7 +31,7 @@
   <view class="auth-dialog login-sheet">
     <view class="login-sheet-header">
       <view>
-        <view class="auth-dialog-title">家人健康记 申请</view>
+        <view class="auth-dialog-title">生病记录助手申请</view>
         <view class="auth-dialog-subtitle">获取你的昵称、头像</view>
       </view>
       <button

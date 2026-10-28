@@ -1,6 +1,6 @@
 <view class="page legal-page">
   <view class="page-title">
-    <text class="eyebrow">家人健康记</text>
+    <text class="eyebrow">生病记录助手</text>
     <view class="h1">{{title}}</view>
     <view class="muted">生效日期：{{effectiveDate}}</view>
   </view>
@@ -42,7 +42,7 @@
   <block wx:elif="{{type === 'terms'}}">
     <view class="section legal-section">
       <view class="section-title">服务范围</view>
-      <view class="paragraph">家人健康记提供家庭病程、用药、药箱和复诊沟通信息的记录、整理与查询工具。服务输出来自用户已填写的内容，不是医疗诊断、处方或治疗方案。</view>
+      <view class="paragraph">生病记录助手提供家庭病程、用药、药箱和复诊沟通信息的记录、整理与查询工具。服务输出来自用户已填写的内容，不是医疗诊断、处方或治疗方案。</view>
     </view>
     <view class="section legal-section">
       <view class="section-title">账号与家庭协作</view>
