@@ -17,7 +17,8 @@ All notable changes are recorded here. Versions follow the mini-program upload v
 
 - Automated checks cover virtual-payment coupon signing, amount reconciliation, reservation, closure, preparation retry and idempotent retry.
 - Android experience version 1.1.2: a ¥1 payment reached the success page and refreshed membership center; a later 365-day redemption remained active after a ¥0.98 partial refund. The admin order retained the ¥0.02 balance.
-- 1.1.3 UI preview, CloudBase deployment, real coupon-discounted payment and iPhone testing remain required before release.
+- 1.1.3 `paymentApi` 和生产管理后台已于 2026-10-28 部署；后台生产页已验证使用真实环境配置读取数据，未显示演示数据或配置提示，浏览器控制台无错误或警告。
+- 真实优惠券折扣付款、Android 1.1.3 体验版验收、iPhone 验收、小程序审核及正式发布仍是发布前置条件。
 
 ## [1.1.2] - Unreleased
 

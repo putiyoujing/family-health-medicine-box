@@ -5,9 +5,9 @@
 ## 当前版本与入口
 
 - 当前线上版本：`1.0.14`（2026-07-27 已发布）
-- 当前发布候选版本：`1.1.3`（体验优化、优惠券支付安全闭环；待云端部署、真机验收、审核和正式发布）
+- 当前发布候选版本：`1.1.3`（体验优化、优惠券支付安全闭环；云函数与生产管理后台已部署，待真机验收、审核和正式发布）
 - GitHub：<https://github.com/putiyoujing/family-health-medicine-box>
-- 生产管理后台入口：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>；1.1.2 候选后台已部署，真实管理员界面仍需验收；小程序线上版本为 1.0.14。
+- 生产管理后台入口：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>；1.1.3 候选后台已部署并通过生产数据读取核验；小程序线上版本仍为 1.0.14。
 - GitHub Pages：历史演示入口，不作为生产后台或真实数据入口。
 - 发布记录：[CHANGELOG.md](CHANGELOG.md)
 
