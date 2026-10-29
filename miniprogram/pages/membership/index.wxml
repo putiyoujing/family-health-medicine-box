@@ -10,7 +10,7 @@
     <view class="banner-copy" wx:else>先把家人的健康记录清楚，再决定是否升级。</view>
   </view>
 
-  <view class="section usage-section"><view class="section-head"><view><view class="section-title">当前权益使用量</view><view class="section-subtitle">已使用 / 可用上限<text wx:if="{{isFreeMembership}}"> · 基础版快速记录 3 次（累计）</text></view></view><view class="section-link">本家庭</view></view><view class="usage-row" wx:for="{{usageRows}}" wx:key="label"><view class="usage-label"><text>{{item.label}}</text><text class="usage-number {{item.label === '家庭数量' ? 'usage-number-warn' : ''}}">{{item.used}} / {{item.limit}}</text></view><view class="usage-track"><view class="usage-progress {{item.label === '家庭数量' ? 'usage-progress-warn' : ''}}" style="width:{{item.progress}}%;"></view></view></view></view>
+  <view class="section usage-section"><view class="section-head"><view><view class="section-title">当前权益使用量</view><view class="section-subtitle">已使用 / 可用上限<text wx:if="{{isFreeMembership}}"> · 基础版快速记录 3 次（累计）</text></view></view><view class="section-link">本家庭</view></view><view class="usage-circles"><view class="usage-circle-item" wx:for="{{usageRows}}" wx:key="label"><view class="usage-ring" style="{{item.ringStyle}}"><view class="usage-ring-core"><text class="usage-ring-number">{{item.used}} / {{item.limit}}</text></view></view><view class="usage-ring-label">{{item.label}}</view></view></view></view>
 
   <view class="section-subtitle">家庭数量按账号统计，其他用量按当前家庭统计</view>
   <view class="section plan-section"><view class="section-head"><view class="section-title">选择会员套餐</view></view>
@@ -19,9 +19,8 @@
   </view>
 
   <view class="section redeem-section" id="redeem-section"><view class="section-head"><view><view class="section-title">兑换会员</view><view class="section-subtitle">{{membershipPurchaseGuide}}</view></view></view><view class="redeem-form"><input value="{{redeemCode}}" placeholder="输入会员兑换码" bindinput="onRedeemInput" /><button bindtap="redeemMembershipCode" loading="{{redeeming}}" disabled="{{redeeming}}">{{redeeming ? '兑换中' : '兑换'}}</button></view><view wx:if="{{redeemResult}}" class="redeem-result">已激活 {{redeemResult.displayPlanName}}，到期时间：{{redeemResult.expireText || '以会员状态为准'}}</view></view>
-  <view class="section-subtitle" wx:if="{{!paymentReady}}">{{paymentReason}}</view>
   <view class="section" wx:if="{{testPurchaseReady}}"><view class="section-title">体验套餐</view><view class="section-subtitle">安心版月度权益，适合体验会员服务。</view><button class="plan-button" bindtap="buyTestPlan">进入 ¥1 体验订单</button></view>
-  <view class="virtual-note">会员套餐属于虚拟服务，支付完成后不支持退款；如有异常请联系客服处理。</view>
-  <view wx:if="{{selectedPlanId}}" class="floating-purchase-bar"><button class="floating-purchase-button" disabled="{{!paymentReady || loading}}" bindtap="buySelectedPlan">{{!paymentReady ? '暂未开放 · ' : ''}}{{isUnlimitedMembership && selectedPlan.membershipTier === 'unlimited' ? '继续续费' : '购买'}}{{selectedPlan.tierLabel || '会员套餐'}} ¥{{selectedPlan.priceText || '--'}}</button></view>
+  <view class="virtual-note" wx:if="{{paymentReady}}">会员套餐属于虚拟服务，支付完成后不支持退款；如有异常请联系客服处理。</view>
+  <view wx:if="{{paymentReady && selectedPlanId}}" class="floating-purchase-bar"><button class="floating-purchase-button" disabled="{{loading}}" bindtap="buySelectedPlan">{{isUnlimitedMembership && selectedPlan.membershipTier === 'unlimited' ? '继续续费' : '购买'}}{{selectedPlan.tierLabel || '会员套餐'}} ¥{{selectedPlan.priceText || '--'}}</button></view>
 </view>
 <global-auth-layer id="global-auth-layer" />

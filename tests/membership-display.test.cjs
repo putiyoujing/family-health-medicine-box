@@ -44,7 +44,7 @@ test('membership display keeps one selected plan and buys it from the floating b
   assert.deepEqual(navigationUrls, ['/pages/membership/checkout?planId=yearly_unlimited'])
 })
 
-test('membership template removes the badge avatar and uses a single selected-card state', () => {
+test('membership template keeps compact circular usage indicators and a single selected-card state', () => {
   const template = fs.readFileSync(path.join(root, 'miniprogram/pages/membership/index.wxml'), 'utf8')
   const styles = fs.readFileSync(path.join(root, 'miniprogram/pages/membership/index.wxss'), 'utf8')
 
@@ -56,6 +56,29 @@ test('membership template removes the badge avatar and uses a single selected-ca
   assert.match(template, /period-switch/)
   assert.match(template, /plan-card-selected/)
   assert.match(template, /floating-purchase-bar/)
+  assert.match(template, /usage-circles/)
+  assert.match(template, /usage-ring/)
+  assert.doesNotMatch(template, /usage-track/)
+  assert.match(styles, /\.usage-circles\s*\{[^}]*display:flex/)
+  assert.match(styles, /\.usage-ring\s*\{[^}]*border-radius:50%/)
   assert.doesNotMatch(styles, /plan-card-premium/)
   assert.match(styles, /\.floating-purchase-bar\s*\{[^}]*position:fixed/)
+})
+
+test('membership usage rows prepare a ring progress style for every entitlement limit', async () => {
+  let pageDefinition
+  loadCjsModule(path.join(root, 'miniprogram/pages/membership/index.js'), {
+    stubs: { '../../services/api': {}, '../../utils/operation-guards': {} },
+    globals: { Page(definition) { pageDefinition = definition }, wx: {} },
+  })
+  const page = createPageInstance(pageDefinition)
+  page.applyMembership({
+    family: { _id: 'family-a' },
+    entitlement: { plan: 'free', planName: '基础版', limits: { maxOwnedFamilies: 3, maxMembers: 10, quickRecordLimit: 30, maxAttachments: 100 } },
+    usage: { members: 1, quickRecord: { used: 0 }, attachments: 0 },
+    familyPolicy: { ownedFamilyCount: 1, maxOwnedFamilies: 3 },
+  })
+  assert.equal(page.data.usageRows.length, 4)
+  assert.match(page.data.usageRows[0].ringStyle, /conic-gradient\(#f3aa4a 33%/)
+  assert.match(page.data.usageRows[1].ringStyle, /conic-gradient\(#2a9d8f 10%/)
 })
