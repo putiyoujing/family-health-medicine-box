@@ -48,3 +48,12 @@ test('visible product copy does not expose implementation-only status details', 
 
   assert.doesNotMatch(visibleCopy, /后台配置|当前环境尚未填写|当前版本未连接|后台客服|后台整理/)
 })
+
+test('profile shows the uploaded mini-program version for tester verification', () => {
+  const profileTemplate = read('miniprogram/pages/profile/index.wxml')
+  const profileScript = read('miniprogram/pages/profile/index.js')
+  const { version } = JSON.parse(read('package.json'))
+
+  assert.match(profileTemplate, /class="app-version">当前版本 v{{appVersion}}<\/view>/)
+  assert.match(profileScript, new RegExp(`appVersion: '${version}'`))
+})

@@ -28,6 +28,7 @@ Page({
     avatarUrl: '',
     avatarStyle: getAvatarPresetStyle('sprout'),
     memberLimit: 3,
+    appVersion: '1.1.4',
   },
 
   async onShow() {

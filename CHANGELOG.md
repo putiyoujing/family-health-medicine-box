@@ -2,6 +2,12 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
+## [1.1.4] - Unreleased
+
+### Changed
+
+- Add a quiet version label at the bottom of the profile page so experience testers can confirm the running mini-program build without interrupting normal use.
+
 ## [1.1.3] - Unreleased
 
 ### Changed
