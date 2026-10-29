@@ -2,6 +2,14 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
+## [1.1.6] - Unreleased
+
+### Changed
+
+- Replace the stacked membership-usage bars with one compact row of circular usage indicators, so membership plans are visible without scrolling past four long rows.
+- Keep the ¥1 experience purchase visible only in development and experience versions; production users never see the test package.
+- Hide unavailable-payment implementation messaging and its disabled purchase control while online payment is off; the normal purchase control returns only when payment is actually available.
+
 ## [1.1.5] - Unreleased
 
 ### Fixed

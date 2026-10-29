@@ -14,8 +14,9 @@ test('membership UI keeps redemption and gates online purchase without external 
 
   assert.match(template, /兑换会员/)
   assert.match(template, /输入会员兑换码/)
-  assert.match(template, /disabled="\{\{!paymentReady \|\| loading\}\}"/)
-  assert.match(template, /paymentReason/)
+  assert.match(template, /wx:if="\{\{paymentReady && selectedPlanId\}\}"/)
+  assert.match(template, /wx:if="\{\{testPurchaseReady\}\}"/)
+  assert.doesNotMatch(template, /paymentReason/)
   assert.doesNotMatch(script, /小红书|店铺|购买兑换码/)
   assert.match(script, /请输入已有会员兑换码完成权益激活/)
   assert.match(profile, /兑换会员/)

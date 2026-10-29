@@ -187,7 +187,11 @@ function buildUsageRows(limits, usage, familyPolicy) {
     { label: '家庭成员', used: usage.members || 0, limit: limits.maxMembers || 3 },
     { label: '快速记录', used: usage.quickRecord ? usage.quickRecord.used : 0, limit: limits.quickRecordLimit === null ? '不限' : (limits.quickRecordLimit || 3) },
     { label: '附件空间', used: usage.attachments || 0, limit: limits.maxAttachments || 10 },
-  ].map((item) => ({ ...item, progress: item.limit === '不限' ? 18 : Math.min(100, Math.round((item.used / item.limit) * 100)) }))
+  ].map((item) => {
+    const progress = item.limit === '不限' ? 18 : Math.min(100, Math.round((item.used / item.limit) * 100))
+    const color = item.label === '家庭数量' ? '#f3aa4a' : '#2a9d8f'
+    return { ...item, progress, ringStyle: `background:conic-gradient(${color} ${progress}%,#edf5f2 0);` }
+  })
 }
 
 function isFreePlan(entitlement = {}) { return entitlement.tier === 'free' || entitlement.plan === 'free' || /基础|免费/.test(String(entitlement.planName || '')) }
