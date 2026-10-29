@@ -3,9 +3,10 @@ const path = require('node:path')
 const test = require('node:test')
 const { createPageInstance, loadCjsModule } = require('./helpers/cjs-harness.cjs')
 const root = path.resolve(__dirname, '..')
-function page(name, api, wxOverrides = {}, guard = async () => true) {
+function page(name, api, wxOverrides = {}, guard = async () => true, extraGlobals = {}) {
   let definition
   const toasts = []
+  const navigations = []
   const storage = new Map()
   loadCjsModule(path.join(root, `miniprogram/pages/membership/${name}.js`), {
     stubs: {
@@ -15,10 +16,11 @@ function page(name, api, wxOverrides = {}, guard = async () => true) {
     },
     globals: {
       Page(value) { definition = value },
-      wx: { login: ({ success }) => success({ code: 'login-fixture' }), getStorageSync: (key) => storage.get(key), setStorageSync: (key, value) => storage.set(key, value), removeStorageSync: (key) => storage.delete(key), showToast: (value) => toasts.push(value.title), ...wxOverrides },
+      wx: { login: ({ success }) => success({ code: 'login-fixture' }), getStorageSync: (key) => storage.get(key), setStorageSync: (key, value) => storage.set(key, value), removeStorageSync: (key) => storage.delete(key), showToast: (value) => toasts.push(value.title), redirectTo: (value) => navigations.push(value.url), ...wxOverrides },
+      ...extraGlobals,
     },
   })
-  return { instance: createPageInstance(definition), toasts }
+  return { instance: createPageInstance(definition), toasts, navigations }
 }
 function checkout(api, wx = {}, guard) {
   const result = page('checkout', api, wx, guard)
@@ -80,7 +82,7 @@ test('retry after uncertain create-order response reuses key and double taps cre
 test('client virtual-payment success does not claim membership while server order remains pending', async () => {
   let virtualCalls = 0
   let regularCalls = 0
-  const { instance, toasts } = checkout({
+  const { instance, toasts, navigations } = checkout({
     createOrder: async () => ({ orderId: 'order-a', status: 'pending', payment: { ready: true, provider: 'official_virtual_payment', requestVirtualPaymentArgs: { signData: 'fixture' } } }),
     getOrderForUser: async (payload) => { assert.equal(payload.orderId, 'order-a'); return { order: { status: 'pending' } } },
   }, {
@@ -91,12 +93,13 @@ test('client virtual-payment success does not claim membership while server orde
   assert.equal(virtualCalls, 1)
   assert.equal(regularCalls, 0)
   assert.equal(toasts.includes('会员已开通'), false)
+  assert.equal(navigations.length, 0)
   assert.match(instance.data.paymentMessage, /确认中/)
 })
 test('server confirmation is required even for create-order paid responses and prevents duplicate purchase', async () => {
   let creates = 0
   let queries = 0
-  const { instance, toasts } = checkout({
+  const { instance, toasts, navigations } = checkout({
     createOrder: async () => { creates++; return { orderId: 'order-a', status: 'paid' } },
     getOrderForUser: async () => { queries++; return { order: { status: 'paid' } } },
   })
@@ -104,7 +107,8 @@ test('server confirmation is required even for create-order paid responses and p
   await instance.confirmPayment()
   assert.equal(creates, 1)
   assert.equal(queries, 1)
-  assert.deepEqual(toasts, ['会员已开通'])
+  assert.deepEqual(toasts, [])
+  assert.deepEqual(navigations, ['/pages/membership/success?orderId=order-a'])
 })
 test('a rejected preview cannot submit or fall back to an unverified total', async () => {
   let creates = 0
@@ -159,7 +163,7 @@ test('returning to checkout refreshes pending payment and confirms only once wit
   let paid = false
   let creates = 0
   let payments = 0
-  const { instance, toasts } = checkout({
+  const { instance, toasts, navigations } = checkout({
     createOrder: async () => { creates++; return { orderId: 'order-a', status: 'pending', payment: { ready: true, provider: 'official_virtual_payment', requestVirtualPaymentArgs: { signData: 'fixture' } } } },
     getOrderForUser: async () => ({ order: { status: paid ? 'paid' : 'pending' } }),
   }, { requestVirtualPayment: ({ success }) => { payments++; success() } })
@@ -172,7 +176,8 @@ test('returning to checkout refreshes pending payment and confirms only once wit
   assert.equal(creates, 1)
   assert.equal(payments, 1)
   assert.equal(instance.data.paymentConfirmed, true)
-  assert.deepEqual(toasts, ['会员已开通'])
+  assert.deepEqual(toasts, [])
+  assert.deepEqual(navigations, ['/pages/membership/success?orderId=order-a'])
 })
 
 test('virtual checkout never falls back to ordinary WeChat payment', async () => {
@@ -230,7 +235,7 @@ test('unsupported iOS version and totals are stopped before creating an order', 
 
 
 test('payment transport failure retains order for return-to-page server reconciliation', async () => {
-  const { instance, toasts } = checkout({
+  const { instance, toasts, navigations } = checkout({
     createOrder: async () => ({ orderId: 'order-a', status: 'pending', payment: { ready: true, provider: 'official_virtual_payment', requestVirtualPaymentArgs: { signData: 'fixture' } } }),
     getOrderForUser: async () => ({ order: { status: 'paid' } }),
   }, { requestVirtualPayment: ({ fail }) => fail({ errMsg: 'network error' }) })
@@ -239,5 +244,39 @@ test('payment transport failure retains order for return-to-page server reconcil
   assert.equal(instance.pendingOrderId, 'order-a')
   assert.deepEqual(toasts, [])
   await instance.onShow()
-  assert.deepEqual(toasts, ['会员已开通'])
+  assert.deepEqual(toasts, [])
+  assert.deepEqual(navigations, ['/pages/membership/success?orderId=order-a'])
+})
+
+test('verified success page counts five seconds then reloads membership center', async () => {
+  let tick
+  const launches = []
+  const { instance } = page('success', {
+    getOrderForUser: async ({ orderId }) => {
+      assert.equal(orderId, 'order-a')
+      return { order: { status: 'paid', planName: '安心版体验月度' } }
+    },
+  }, { reLaunch: ({ url }) => launches.push(url) }, undefined, {
+    setInterval: (callback) => { tick = callback; return 1 },
+    clearInterval: () => {},
+  })
+  await instance.onLoad({ orderId: 'order-a' })
+  assert.equal(instance.data.verified, true)
+  assert.equal(instance.data.planName, '安心版体验月度')
+  for (let second = 4; second >= 0; second--) {
+    tick()
+    assert.equal(instance.data.seconds, second)
+  }
+  assert.deepEqual(launches, ['/pages/membership/index'])
+  instance.goMembership()
+  assert.equal(launches.length, 1)
+})
+
+test('success page refuses to congratulate an unconfirmed order', async () => {
+  const { instance } = page('success', {
+    getOrderForUser: async () => ({ order: { status: 'pending' } }),
+  }, { reLaunch: () => assert.fail('unconfirmed order must not navigate') })
+  await instance.onLoad({ orderId: 'order-a' })
+  assert.equal(instance.data.verified, false)
+  assert.match(instance.data.message, /仍在确认/)
 })

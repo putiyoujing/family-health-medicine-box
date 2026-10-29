@@ -4,6 +4,8 @@ const https = require('https')
 const APP_ID = 'wxc3d708e7c51d5c87'
 const OFFER_ID = '1450655131'
 const PROVIDER = 'official_virtual_payment'
+const TEST_PLAN_ID = 'test_monthly_pro'
+const TEST_PRODUCT_ID = 'pay_test_01'
 const PLAN_IDS = ['monthly_pro', 'yearly_pro', 'monthly_unlimited', 'yearly_unlimited']
 const PRODUCT_ENV_PREFIX = 'VIRTUAL_PAYMENT_PRODUCT_'
 let tokenCache = null
@@ -31,17 +33,34 @@ function getCapability() {
     ready,
     provider: PROVIDER,
     iosEnabled: ready && process.env.VIRTUAL_PAYMENT_IOS_ENABLED === 'true',
-    couponsEnabled: false,
+    couponsEnabled: ready && process.env.VIRTUAL_PAYMENT_COUPONS_ENABLED === 'true',
     reason: ready ? '' : '在线支付准备中，可使用已有会员兑换码。',
   }
 }
 
-function requireConfigured() {
-  if (!getCapability().ready) throw new Error(getCapability().reason)
+function testReady(openid) {
+  const config = settings()
+  return process.env.VIRTUAL_PAYMENT_TEST_ENABLED === 'true'
+    && Boolean(openid && openid === String(process.env.VIRTUAL_PAYMENT_TEST_OPENID || '').trim())
+    && config.appId === APP_ID && /^\d+$/.test(config.offerId)
+    && Boolean(config.appSecret && config.appKey)
+}
+
+function requireConfigured(order, forNewPayment = false) {
+  if (order?.planId === TEST_PLAN_ID) {
+    if (order.productId !== TEST_PRODUCT_ID || Number(order.goodsPrice) !== 100
+      || !order.payerOpenid || (forNewPayment && !testReady(order.payerOpenid))) throw new Error('测试支付尚未开放')
+    const config = settings()
+    if (config.appId !== APP_ID || !/^\d+$/.test(config.offerId) || !config.appSecret || !config.appKey) throw new Error('测试支付配置不完整')
+  } else if (!getCapability().ready) throw new Error(getCapability().reason)
   return settings()
 }
 
 function getProduct(plan) {
+  if (plan?.planId === TEST_PLAN_ID) {
+    if (Number(plan.price) !== 100) throw new Error('测试套餐价格配置错误')
+    return { productId: TEST_PRODUCT_ID, goodsPrice: 100 }
+  }
   if (!plan || !PLAN_IDS.includes(plan.planId)) throw new Error('该套餐暂不支持在线购买')
   const goodsPrice = Number(plan.price)
   if (!Number.isSafeInteger(goodsPrice) || goodsPrice <= 0) throw new Error('套餐价格配置错误')
@@ -55,11 +74,15 @@ function hmac(key, value) {
 }
 
 async function preparePayment(order, { loginCode, platform } = {}) {
-  const config = requireConfigured()
+  const config = requireConfigured(order, true)
   if (platform === 'ios' && !getCapability().iosEnabled) throw new Error('iPhone 支付暂未开放，可使用已有兑换码。')
   if (typeof loginCode !== 'string' || !loginCode.trim() || loginCode.length > 256) throw new Error('请重新登录后再支付')
   const amount = Number(order.payableAmount)
-  if (!Number.isSafeInteger(amount) || amount <= 0 || amount !== Number(order.originalAmount) || amount !== Number(order.goodsPrice)) throw new Error('订单金额不一致，请重新确认套餐')
+  const original = Number(order.originalAmount)
+  const discount = Number(order.discountAmount || 0)
+  if (!Number.isSafeInteger(amount) || amount <= 0 || !Number.isSafeInteger(original) || original <= 0
+    || !Number.isSafeInteger(discount) || discount < 0 || amount !== original - discount
+    || original !== Number(order.goodsPrice) || (discount > 0 && (!order.couponId || !getCapability().couponsEnabled))) throw new Error('订单金额不一致，请重新确认套餐')
   if (platform === 'ios' && amount < 100) throw new Error('iPhone 支付金额不能低于 1 元')
   if (!/^[A-Za-z0-9|*@-][A-Za-z0-9_|*@-]{7,31}$/.test(order.orderNo || '') || !order.productId || !order.payerOpenid) throw new Error('订单支付信息不完整')
   const query = new URLSearchParams({ appid: config.appId, secret: config.appSecret, js_code: loginCode, grant_type: 'authorization_code' })
@@ -67,7 +90,7 @@ async function preparePayment(order, { loginCode, platform } = {}) {
   if (session.openid !== order.payerOpenid || !session.session_key) throw new Error('支付登录身份不一致，请重新登录')
   const signData = JSON.stringify({
     offerId: config.offerId, buyQuantity: 1, env: 0, currencyType: 'CNY',
-    productId: order.productId, goodsPrice: amount, outTradeNo: order.orderNo,
+    productId: order.productId, goodsPrice: original, ...(discount > 0 ? { activitySellingPrice: amount } : {}), outTradeNo: order.orderNo,
     attach: JSON.stringify({ orderId: order._id || order.orderId }),
   })
   return {
@@ -81,8 +104,8 @@ async function preparePayment(order, { loginCode, platform } = {}) {
   }
 }
 
-async function getAccessToken() {
-  const config = requireConfigured()
+async function getAccessToken(order) {
+  const config = requireConfigured(order)
   if (tokenCache && tokenCache.expiresAt > Date.now()) return tokenCache.value
   if (!tokenRequest) {
     tokenRequest = requestJson('/cgi-bin/stable_token', {
@@ -96,10 +119,10 @@ async function getAccessToken() {
   return tokenRequest
 }
 
-async function signedRequest(path, data) {
-  const config = requireConfigured()
+async function signedRequest(path, data, order) {
+  const config = requireConfigured(order)
   const body = JSON.stringify(data)
-  const accessToken = await getAccessToken()
+  const accessToken = await getAccessToken(order)
   const query = new URLSearchParams({ access_token: accessToken, pay_sig: hmac(config.appKey, `${path}&${body}`) })
   try {
     return await requestJson(`${path}?${query}`, body)
@@ -111,7 +134,7 @@ async function signedRequest(path, data) {
 
 async function queryOrder(order) {
   if (!order.orderNo || !order.payerOpenid) throw new Error('订单支付信息不完整')
-  const response = await signedRequest('/xpay/query_order', { openid: order.payerOpenid, env: 0, order_id: order.orderNo })
+  const response = await signedRequest('/xpay/query_order', { openid: order.payerOpenid, env: 0, order_id: order.orderNo }, order)
   const remote = response.order
   if (!remote || remote.order_id !== order.orderNo || remote.env_type !== 1 || ![0, 7].includes(remote.order_type)) throw new Error('平台订单信息不一致，请联系客服核查')
   const status = remote.status
@@ -122,14 +145,14 @@ async function queryOrder(order) {
   if (status === 6) return { ...result, state: 'closed' }
   if (![2, 3, 4].includes(status)) return result
   if (!Number.isSafeInteger(remote.paid_fee) || remote.paid_fee !== Number(order.payableAmount)
-    || remote.order_fee !== Number(order.payableAmount) || !remote.wx_order_id
+    || remote.order_fee !== Number(order.originalAmount) || !remote.wx_order_id
     || !Number.isFinite(remote.paid_time) || remote.paid_time <= 0) throw new Error('平台付款金额或凭据不一致，请联系客服核查')
   return { ...result, state: 'paid', paidAt: new Date(remote.paid_time * 1000).toISOString() }
 }
 
 async function queryRefund(order) {
   if (!order.refundOrderId || !order.payerOpenid) throw new Error('退款单信息不完整')
-  const response = await signedRequest('/xpay/query_order', { openid: order.payerOpenid, env: 0, order_id: order.refundOrderId })
+  const response = await signedRequest('/xpay/query_order', { openid: order.payerOpenid, env: 0, order_id: order.refundOrderId }, order)
   const remote = response.order
   if (!remote || remote.order_id !== order.refundOrderId || remote.order_type !== 1
     || remote.refund_fee !== Number(order.refundAmount)
@@ -140,7 +163,7 @@ async function queryRefund(order) {
 
 async function notifyDelivery(order) {
   if (!order.orderNo) throw new Error('订单支付信息不完整')
-  await signedRequest('/xpay/notify_provide_goods', { order_id: order.orderNo, env: 0 })
+  await signedRequest('/xpay/notify_provide_goods', { order_id: order.orderNo, env: 0 }, order)
 }
 
 function requestJson(path, data) {
@@ -176,4 +199,4 @@ function requestJson(path, data) {
   })
 }
 
-module.exports = { getCapability, getProduct, preparePayment, queryOrder, queryRefund, notifyDelivery }
+module.exports = { getCapability, getProduct, preparePayment, queryOrder, queryRefund, notifyDelivery, testReady }

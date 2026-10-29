@@ -2,7 +2,7 @@ const HOME_PATH = '/pages/dashboard/index'
 
 function getDefaultShareConfig() {
   return {
-    title: '家人健康记',
+    title: '生病记录助手',
     path: HOME_PATH,
   }
 }

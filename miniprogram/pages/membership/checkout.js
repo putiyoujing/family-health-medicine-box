@@ -47,9 +47,10 @@ Page({
       if (this.paymentAttempt) {
         try { wx.removeStorageSync(this.paymentAttempt.storageKey) } catch (_) { /* 订单已确认 */ }
       }
+      const orderId = this.pendingOrderId
       this.pendingOrderId = ''
       this.setData({ paymentConfirmed: true, awaitingConfirmation: false, paymentMessage: '支付已确认，会员权益已开通。' })
-      wx.showToast({ title: '会员已开通' })
+      wx.redirectTo({ url: `/pages/membership/success?orderId=${encodeURIComponent(orderId)}` })
     } catch (error) {
       this.setData({ paymentMessage: error.message || '支付结果暂未确认，请点击刷新支付结果。' })
     } finally { this._checkingPayment = false }
@@ -63,7 +64,9 @@ Page({
       const capability = planData.paymentCapability || {}
       const platform = getPlatform()
       const iosBlocked = platform === 'ios' && capability.iosEnabled !== true
-      this.setData({ family: membership.family || {}, plan, loading: false, paymentReady: capability.ready === true && !iosBlocked, paymentProvider: capability.provider || '', couponsEnabled: capability.couponsEnabled !== false, coupon: capability.couponsEnabled === false ? null : this.data.coupon, paymentMessage: iosBlocked ? '当前暂未开通 iOS 支付，可使用已有兑换码。' : capability.ready ? '' : (capability.reason || '在线支付暂未开放，可使用已有兑换码。') })
+      const testPlan = this.planId === 'test_monthly_pro'
+      const testReady = testPlan && capability.testReady === true && platform !== 'ios' && isDevelopmentVersion()
+      this.setData({ family: membership.family || {}, plan, loading: false, paymentReady: testPlan ? testReady : capability.ready === true && !iosBlocked, paymentProvider: capability.provider || '', couponsEnabled: !testPlan && capability.couponsEnabled !== false, coupon: testPlan || capability.couponsEnabled === false ? null : this.data.coupon, paymentMessage: testPlan ? (testReady ? '' : '测试支付仅对指定账号的开发版开放。') : iosBlocked ? '当前暂未开通 iOS 支付，可使用已有兑换码。' : capability.ready ? '' : (capability.reason || '在线支付暂未开放，可使用已有兑换码。') })
       await this.refreshPreview()
     } catch (error) {
       this.setData({ loading: false, paymentMessage: error.message || '订单信息加载失败' })
@@ -149,6 +152,10 @@ function formatMoney(value) { return (Number(value || 0) / 100).toFixed(2) }
 
 function getPlatform() {
   try { return (wx.getDeviceInfo ? wx.getDeviceInfo() : wx.getSystemInfoSync()).platform || '' } catch (_) { return '' }
+}
+
+function isDevelopmentVersion() {
+  try { return wx.getAccountInfoSync().miniProgram.envVersion !== 'release' } catch (_) { return false }
 }
 
 function versionAtLeast(value, minimum) {

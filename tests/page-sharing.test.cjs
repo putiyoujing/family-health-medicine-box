@@ -18,7 +18,7 @@ test('every registered page exposes app sharing', () => {
 test('default page sharing points to the dashboard home', () => {
   const share = loadCjsModule(path.join(root, 'miniprogram/utils/share.js'))
   const config = share.getDefaultShareConfig()
-  assert.equal(config.title, '家人健康记')
+  assert.equal(config.title, '生病记录助手')
   assert.equal(config.path, homePath)
 })
 

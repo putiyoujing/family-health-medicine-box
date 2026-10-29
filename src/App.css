@@ -193,6 +193,14 @@
   gap: 10px;
   min-height: 128px;
   padding: 18px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.stat-card:hover,
+.stat-card:focus-visible {
+  border-color: #2f7d57;
 }
 
 .stat-card svg {

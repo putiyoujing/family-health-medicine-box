@@ -89,6 +89,10 @@ const PLANS = [
     benefits: UNLIMITED_LIMITS,
   },
 ]
+const TEST_PLAN = {
+  planId: 'test_monthly_pro', name: '安心版体验月度', price: 100, displayPrice: '1.00',
+  durationDays: 30, membershipTier: 'paid', benefits: PRO_LIMITS, sort: 99,
+}
 
 exports.main = async (event = {}) => {
   const wxContext = cloud.getWXContext()
@@ -109,7 +113,7 @@ exports.main = async (event = {}) => {
   try {
     switch (action) {
       case 'getPlans':
-        return ok(await getPlans())
+        return ok(await getPlans(openid))
       case 'previewOrder':
         return ok(await previewOrder(openid, payload))
       case 'createOrder':
@@ -137,15 +141,16 @@ exports.main = async (event = {}) => {
   }
 }
 
-async function getPlans() {
+async function getPlans(openid) {
   const [dbPlans, membershipPurchaseGuide] = await Promise.all([
     safeGetPlansFromDb(),
     getMembershipPurchaseGuide(),
   ])
   return {
-    plans: (dbPlans.length ? mergePlanDefaults(dbPlans) : PLANS).filter((plan) => plan.visible !== false),
+    plans: (dbPlans.length ? mergePlanDefaults(dbPlans) : PLANS).filter((plan) => plan.visible !== false)
+      .concat(virtualPayment.testReady?.(openid) ? [TEST_PLAN] : []),
     membershipPurchaseGuide,
-    paymentCapability: getPaymentCapability(),
+    paymentCapability: getPaymentCapability(openid),
   }
 }
 
@@ -179,6 +184,7 @@ async function getMembershipPurchaseGuide() {
 }
 
 async function previewOrder(openid, payload) {
+  if (payload.planId === TEST_PLAN.planId && !virtualPayment.testReady?.(openid)) throw new Error('测试支付尚未开放')
   const familyId = await resolveFamilyId(openid, payload.familyId)
   await assertFamilyManager(openid, familyId)
   const plan = await getPlan(payload.planId)
@@ -196,16 +202,18 @@ async function previewOrder(openid, payload) {
   }
 }
 
-function getPaymentCapability() {
-  return virtualPayment.getCapability()
+function getPaymentCapability(openid) {
+  return { ...virtualPayment.getCapability(), testReady: virtualPayment.testReady?.(openid) === true }
 }
 
 async function createOrder(openid, payload) {
-  const capability = getPaymentCapability()
+  const capability = getPaymentCapability(openid)
+  const isTestPlan = payload.planId === TEST_PLAN.planId
   let mock = false
   try { assertMockPaymentEnabled(); mock = true } catch {}
-  if (!mock && !capability.ready) throw new Error(capability.reason)
-  if (!mock && payload.couponCode) throw new Error('虚拟支付暂不支持优惠券，请移除后重试')
+  if (isTestPlan && !capability.testReady) throw new Error('测试支付尚未开放')
+  if (!mock && !(isTestPlan ? capability.testReady : capability.ready)) throw new Error(capability.reason)
+  if (!mock && payload.couponCode && (!capability.couponsEnabled || isTestPlan)) throw new Error('当前暂不支持优惠券，请移除后重试')
   const familyId = await resolveFamilyId(openid, payload.familyId)
   const managerRole = await assertFamilyManager(openid, familyId)
   const plan = await getPlan(payload.planId)
@@ -215,9 +223,30 @@ async function createOrder(openid, payload) {
   const deterministicOrderId = idempotencyKey
     ? `idem_${crypto.createHash('sha256').update(`${openid}:${idempotencyKey}`).digest('hex').slice(0, 24)}`
     : ''
+  const orderId = deterministicOrderId || `order_${crypto.randomBytes(16).toString('hex')}`
+  const existingSnapshot = deterministicOrderId
+    ? (await db.collection('orders').doc(orderId).get()).data
+    : null
+  const requestedCouponCode = payload.couponCode ? String(payload.couponCode).trim().toUpperCase() : ''
+  if (existingSnapshot && existingSnapshot.paymentPreparation !== 'failed') {
+    if (existingSnapshot.familyId !== familyId || existingSnapshot.planId !== plan.planId
+      || existingSnapshot.couponCode !== requestedCouponCode || existingSnapshot.payerOpenid !== openid) {
+      throw new Error('重复请求参数不一致，请重新发起')
+    }
+    if (existingSnapshot.status !== 'pending') {
+      return { ...formatOrder(existingSnapshot), payment: { ready: false, provider: 'official_virtual_payment', reason: '订单已处理，请查看订单状态' } }
+    }
+    if (!mock) await reconcileVirtualOrder(existingSnapshot)
+    return { ...formatOrder((await db.collection('orders').doc(orderId).get()).data), requiresConfirmation: true, payment: { ready: false, provider: 'official_virtual_payment', reason: '已有待确认支付订单，请在订单详情查看状态' } }
+  }
   const coupon = payload.couponCode ? await findCouponForOrder(payload.couponCode, openid, familyId, plan) : null
   const discountAmount = coupon ? calcDiscount(plan, coupon) : 0
   const payableAmount = Math.max(0, plan.price - discountAmount)
+  if (!mock && coupon && (!Number.isSafeInteger(discountAmount) || discountAmount <= 0 || payableAmount <= 0)) throw new Error('该优惠券不适用于在线支付')
+  const couponUsage = !mock && coupon ? {
+    user: await countCouponUsage({ couponId: coupon._id, userOpenid: openid }),
+    family: await countCouponUsage({ couponId: coupon._id, familyId }),
+  } : null
   const membershipChange = await getMembershipChangeContext(familyId)
   const orderNo = await createOrderNo()
   const now = db.serverDate()
@@ -254,13 +283,13 @@ async function createOrder(openid, payload) {
       updatedAt: now,
   }
   if (typeof db.runTransaction !== 'function') throw new Error('会员服务暂不可用，请稍后重试')
-  const orderId = deterministicOrderId || `order_${crypto.randomBytes(16).toString('hex')}`
   const existing = await db.runTransaction(async (transaction) => {
     await assertTransactionManager(transaction, managerRole, openid, familyId)
     const current = (await transaction.collection('orders').doc(orderId).get()).data
     if (current) {
       if (current.familyId !== familyId || current.planId !== plan.planId || current.couponCode !== orderData.couponCode || current.payerOpenid !== openid) throw new Error('重复请求参数不一致，请重新发起')
       if (!mock && current.status === 'pending' && current.paymentPreparation === 'failed') {
+        if (coupon) await reserveVirtualCoupon(transaction, current, orderId, couponUsage)
         await transaction.collection('orders').doc(orderId).update({ data: { paymentPreparation: 'preparing', updatedAt: now } })
         return { ...current, retryPreparation: true }
       }
@@ -269,7 +298,8 @@ async function createOrder(openid, payload) {
     const family = (await transaction.collection('families').doc(familyId).get()).data
     assertPlanTransition(family, plan)
     await transaction.collection('orders').doc(orderId).set({ data: orderData })
-    if (coupon) await transaction.collection('coupon_redemptions').doc(`pending_${orderId}`).set({ data: {
+    if (coupon && !mock) await reserveVirtualCoupon(transaction, orderData, orderId, couponUsage)
+    if (coupon && mock) await transaction.collection('coupon_redemptions').doc(`pending_${orderId}`).set({ data: {
       couponId: coupon._id, code: coupon.code, userOpenid: openid, familyId, orderId,
       planId: plan.planId, discountAmount, usedAt: null, status: 'pending', createdAt: now, updatedAt: now,
     } })
@@ -286,7 +316,12 @@ async function createOrder(openid, payload) {
     try {
       payment = await virtualPayment.preparePayment(order, { loginCode: payload.loginCode, platform: payload.platform })
     } catch (error) {
-      await db.collection('orders').doc(orderId).update({ data: { paymentPreparation: 'failed', updatedAt: db.serverDate() } })
+      await db.runTransaction(async (transaction) => {
+        const current = (await transaction.collection('orders').doc(orderId).get()).data
+        if (!current || current.status !== 'pending' || current.paymentPreparation !== 'preparing') return
+        if (current.couponId) await releaseVirtualCoupon(transaction, current, orderId)
+        await transaction.collection('orders').doc(orderId).update({ data: { paymentPreparation: 'failed', updatedAt: db.serverDate() } })
+      })
       throw error
     }
     await db.collection('orders').doc(orderId).update({ data: { paymentPreparation: 'signed', paymentReady: true, updatedAt: db.serverDate() } })
@@ -648,7 +683,17 @@ async function reconcileVirtualOrder(order) {
   if (!['pending', 'paid'].includes(order.status)) return
   const verified = await virtualPayment.queryOrder(order)
   if (verified.state === 'refunded' || verified.state === 'refund_review') {
-    await db.collection('orders').doc(orderId).update({ data: { status: 'refund_review', updatedAt: db.serverDate() } })
+    if (order.status === 'pending') {
+      await db.runTransaction(async (transaction) => {
+        const current = (await transaction.collection('orders').doc(orderId).get()).data
+        if (current && current.status === 'pending' && current.paymentMode === 'virtual') {
+          if (current.couponId) await releaseVirtualCoupon(transaction, current, orderId)
+          await transaction.collection('orders').doc(orderId).update({ data: { status: 'refund_review', updatedAt: db.serverDate() } })
+        }
+      })
+    } else {
+      await db.collection('orders').doc(orderId).update({ data: { status: 'refund_review', updatedAt: db.serverDate() } })
+    }
     return
   }
   if (verified.state === 'closed') {
@@ -656,6 +701,7 @@ async function reconcileVirtualOrder(order) {
       await db.runTransaction(async (transaction) => {
         const current = (await transaction.collection('orders').doc(orderId).get()).data
         if (current && current.status === 'pending' && current.paymentMode === 'virtual') {
+          if (current.couponId) await releaseVirtualCoupon(transaction, current, orderId)
           await transaction.collection('orders').doc(orderId).update({ data: { status: 'closed', updatedAt: db.serverDate() } })
         }
       })
@@ -746,7 +792,7 @@ async function handleVirtualPaymentCallback(event) {
     if (!order || order.paymentMode !== 'virtual' || order.orderNo !== outTradeNo
       || order.payerOpenid !== event.OpenId || order.productId !== goodsInfo.ProductId
       || !Number.isSafeInteger(order.goodsPrice) || order.goodsPrice <= 0
-      || order.goodsPrice !== Number(order.payableAmount) || order.goodsPrice !== Number(order.originalAmount)
+      || !validVirtualAmounts(order)
       || (goodsInfo.GoodsPrice !== undefined && Number(goodsInfo.GoodsPrice) !== order.goodsPrice)) {
       throw new Error('virtual payment delivery notification does not match order')
     }
@@ -782,7 +828,7 @@ async function fulfillVirtualOrder(order, verified) {
       return
     }
     if (current.status !== 'pending') throw new Error('订单状态待核查，请联系客服')
-    if (current.goodsPrice !== Number(current.payableAmount) || current.goodsPrice !== Number(current.originalAmount)) throw new Error('订单金额待核查，请联系客服')
+    if (!validVirtualAmounts(current) || current.payableAmount !== order.payableAmount || current.discountAmount !== order.discountAmount || current.couponId !== order.couponId) throw new Error('订单金额待核查，请联系客服')
     const family = (await transaction.collection('families').doc(current.familyId).get()).data
     assertPlanTransition(family, plan)
     const expireAt = subscriptionExpireAt(family, plan.durationDays)
@@ -795,6 +841,7 @@ async function fulfillVirtualOrder(order, verified) {
       status: 'active', startedAt: now, expireAt, createdAt: now, updatedAt: now,
     } })
     await activateFamilyPlan(current.familyId, plan, expireAt, 'virtual_payment', transaction)
+    if (current.couponId) await consumeVirtualCoupon(transaction, current, orderId)
     await transaction.collection('orders').doc(orderId).update({ data: {
       status: 'paid', subscriptionId, paymentTradeNo: verified.tradeNo, paidAt: verified.paidAt || now,
       deliveryStatus: verified.platformDelivered ? 'confirmed' : 'pending', updatedAt: now,
@@ -923,6 +970,7 @@ async function assertUnclaimedRecord(transaction, collection, id) {
 }
 
 async function getPlan(planId) {
+  if (planId === TEST_PLAN.planId) return TEST_PLAN
   try {
     const result = await db.collection('plans').where({ planId, status: 'active', deletedAt: _.exists(false) }).limit(1).get()
     if (result.data.length) {
@@ -1123,6 +1171,66 @@ function invalid(message) {
   }
 }
 
+function validVirtualAmounts(order) {
+  const original = Number(order.originalAmount)
+  const discount = Number(order.discountAmount || 0)
+  const payable = Number(order.payableAmount)
+  return Number.isSafeInteger(original) && original > 0 && Number(order.goodsPrice) === original
+    && Number.isSafeInteger(discount) && discount >= 0 && Number.isSafeInteger(payable) && payable > 0
+    && payable === original - discount && (discount === 0 || Boolean(order.couponId))
+}
+
+function couponCounterId(order, scope) {
+  const identity = scope === 'user' ? order.payerOpenid : order.familyId
+  return `usage_${crypto.createHash('sha256').update(`${order.couponId}:${scope}:${identity}`).digest('hex')}`
+}
+
+async function reserveVirtualCoupon(transaction, order, orderId, usage) {
+  const coupon = (await transaction.collection('coupons').doc(order.couponId).get()).data
+  const plan = { planId: order.planId, durationDays: order.planDurationDays, price: order.originalAmount }
+  const now = Date.now()
+  if (!coupon || coupon.status !== 'active' || coupon.deletedAt || (coupon.familyId && coupon.familyId !== order.familyId)
+    || (coupon.startAt && new Date(coupon.startAt).getTime() > now) || (coupon.endAt && new Date(coupon.endAt).getTime() < now)
+    || !isCouponApplicableToPlan(coupon, plan) || Number(coupon.minAmount || 0) > plan.price
+    || calcDiscount(plan, coupon) !== order.discountAmount || !validVirtualAmounts(order)) throw new Error('优惠券不可用，请重新选择')
+  const reserved = Number(coupon.reservedQuantity || 0)
+  if (Number(coupon.totalQuantity || 0) > 0 && Number(coupon.usedQuantity || 0) + reserved >= Number(coupon.totalQuantity)) throw new Error('优惠券已领完')
+  for (const [scope, limit] of [['user', coupon.perUserLimit], ['family', coupon.perFamilyLimit]]) {
+    const id = couponCounterId(order, scope)
+    const counter = (await transaction.collection('coupon_redemptions').doc(id).get()).data || {}
+    const used = Math.max(Number(counter.count || 0), Number(usage && usage[scope] || 0))
+    const held = Number(counter.reserved || 0)
+    if (Number(limit || 0) > 0 && used + held >= Number(limit)) throw new Error('已达到优惠券使用上限')
+    await transaction.collection('coupon_redemptions').doc(id).set({ data: { ...counter, recordType: 'usage_counter', couponId: order.couponId, count: used, reserved: held + 1 } })
+  }
+  const timestamp = db.serverDate()
+  await transaction.collection('coupons').doc(order.couponId).update({ data: { reservedQuantity: reserved + 1, updatedAt: timestamp } })
+  await transaction.collection('coupon_redemptions').doc(`pending_${orderId}`).set({ data: {
+    couponId: order.couponId, code: order.couponCode, userOpenid: order.payerOpenid, familyId: order.familyId,
+    orderId, planId: order.planId, discountAmount: order.discountAmount, status: 'reserved', createdAt: timestamp, updatedAt: timestamp,
+  } })
+}
+
+async function settleVirtualCoupon(transaction, order, orderId, consume) {
+  const pendingId = `pending_${orderId}`
+  const reservation = (await transaction.collection('coupon_redemptions').doc(pendingId).get()).data
+  if (!reservation || reservation.status !== 'reserved' || reservation.couponId !== order.couponId) throw new Error('优惠券占用记录待核查')
+  const coupon = (await transaction.collection('coupons').doc(order.couponId).get()).data
+  if (!coupon || Number(coupon.reservedQuantity || 0) < 1) throw new Error('优惠券占用记录待核查')
+  for (const scope of ['user', 'family']) {
+    const id = couponCounterId(order, scope)
+    const counter = (await transaction.collection('coupon_redemptions').doc(id).get()).data
+    if (!counter || Number(counter.reserved || 0) < 1) throw new Error('优惠券占用记录待核查')
+    await transaction.collection('coupon_redemptions').doc(id).update({ data: { reserved: Number(counter.reserved) - 1, count: Number(counter.count || 0) + (consume ? 1 : 0) } })
+  }
+  const now = db.serverDate()
+  await transaction.collection('coupons').doc(order.couponId).update({ data: { reservedQuantity: Number(coupon.reservedQuantity) - 1, usedQuantity: Number(coupon.usedQuantity || 0) + (consume ? 1 : 0), updatedAt: now } })
+  await transaction.collection('coupon_redemptions').doc(pendingId).update({ data: { status: consume ? 'used' : 'cancelled', usedAt: consume ? now : null, updatedAt: now } })
+}
+
+async function releaseVirtualCoupon(transaction, order, orderId) { return settleVirtualCoupon(transaction, order, orderId, false) }
+async function consumeVirtualCoupon(transaction, order, orderId) { return settleVirtualCoupon(transaction, order, orderId, true) }
+
 function isCouponApplicableToPlan(coupon, plan) {
   if (!coupon.applicablePlans || !coupon.applicablePlans.length) {
     return true
@@ -1161,13 +1269,15 @@ async function createOrderNo() {
 async function markCouponUsed(order, orderId, openid, transaction, usage) {
   const coupon = (await transaction.collection('coupons').doc(order.couponId).get()).data
   if (!coupon || coupon.status !== 'active' || coupon.deletedAt) throw new Error('优惠券不可用')
-  if (Number(coupon.totalQuantity || 0) > 0 && Number(coupon.usedQuantity || 0) >= Number(coupon.totalQuantity)) throw new Error('优惠券已领完')
+  const reserved = Number(coupon.reservedQuantity || 0)
+  if (Number(coupon.totalQuantity || 0) > 0 && Number(coupon.usedQuantity || 0) + reserved >= Number(coupon.totalQuantity)) throw new Error('优惠券已领完')
   for (const [scope, identity, limit] of [['user', openid, coupon.perUserLimit], ['family', order.familyId, coupon.perFamilyLimit]]) {
     const counterId = `usage_${crypto.createHash('sha256').update(`${order.couponId}:${scope}:${identity}`).digest('hex')}`
     const counter = (await transaction.collection('coupon_redemptions').doc(counterId).get()).data
     const used = Math.max(Number(counter && counter.count || 0), Number(usage && usage[scope] || 0))
-    if (Number(limit || 0) > 0 && used >= Number(limit)) throw new Error('已达到优惠券使用上限')
-    await transaction.collection('coupon_redemptions').doc(counterId).set({ data: { recordType: 'usage_counter', couponId: order.couponId, count: used + 1 } })
+    const held = Number(counter && counter.reserved || 0)
+    if (Number(limit || 0) > 0 && used + held >= Number(limit)) throw new Error('已达到优惠券使用上限')
+    await transaction.collection('coupon_redemptions').doc(counterId).set({ data: { ...counter, recordType: 'usage_counter', couponId: order.couponId, count: used + 1, reserved: held } })
   }
   const now = db.serverDate()
   await transaction.collection('coupon_redemptions').doc(`pending_${orderId}`).set({ data: {

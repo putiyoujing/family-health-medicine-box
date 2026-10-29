@@ -21,6 +21,7 @@
     "pages/family/switch",
     "pages/membership/index",
     "pages/membership/checkout",
+    "pages/membership/success",
     "pages/orders/index",
     "pages/orders/detail",
     "pages/coupons/index",
@@ -30,7 +31,7 @@
     "pages/reminders/index"
   ],
   "window": {
-    "navigationBarTitleText": "家人健康记录",
+    "navigationBarTitleText": "生病记录助手",
     "navigationBarBackgroundColor": "#f4fbf8",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f4fbf8",

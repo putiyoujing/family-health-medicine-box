@@ -61,3 +61,54 @@ test('admin APIs cap normal list pages at 100 rows', () => {
   assert.match(cloudSource, /normalizePageSize\(payload\.limit\)/)
   assert.match(localSource, /normalizePageSize\(payload\.limit\)/)
 })
+
+test('every admin data table exposes search and the cloud list applies it before pagination', () => {
+  const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+  const api = fs.readFileSync(path.join(root, 'cloudfunctions/adminApi/index.js'), 'utf8')
+
+  assert.match(ui, /<ListSearchToolbar type=\{type\}/)
+  assert.match(ui, /keyword: filters\.keyword\.trim\(\)/)
+  assert.match(api, /if \(keyword\) \{[\s\S]*?allRows\(collection, query\)/)
+  assert.match(api, /rows\.filter\(\(row\) => matchesKeyword\(row, keyword\)\)/)
+  assert.match(api, /list: rows\.slice\(skip, skip \+ limit\)/)
+})
+
+test('overview stat cards open their corresponding data tables', () => {
+  const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+
+  for (const [label, page] of [
+    ['用户', 'users'], ['家庭', 'families'], ['会员家庭', 'subscriptions'],
+    ['交易订单', 'orders'], ['药品', 'medicines'], ['健康记录', 'illness'],
+  ]) {
+    assert.match(ui, new RegExp(`label="${label}"[^\\n]+onClick=\\{\\(\\) => onOpenPage\\('${page}'\\)\\}`))
+  }
+  assert.match(ui, /<button className="stat-card" type="button" onClick=\{onClick\}/)
+})
+
+test('order and refund tables show the payer, lifecycle, and confirmed refund balance', () => {
+  const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+  const api = fs.readFileSync(path.join(root, 'cloudfunctions/adminApi/index.js'), 'utf8')
+
+  for (const field of ['payerUserId', 'payerNickname', 'createdAt', 'paidAt', 'refundRequestedAt', 'refundedAt', 'refundOrderId', 'refundReason', 'refundedBy', 'remainingAmount']) {
+    assert.match(ui, new RegExp(field))
+  }
+  assert.match(api, /case 'listRefunds':/)
+  assert.match(api, /payload\.refundOnly\) query\.refundOrderId = _\.exists\(true\)/)
+  assert.match(api, /row\.refundStatus === 'refunded' \? Number\(row\.refundAmount \|\| 0\) : 0/)
+  assert.match(api, /payerUserId: user\?\.publicUserId/)
+})
+
+test('admin records resolve associated users without showing raw WeChat identities', () => {
+  const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+  const api = fs.readFileSync(path.join(root, 'cloudfunctions/adminApi/index.js'), 'utf8')
+
+  for (const collection of ['families', 'subscriptions', 'ai_usage_logs', 'medicines', 'illness_records', 'medication_logs', 'attachments', 'coupons']) {
+    assert.match(api, new RegExp(`'${collection}'`))
+  }
+  assert.match(api, /associatedUserId: user\?\.publicUserId/)
+  assert.match(api, /associatedUserNickname: user\?\.nickname/)
+  assert.match(api, /delete safe\[key\]/)
+  assert.match(ui, /关联用户ID/)
+  assert.match(ui, /关联用户昵称/)
+  assert.doesNotMatch(ui, /label: '创建者'[^\n]*ownerOpenid/)
+})

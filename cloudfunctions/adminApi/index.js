@@ -94,6 +94,8 @@ exports.main = async (event = {}) => {
       case 'listOrders':
       case 'adminListOrders':
         return ok(await pageList('orders', payload))
+      case 'listRefunds':
+        return ok(await pageList('orders', { ...payload, refundOnly: true }))
       case 'refundOrder':
       case 'adminRefundOrder':
         return ok(await refundOrder(payload, admin))
@@ -469,7 +471,8 @@ async function pageList(collection, payload) {
   const skip = Math.max(Number(payload.skip || 0), 0)
   const query = buildPageQuery(collection, payload)
   const keyword = String(payload.keyword || payload.search || '').trim().toLowerCase()
-  if (keyword && ['coupons', 'coupon_codes', 'feedback'].includes(collection)) {
+  if (keyword) {
+    if (keyword.length > 80) throw new Error('搜索内容过长')
     let rows = await decorateAdminRows(collection, (await allRows(collection, query)).data)
     if (collection === 'coupons') {
       const codeRows = await decorateCouponCodeRows((await allRows('coupon_codes')).data)
@@ -506,10 +509,64 @@ async function decorateAdminRows(collection, rows) {
   if (collection === 'coupon_codes') return decorateCouponCodeRows(rows)
   if (collection === 'feedback') return decorateFeedbackRows(rows)
   if (collection === 'users') return rows.map(summarizeUser)
-  if (['coupon_code_batches', 'orders', 'subscriptions'].includes(collection)) {
+  if (collection === 'orders') return decorateOrderRows(rows)
+  if (['families', 'subscriptions', 'ai_usage_logs', 'medicines', 'illness_records', 'medication_logs', 'attachments', 'coupons'].includes(collection)) {
+    return decorateAssociatedUserRows(collection, rows)
+  }
+  if (collection === 'coupon_code_batches') {
     return decorateMembershipPlanRows(rows)
   }
   return rows
+}
+
+async function decorateAssociatedUserRows(collection, rows) {
+  const familyIds = [...new Set(rows.map((row) => String(row.familyId || '')).filter(Boolean))]
+  const familiesById = new Map()
+  for (let index = 0; index < familyIds.length; index += 20) {
+    const result = await db.collection('families').where({ _id: _.in(familyIds.slice(index, index + 20)), deletedAt: _.exists(false) }).get()
+    result.data.forEach((family) => familiesById.set(family._id, family))
+  }
+  const directOpenid = (row) => String(collection === 'families' ? row.ownerOpenid || row.createdBy || '' : row.createdBy || row.userOpenid || row.payerOpenid || row.openid || '')
+  const openids = [...new Set(rows.flatMap((row) => [directOpenid(row), String(familiesById.get(row.familyId)?.ownerOpenid || '')]).filter(Boolean))]
+  const usersByOpenid = new Map()
+  for (let index = 0; index < openids.length; index += 20) {
+    const result = await db.collection('users').where({ openid: _.in(openids.slice(index, index + 20)), deletedAt: _.exists(false) }).get()
+    result.data.forEach((user) => usersByOpenid.set(user.openid, user))
+  }
+  return rows.map((row) => {
+    const family = familiesById.get(row.familyId)
+    const user = usersByOpenid.get(directOpenid(row)) || usersByOpenid.get(family?.ownerOpenid)
+    const safe = { ...row }
+    for (const key of ['ownerOpenid', 'createdBy', 'userOpenid', 'payerOpenid', 'openid']) delete safe[key]
+    return {
+      ...(collection === 'subscriptions' ? decorateMembershipPlanRow(safe) : safe),
+      familyName: family?.name || '',
+      associatedUserId: user?.publicUserId || '',
+      associatedUserNickname: user?.nickname || '',
+      associationRole: directOpenid(row) ? '记录用户' : family ? '家庭创建者' : '',
+    }
+  })
+}
+
+async function decorateOrderRows(rows) {
+  const openids = [...new Set(rows.map((row) => String(row.payerOpenid || '')).filter(Boolean))]
+  const usersByOpenid = new Map()
+  for (let index = 0; index < openids.length; index += 20) {
+    const result = await db.collection('users').where({ openid: _.in(openids.slice(index, index + 20)), deletedAt: _.exists(false) }).get()
+    result.data.forEach((user) => usersByOpenid.set(user.openid, user))
+  }
+  return rows.map((row) => {
+    const user = usersByOpenid.get(row.payerOpenid)
+    const safe = { ...row }
+    delete safe.payerOpenid
+    return {
+      ...decorateMembershipPlanRow(safe),
+      payerUserId: user?.publicUserId || '',
+      payerNickname: user?.nickname || '',
+      refundedAmount: row.refundStatus === 'refunded' ? Number(row.refundAmount || 0) : 0,
+      remainingAmount: Math.max(0, Number(row.payableAmount || 0) - (row.refundStatus === 'refunded' ? Number(row.refundAmount || 0) : 0)),
+    }
+  })
 }
 
 function matchesKeyword(row, keyword) {
@@ -829,6 +886,8 @@ function buildPageQuery(collection, payload = {}) {
     }
   })
 
+  if (collection === 'orders' && payload.refundOnly) query.refundOrderId = _.exists(true)
+
   return query
 }
 
@@ -839,6 +898,8 @@ async function getDataOverview() {
       total: await count(table.collection),
     })),
   )
+  const refundCount = await db.collection('orders').where({ refundOrderId: _.exists(true), deletedAt: _.exists(false) }).count()
+  rows.splice(3, 0, { id: 'refunds', name: '退款表', collection: 'orders', statKey: 'orders', total: refundCount.total || 0 })
   return {
     tables: rows,
     generatedAt: new Date().toISOString(),

@@ -392,3 +392,13 @@
   color: #6c5c91;
   background: #eee9f8;
 }
+
+.app-version {
+  position: relative;
+  z-index: 1;
+  padding: 8rpx 0 4rpx;
+  color: #a0b2ad;
+  font-size: 20rpx;
+  line-height: 1.5;
+  text-align: center;
+}

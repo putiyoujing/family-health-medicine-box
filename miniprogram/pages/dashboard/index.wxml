@@ -2,7 +2,7 @@
   <view wx:if="{{loadError}}" class="default-home error-home">
     <view class="default-brand">
       <view>
-        <view class="default-title">家人健康记录</view>
+        <view class="default-title">生病记录助手</view>
         <view class="default-subtitle">先把首页加载回来</view>
       </view>
       <view class="mini-menu">
@@ -26,7 +26,7 @@
   <view wx:elif="{{loading}}" class="default-home">
     <view class="default-brand">
       <view>
-        <view class="default-title">家人健康记录</view>
+        <view class="default-title">生病记录助手</view>
         <view class="default-subtitle">正在准备家庭健康记录</view>
       </view>
       <view class="mini-menu">
@@ -47,7 +47,7 @@
   <view wx:elif="{{isDefaultHome}}" class="default-home">
     <view class="default-brand">
       <view>
-        <view class="default-title">家人健康记录</view>
+        <view class="default-title">生病记录助手</view>
       </view>
       <view class="mini-menu">
         <text></text>

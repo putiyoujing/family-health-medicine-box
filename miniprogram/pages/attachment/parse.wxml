@@ -9,10 +9,10 @@
     <picker mode="selector" range="{{kindOptions}}" range-key="label" value="{{kindIndex}}" bindchange="onKindChange">
       <view class="picker-value">{{kindLabel}}</view>
     </picker>
-    <view class="muted parse-note">系统只做信息整理，不提供诊断、处方或剂量建议。识别结果请你确认后再保存。</view>
+    <view class="muted parse-note">图片整理只提取记录信息，不替代医生的诊断、处方或剂量建议。请核对后再保存。</view>
   </view>
 
-  <view class="safety" wx:if="{{!featureEnabled}}">当前版本未连接真实图片识别服务，不会生成或保存伪识别结果。请返回后手动填写。</view>
+  <view class="safety" wx:if="{{!featureEnabled}}">图片整理暂未开放，你可以返回后手动填写记录。</view>
 
   <button class="primary-btn parse-action" bindtap="startParse" loading="{{parsing}}" disabled="{{parsing || !featureEnabled}}">
     {{featureEnabled ? (parsing ? '整理中' : '开始整理图片') : '图片整理暂未开放'}}
@@ -29,8 +29,8 @@
   </view>
 
   <view class="section">
-    <view class="section-title">当前能力说明</view>
-    <view class="muted">启用真实识别服务后，图片只会先生成待确认字段；所有内容仍需你核对确认后才能进入家庭记录。</view>
+    <view class="section-title">保存前请核对</view>
+    <view class="muted">整理出的内容需要由你确认，确认后才会写入家庭记录。</view>
   </view>
 </view>
 <global-auth-layer id="global-auth-layer" />

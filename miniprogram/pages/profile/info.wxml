@@ -42,8 +42,8 @@
 
   <view class="privacy-note">
     <view class="privacy-mark">隐</view>
-    <view wx:if="{{isDemoMode}}">当前为演示模式，头像仅在本次演示中预览；正式环境会上传到当前小程序云存储。</view>
-    <view wx:else>头像会上传到当前小程序云存储；昵称、性别和生日仅用于账户资料及家庭协作展示。</view>
+    <view wx:if="{{isDemoMode}}">体验版中，头像仅在本次预览中显示。</view>
+    <view wx:else>昵称、性别和生日仅用于个人资料及家庭协作展示。</view>
   </view>
 </view>
 <global-auth-layer id="global-auth-layer" />

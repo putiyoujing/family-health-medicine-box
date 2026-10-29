@@ -2,6 +2,46 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
+## [1.1.4] - Unreleased
+
+### Changed
+
+- Add a quiet version label at the bottom of the profile page so experience testers can confirm the running mini-program build without interrupting normal use.
+
+## [1.1.3] - Unreleased
+
+### Changed
+
+- Tighten the membership plan, checkout and success-page layouts, and present redemption dates in a readable format.
+- Show the free-plan usage explanation only for free memberships.
+- Use the product name 「生病记录助手」 consistently in the mini-program, sharing card, admin header and current release documentation.
+- Remove page titles that repeat the navigation bar on family, membership, coupon, order and medicine-reminder pages; retain only action-specific context.
+- Move family switching into the membership banner and replace implementation-oriented copy with user-facing guidance.
+- Support coupon discounts in virtual-payment orders behind an explicit server switch, with reservation, definitive closure release and one-time consumption safeguards.
+
+### Verification
+
+- Automated checks cover virtual-payment coupon signing, amount reconciliation, reservation, closure, preparation retry and idempotent retry.
+- Android experience version 1.1.2: a ¥1 payment reached the success page and refreshed membership center; a later 365-day redemption remained active after a ¥0.98 partial refund. The admin order retained the ¥0.02 balance.
+- 1.1.3 `paymentApi` 和生产管理后台已于 2026-10-28 部署；后台生产页已验证使用真实环境配置读取数据，未显示演示数据或配置提示，浏览器控制台无错误或警告。
+- 真实优惠券折扣付款、Android 1.1.3 体验版验收、iPhone 验收、小程序审核及正式发布仍是发布前置条件。
+
+## [1.1.2] - Unreleased
+
+### Changed
+
+- After confirmed payment, show a dedicated membership success page and return to a freshly loaded membership center after five seconds.
+- Replace payment-channel implementation terms on the checkout page with concise purchase guidance.
+- Add search to every admin data table and link overview statistics to their matching tables.
+- Expand order details with payer, payment, and refund fields; add an order-linked refund view with the confirmed refunded and remaining amounts.
+- Show a record user or family creator for user-owned admin data without exposing raw WeChat identifiers.
+
+### Verification
+
+- Automated checks cover confirmed and unconfirmed payment results, the five-second countdown, and return navigation.
+- A real Android ¥1 payment fulfilled membership once; a ¥0.99 partial refund reached the phone, closed the order, and cancelled that order's subscription. The ¥0.01 balance remains visible in the admin refund view.
+- Real-device review of the 1.1.2 success page and formal WeChat release remain pending.
+
 ## [1.1.1] - Unreleased
 
 ### Changed

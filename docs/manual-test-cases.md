@@ -1,4 +1,4 @@
-# 家人健康记｜完整手工测试 Case
+# 生病记录助手｜完整手工测试 Case
 
 版本日期：2026-07-19
 适用项目：`family-health-medicine-box`

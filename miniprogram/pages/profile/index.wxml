@@ -122,5 +122,7 @@
     </view>
   </view>
 
+  <view class="app-version">当前版本 v{{appVersion}}</view>
+
 </view>
 <global-auth-layer id="global-auth-layer" />
