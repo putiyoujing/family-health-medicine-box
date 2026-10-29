@@ -1,6 +1,6 @@
 # Web 管理后台
 
-更新时间：2026-10-22
+更新时间：2026-10-29
 
 本项目包含面向产品运营人员的独立 Web 后台。生产环境使用 CloudBase Web Auth 用户名密码会话，并通过 CloudBase Event Function 调用 `adminApi`。真实健康数据不会由浏览器直接查询数据库。
 
@@ -8,7 +8,7 @@
 
 GitHub Pages 仅用于历史演示，不是生产后台，也不能作为真实数据与鉴权验收依据。
 
-部署状态（2026-10-22）：1.1.2 候选代码已部署到现有 CloudBase `/admin/` 入口，`adminApi` 为 `Active`，公网首页返回 200 并引用本次构建。真实管理员登录后的搜索、跳转、订单和退款表仍待页面验收。
+部署状态（2026-10-29）：1.1.5 候选代码已部署到现有 CloudBase `/admin/` 入口，`adminApi` 为 `Active`。真实管理员登录后的退款关联搜索已回归；完整发布状态以 [1.1.5 发布候选核验记录](release-evidence-2026-10-29.md) 为准。
 
 ## 商业资产边界
 
@@ -44,6 +44,14 @@ VITE_CLOUDBASE_PUBLISHABLE_KEY=从云开发身份认证获取的-Publishable-Key
 ```
 
 `Publishable Key` 是浏览器公开配置，不是服务端密钥。严禁把 SecretId、SecretKey、API Key、管理员密码或共享管理 token 放进任何 `VITE_*` 变量。
+
+上传生产静态文件前必须执行：
+
+```bash
+npm run build:hosting
+```
+
+该命令会先检查三项公开配置，再开始构建；普通 `npm run build` 仍可用于本地演示与测试，不可作为生产静态托管构建命令。
 
 生产调用链：
 
