@@ -7,11 +7,13 @@ All notable changes are recorded here. Versions follow the mini-program upload v
 ### Fixed
 
 - Prevent a background dashboard refresh from replacing the just-completed result when an administrator searches a table, including the linked refund view.
+- Add a dedicated production-hosting build gate so an admin upload cannot silently omit its required public CloudBase configuration.
 
 ### Verification
 
 - The production admin refund table was searched by its linked order number and returned only the matching refund record after navigation settled.
 - Run `npm run check` before uploading the 1.1.5 experience package and redeploying the production admin static site.
+- `npm run build:hosting` rejects missing or placeholder CloudBase public configuration before producing hosting assets.
 
 ## [1.1.4] - Unreleased
 
