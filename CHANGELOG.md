@@ -2,6 +2,17 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
+## [1.1.5] - Unreleased
+
+### Fixed
+
+- Prevent a background dashboard refresh from replacing the just-completed result when an administrator searches a table, including the linked refund view.
+
+### Verification
+
+- The production admin refund table was searched by its linked order number and returned only the matching refund record after navigation settled.
+- Run `npm run check` before uploading the 1.1.5 experience package and redeploying the production admin static site.
+
 ## [1.1.4] - Unreleased
 
 ### Changed

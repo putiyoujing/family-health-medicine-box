@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -345,6 +345,7 @@ function App() {
   const [membershipPlans, setMembershipPlans] = useState<MembershipPlanSetting[]>(DEFAULT_MEMBERSHIP_PLANS)
   const [membershipSettingsMessage, setMembershipSettingsMessage] = useState('')
   const [savingMembershipSettings, setSavingMembershipSettings] = useState(false)
+  const refreshedPageRef = useRef<PageId | null>(null)
   const isConfigured = Boolean(cloudbaseApp || API_BASE)
 
   const trendCards = useMemo(() => buildTrendCards(dashboard.trend), [dashboard.trend])
@@ -437,11 +438,13 @@ function App() {
   }, [activePage, activeTable, isConfigured, loadDataOverview, loadTable])
 
   useEffect(() => {
+    if (refreshedPageRef.current === activePage) return
+    refreshedPageRef.current = activePage
     const timer = window.setTimeout(() => {
       void refreshDashboard()
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [refreshDashboard])
+  }, [activePage, refreshDashboard])
 
   useEffect(() => {
     window.sessionStorage.setItem(ADMIN_ACTIVE_PAGE_STORAGE_KEY, activePage)

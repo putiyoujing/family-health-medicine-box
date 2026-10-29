@@ -73,6 +73,14 @@ test('every admin data table exposes search and the cloud list applies it before
   assert.match(api, /list: rows\.slice\(skip, skip \+ limit\)/)
 })
 
+test('search input changes do not let a stale dashboard refresh overwrite table results', () => {
+  const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+
+  assert.match(ui, /const refreshedPageRef = useRef<PageId \| null>\(null\)/)
+  assert.match(ui, /if \(refreshedPageRef\.current === activePage\) return/)
+  assert.match(ui, /refreshedPageRef\.current = activePage/)
+})
+
 test('overview stat cards open their corresponding data tables', () => {
   const ui = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
 
