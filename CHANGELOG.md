@@ -2,6 +2,19 @@
 
 All notable changes are recorded here. Versions follow the mini-program upload version.
 
+## [1.1.7] - Unreleased
+
+### Fixed
+
+- Select the matching renewal tier after membership status and plan prices finish loading, regardless of response order. Preserve any plan or billing period explicitly selected during loading.
+
+### Verification
+
+- `npm run check` passes 365 tests and 22 static safeguards after the renewal fix; PR #37 passed CI and was merged.
+- Production `healthApi`, `paymentApi`, and `adminApi` entry sources match the release baseline. All 24 existing collections remain `ADMINONLY`; payment indexes and the reminder timer exist.
+- Normal purchases, iOS purchases and coupon payments remain disabled in the production capability response. Their enablement and real-device acceptance remain release prerequisites.
+- Current evidence and remaining device, privacy, credential and payment requirements are recorded in `docs/release-evidence-2026-11-05.md`. No upload, formal WeChat review or production release is claimed.
+
 ## [1.1.6] - Unreleased
 
 ### Changed

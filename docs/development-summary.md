@@ -1,6 +1,8 @@
 # 生病记录助手小程序开发结果总结
 
-更新时间：2026-10-28
+更新时间：2026-11-05
+
+> 当前候选及验收状态见 [1.1.7 发布核验](release-evidence-2026-11-05.md)。历史功能与上线记录不代表本次候选已通过真机或公开发布验收。
 
 ## 1. 项目定位
 
@@ -16,7 +18,7 @@
 
 - 本地项目目录：`F:\Project\xiaochengxu\family-health-medicine-box`
 - GitHub 仓库：<https://github.com/putiyoujing/family-health-medicine-box>
-- 当前发布候选：`1.1.3`（尚未正式发布）
+- 当前发布候选：`1.1.7`（尚未正式发布；套餐购买和兑换码均在本次需求内）
 - 生产 Web 管理后台：<https://family-health-prod-d9csm29f27d75-1307117498.tcloudbaseapp.com/admin/>
 - GitHub Pages：历史演示入口，不是生产后台
 - 微信开发者工具导入目录：`F:\Project\xiaochengxu\family-health-medicine-box`
