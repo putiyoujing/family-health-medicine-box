@@ -6,6 +6,32 @@ const { loadCjsModule } = require('./helpers/cjs-harness.cjs')
 
 const root = path.resolve(__dirname, '..')
 
+for (const [planId, tier, price, expiry] of [
+  ['monthly_pro', 'paid', 990, '2026-12-05'],
+  ['yearly_pro', 'paid', 9900, '2027-11-05'],
+  ['monthly_unlimited', 'unlimited', 1990, '2026-12-05'],
+  ['yearly_unlimited', 'unlimited', 19900, '2027-11-05'],
+]) {
+  test(`demo purchase grants the selected ${planId} plan and duration`, () => {
+    class FixedDate extends Date {
+      constructor(value) { super(value === undefined ? '2026-11-05T12:00:00Z' : value) }
+      static now() { return new Date('2026-11-05T12:00:00Z').getTime() }
+    }
+    const demo = loadCjsModule(path.join(root, 'miniprogram/services/demo-data.js'), { globals: { Date: FixedDate } })
+    const preview = demo.previewOrder({ planId })
+    assert.equal(preview.plan.planId, planId)
+    const order = demo.createOrder({ planId })
+    const membership = demo.getMembershipStatus()
+    assert.equal(order.planId, planId)
+    assert.equal(order.planName, preview.plan.name)
+    assert.equal(order.payableAmount, price)
+    assert.equal(membership.entitlement.tier, tier)
+    assert.equal(membership.entitlement.limits.quickRecordLimit, tier === 'unlimited' ? null : 30)
+    assert.equal(membership.entitlement.expireAt, expiry)
+    assert.equal(demo.getOrderForUser({ orderId: order.orderId }).order.planName, preview.plan.name)
+  })
+}
+
 test('demo core journey persists linked records, deducts stock, and builds an illness report', async () => {
   const app = {
     globalData: {
