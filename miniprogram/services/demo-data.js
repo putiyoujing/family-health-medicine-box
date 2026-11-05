@@ -1680,6 +1680,7 @@ function previewOrder(payload = {}) {
   const plan = plans.find((item) => item.planId === payload.planId) || plans[0]
   const discountAmount = calculateDiscount(plan.price, payload.couponCode)
   return clone({
+    plan,
     planId: plan.planId,
     originalAmount: plan.price,
     discountAmount,
@@ -1692,6 +1693,7 @@ function createOrder(payload = {}) {
   const preview = previewOrder(payload)
   const order = {
     ...preview,
+    planName: preview.plan.name,
     orderId: newId('order'),
     orderNo: `TEST${Date.now()}`,
     status: 'paid',
@@ -1702,10 +1704,10 @@ function createOrder(payload = {}) {
   state.entitlement = {
     ...state.entitlement,
     plan: 'pro',
-    tier: preview.plan && preview.plan.membershipTier || 'paid',
-    planName: preview.plan && preview.plan.name || '安心版',
-    limits: preview.plan && preview.plan.benefits || proLimits,
-    expireAt: nextYearText(),
+    tier: preview.plan.membershipTier,
+    planName: preview.plan.name,
+    limits: preview.plan.benefits,
+    expireAt: futureDateText(preview.plan.durationDays),
   }
   state.family = { ...state.family, plan: 'pro', membershipTier: state.entitlement.tier, planId: preview.planId }
   return clone(order)
@@ -1722,7 +1724,7 @@ function mockPaymentSuccess(payload = {}) {
     tier: 'paid',
     planName: '安心版',
     limits: proLimits,
-    expireAt: nextYearText(),
+    expireAt: futureDateText(),
   }
   state.family = { ...state.family, plan: 'pro', membershipTier: 'paid', planId: 'yearly_pro' }
   return clone({
@@ -1753,7 +1755,7 @@ function redeemMembershipCode(payload = {}) {
     tier: membershipTier,
     planName: isUnlimited ? '畅享版' : '安心版',
     limits: isUnlimited ? unlimitedLimits : proLimits,
-    expireAt: nextYearText(),
+    expireAt: futureDateText(),
   }
   state.family = {
     ...state.family,
@@ -2152,9 +2154,9 @@ function nowText() {
   return `${year}-${month}-${day} ${hour}:${minute}`
 }
 
-function nextYearText() {
+function futureDateText(days = 365) {
   const date = new Date()
-  date.setFullYear(date.getFullYear() + 1)
+  date.setDate(date.getDate() + days)
   const year = date.getFullYear()
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
   const day = `${date.getDate()}`.padStart(2, '0')
