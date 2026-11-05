@@ -43,6 +43,7 @@ Page({
   },
 
   async load() {
+    const hadSelectedPlan = Boolean(this.data.selectedPlanId)
     this.setData({ loading: true, paymentReady: false, testPurchaseReady: false })
     if (!await ensureLoginReady({ silent: true })) { this.setData({ loading: false, family: {} }); return }
     const results = await Promise.allSettled([
@@ -68,6 +69,14 @@ Page({
         try { wx.setStorageSync(GUIDE_CACHE_KEY, { membershipPurchaseGuide }) } catch (_) { /* 缓存写入失败不影响展示 */ }
       }),
     ])
+    if (!hadSelectedPlan && !this.planSelectionChanged) {
+      const selectedPlanId = resolveSelectedPlanId(this.data.plans, '', this.data.entitlement)
+      const selectedPlan = this.data.plans.find((plan) => plan.planId === selectedPlanId)
+      if (selectedPlan) this.setData({
+        selectedPlanId, selectedPlan, selectedPeriod: selectedPlan.period,
+        planCards: buildPlanCards(this.data.plans, selectedPlan.period),
+      })
+    }
     this.setData({ loading: false })
     const failed = results.find((result) => result.status === 'rejected')
     if (failed) {
@@ -86,13 +95,17 @@ Page({
     const selectedTier = this.data.selectedPlan && this.data.selectedPlan.membershipTier
     const plan = this.data.plans.find((item) => item.period === period && item.membershipTier === selectedTier)
       || this.data.plans.find((item) => item.period === period)
-    if (plan) this.setData({ selectedPeriod: period, selectedPlanId: plan.planId, selectedPlan: plan, planCards: buildPlanCards(this.data.plans, period) })
+    if (plan) {
+      this.planSelectionChanged = true
+      this.setData({ selectedPeriod: period, selectedPlanId: plan.planId, selectedPlan: plan, planCards: buildPlanCards(this.data.plans, period) })
+    }
   },
 
   selectPlan(event) {
     const planId = event.currentTarget.dataset.planId
     const plan = this.data.plans.find((item) => item.planId === planId)
     if (!plan) return
+    this.planSelectionChanged = true
     this.setData({ selectedPeriod: plan.period, selectedPlanId: plan.planId, selectedPlan: plan, planCards: buildPlanCards(this.data.plans, plan.period) })
   },
 

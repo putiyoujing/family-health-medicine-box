@@ -7,6 +7,39 @@ const { createPageInstance, loadCjsModule } = require('./helpers/cjs-harness.cjs
 
 const root = path.resolve(__dirname, '..')
 
+for (const selection of ['', 'monthly_pro', 'yearly_pro']) {
+  test(`a slower unlimited membership response preserves ${selection || 'the matching default tier'}`, async () => {
+    let pageDefinition
+    let resolveMembership
+    const membershipRequest = new Promise((resolve) => { resolveMembership = resolve })
+    const plans = [
+      { planId: 'monthly_pro', membershipTier: 'paid', price: 990, durationDays: 30 },
+      { planId: 'yearly_pro', membershipTier: 'paid', price: 9900, durationDays: 365 },
+      { planId: 'monthly_unlimited', membershipTier: 'unlimited', price: 1990, durationDays: 30 },
+    ]
+    loadCjsModule(path.join(root, 'miniprogram/pages/membership/index.js'), {
+      stubs: {
+        '../../services/api': {
+          getMembershipStatus: () => membershipRequest,
+          getPlans: async () => ({ plans, paymentCapability: { ready: true } }),
+        },
+        '../../utils/operation-guards': { ensureLoginReady: async () => true },
+      },
+      globals: { Page(definition) { pageDefinition = definition }, wx: {} },
+    })
+    const page = createPageInstance(pageDefinition)
+    const loading = page.load()
+    await new Promise((resolve) => setImmediate(resolve))
+    if (selection === 'monthly_pro') page.selectPlan({ currentTarget: { dataset: { planId: selection } } })
+    if (selection === 'yearly_pro') page.selectPeriod({ currentTarget: { dataset: { period: 'yearly' } } })
+    resolveMembership({ family: { _id: 'family-a' }, entitlement: { tier: 'unlimited', planName: '畅享版', limits: {} } })
+    await loading
+    assert.equal(page.data.selectedPlanId, selection || 'monthly_unlimited')
+    assert.equal(page.data.selectedPlan.planId, page.data.selectedPlanId)
+    assert.equal(page.data.selectedPeriod, selection === 'yearly_pro' ? 'yearly' : 'monthly')
+  })
+}
+
 test('membership display keeps one selected plan and buys it from the floating bar', async () => {
   let pageDefinition
   const navigationUrls = []
